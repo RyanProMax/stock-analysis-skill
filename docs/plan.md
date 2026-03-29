@@ -7,6 +7,8 @@
 - `CLI 使用技能`
 - `Tushare 使用技能`
 
+并修正 skill 路由优先级，确保单票分析 / 单票研报摘要默认先走 CLI，而不是先走 Tushare。
+
 ## Goal
 
 - 删除本地 quote wrapper，标准化客观分析 / 实时 quote 统一直接消费 `stock-analysis-api`
@@ -24,6 +26,7 @@
 - [x] 重写 `SKILL.md`
 - [x] 重写 `AGENTS.md`
 - [x] 新增 `references/cli.md`
+- [x] 强化 `SKILL.md` / `README.md` / `references/cli.md` 中的 CLI-first 路由规则
 - [ ] 运行语法检查与真实命令验证
 - [ ] 提交一次独立 commit
 
@@ -33,6 +36,7 @@
 - 2026-03-29: 已确认 `Tushare 使用技能` 继续保留 `scripts/tushare_toolkit.py` 与 `references/api_reference.md`。
 - 2026-03-29: 已确认本仓库改名为 `stock-analysis-skill`，并采用“单一 skill、双能力模式”。
 - 2026-03-29: 已移除本地 `scripts/poll_realtime_quotes.py`，文档改为直接调用 `STOCK_ANALYSIS_API_ROOT` 下的 CLI。
+- 2026-03-29: 已补充硬规则：单票分析、单票研报摘要、标准化实时行情必须优先走 CLI；只有明确要求原始 Tushare 数据时才走 Tushare。
 
 ## Validation
 

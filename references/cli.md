@@ -4,6 +4,20 @@
 
 当前标准化能力统一直接调用 `stock-analysis-api` 仓库中的内部 CLI，本仓库不再维护 quote / analyze wrapper。
 
+## 默认选择规则
+
+以下请求默认直接走 CLI，不先走 Tushare：
+
+- 单票客观分析
+- 单票研报摘要
+- 单票“最近怎么样”
+- 标准化实时行情轮询
+
+示例：
+
+- “查 300627 的研报” 默认走 `stock_analyze.py`
+- 只有“查 300627 的原始 report_rc 记录”才走 Tushare 直连
+
 ## 环境变量
 
 ```bash

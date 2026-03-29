@@ -2,7 +2,7 @@
 name: stock-analysis-skill
 description: 面向中文自然语言的股票分析技能。优先通过 `stock-analysis-api` 的标准 CLI 获取客观分析与低 token 行情结果；同时保留 Tushare 的直接使用能力，用于自定义数据研究、接口查阅和参考文档生成。
 author: stock-analysis-skill
-version: 2.0.0
+version: 2.0.1
 credentials:
   - name: TUSHARE_TOKEN
     description: Tushare Token，用于认证和授权访问 Tushare 数据服务。
@@ -35,6 +35,47 @@ requirements:
 
 不要再把这个仓库当成 quote / analyze 的实现源。标准化客观分析和标准化实时行情，统一直接消费 `stock-analysis-api` 的 CLI。
 
+## 路由优先级
+
+先判断是不是“标准化分析 / 标准化行情”问题，再决定是否进入 Tushare。
+
+### 默认必须先走 CLI 的场景
+
+以下请求默认必须先走 `CLI 使用技能`，不要先走 Tushare：
+
+- 单只股票的客观分析
+- 单只股票的“研报 / 研究摘要 / 最新看法 / 客观结论”
+- “帮我看 300627 最近怎么样”
+- “帮我查 300627 的研报”
+- “给我 300627 的客观分析结果”
+- 一组股票 / ETF 的低 token 实时行情轮询
+
+这些请求的默认目标是：
+
+- 标准化结果
+- 固定模板
+- 稳定 JSON contract
+
+所以应先调用：
+
+- `scripts/stock_analyze.py`
+- `scripts/poll_realtime_quotes.py`
+
+### 只有这些情况才走 Tushare
+
+只有在以下场景，才优先进入 `Tushare 使用技能`：
+
+- 用户明确要求原始 Tushare 接口数据
+- 用户明确点名 `report_rc`、`research_report`、`news` 等接口
+- 用户要自定义字段、自定义时间窗、自定义导出
+- 用户要查接口列表、生成参考文档、研究 Tushare 能力边界
+- CLI 无法覆盖当前需求，且需要继续深挖原始数据
+
+### 明确例外
+
+- “查 300627 的研报” 默认按 `stock_analyze.py` 处理，不默认按 `report_rc` 原始接口处理
+- 只有当用户明确说“我要原始券商研报记录 / 原始 report_rc 数据”时，才改走 Tushare
+
 ## CLI 使用技能
 
 ### 适用场景
@@ -42,6 +83,7 @@ requirements:
 以下场景优先直接调用 `stock-analysis-api`：
 
 - 获取指定股票的客观分析结果
+- 获取指定股票的研报式客观摘要
 - 获取一组 A 股 / ETF 的低 token 实时行情
 - 需要稳定 JSON contract，而不是自由文本
 - 需要固定模板汇总结果，而不是临时发挥
@@ -133,6 +175,7 @@ cd "$STOCK_ANALYSIS_API_ROOT" && uv run python scripts/stock_analyze.py --market
 
 以下场景使用本仓库自带的 Tushare 能力：
 
+- 用户明确要求原始 Tushare 数据，而不是标准化分析结论
 - 查询和整理 Tushare 接口
 - 做自定义数据研究
 - 生成或刷新本地接口总表
@@ -168,6 +211,7 @@ python scripts/tushare_toolkit.py generate-docs
 
 ### 使用原则
 
+- 单票分析 / 单票研报 / 单票客观总结，默认回到 `CLI 使用技能`
 - 先理解任务，再选接口
 - 数据权限不够时要明确说限制，不要硬编
 - 缺失数据时宁可说明为空，也不要伪造

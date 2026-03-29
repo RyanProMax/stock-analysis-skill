@@ -22,6 +22,7 @@
 - 标准化 quote / analyze 能力统一直接消费 `stock-analysis-api`：
   - `scripts/poll_realtime_quotes.py`
   - `scripts/stock_analyze.py`
+- 单票分析、单票研报摘要、标准化实时行情默认先走 CLI，不先走 Tushare
 - 本仓库不再维护对应 wrapper 脚本
 - Tushare 本地辅助能力统一收口到 `scripts/tushare_toolkit.py`
 - `references/cli.md` 是唯一 CLI 使用说明

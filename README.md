@@ -7,6 +7,11 @@
 
 本仓库不是行情 / 分析实现源，不再维护本地 quote / analyze wrapper。
 
+默认路由原则：
+
+- 单票分析、单票研报、客观摘要、标准化实时行情：先走 `stock-analysis-api` CLI
+- 只有明确要原始 Tushare 数据 / 接口 / 自定义导出时，才走 Tushare
+
 ## 仓库结构
 
 - `SKILL.md`: skill 使用说明与约束
@@ -84,7 +89,7 @@ Tushare 接口总表见 [references/api_reference.md](./references/api_reference
 
 在本地智能体中加载根目录 [SKILL.md](./SKILL.md) 后：
 
-- 标准化客观分析 / 实时 quote 任务，优先走 `CLI 使用技能`
+- 标准化客观分析 / 单票研报摘要 / 实时 quote 任务，优先走 `CLI 使用技能`
 - 自定义数据研究、接口查阅、文档生成任务，走 `Tushare 使用技能`
 
 ## 注意事项
