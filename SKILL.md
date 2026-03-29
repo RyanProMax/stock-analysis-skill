@@ -1,29 +1,8 @@
 ---
 name: stock-analysis-skill
 description: 面向中文自然语言的股票分析技能。优先通过 `stock-analysis-api` 的标准 CLI 获取客观分析与低 token 行情结果；同时保留 Tushare 的直接使用能力，用于自定义数据研究、接口查阅和参考文档生成。
-author: stock-analysis-skill
-version: 2.0.1
-credentials:
-  - name: TUSHARE_TOKEN
-    description: Tushare Token，用于认证和授权访问 Tushare 数据服务。
-    how_to_get: "https://tushare.pro/register"
-requirements:
-  python: 3.9+
-  packages:
-    - name: tushare
-    - name: python-dotenv
-    - name: pandas
-  environment_variables:
-    - name: STOCK_ANALYSIS_API_ROOT
-      required: true
-      sensitive: false
-    - name: TUSHARE_TOKEN
-      required: false
-      sensitive: true
-    - name: TUSHARE_HTTP_URL
-      required: false
-      sensitive: false
-  network_access: true
+metadata:
+  version: 2.0.2
 ---
 
 # stock-analysis-skill
