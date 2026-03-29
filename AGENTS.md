@@ -2,20 +2,30 @@
 
 ## Project Structure & Module Organization
 
-这是一个根目录单一 `tushare` skill 仓库。核心文件如下：
+这是一个根目录单一 `stock-analysis-skill` 仓库。当前只保留两类能力说明：
+
+- `CLI 使用技能`：直接消费 `stock-analysis-api` 仓库中的内部 CLI
+- `Tushare 使用技能`：保留 Tushare 本地工具与接口参考资产
+
+核心文件如下：
 
 - `SKILL.md`: skill 元数据与智能体使用说明
-- `scripts/poll_realtime_quotes.py`: 对外轮询入口，供外部 Agent 批量查询股票 / ETF 日内行情
-- `scripts/tushare_toolkit.py`: 内部工具集，负责 `.env` 加载、Tushare 初始化、代码标准化和文档生成
-- `references/`: 接口参考文档目录，`api_reference.md` 是唯一接口总表
-- `docs/plan.md`: 每次任务的计划、当前进度、验证结果
+- `scripts/tushare_toolkit.py`: `.env` 加载、Tushare 初始化、代码标准化与参考文档生成
+- `references/cli.md`: CLI 使用说明、JSON 结构、汇总规则、固定模板
+- `references/api_reference.md`: Tushare 接口总表
+- `docs/plan.md`: 当前任务、进展、验证结果
+- `.env.example`: 本地环境变量模板
 
 当前架构要点：
 
-- 当前仓库只维护根目录单一 `tushare` skill 结构
-- 所有对外轮询能力统一收口到 `scripts/poll_realtime_quotes.py`
-- 所有辅助能力统一收口到 `scripts/tushare_toolkit.py`
-- 接口索引只保留 `references/api_reference.md`，不再维护额外副本
+- 当前仓库不是行情 / 分析实现源
+- 标准化 quote / analyze 能力统一直接消费 `stock-analysis-api`：
+  - `scripts/poll_realtime_quotes.py`
+  - `scripts/stock_analyze.py`
+- 本仓库不再维护对应 wrapper 脚本
+- Tushare 本地辅助能力统一收口到 `scripts/tushare_toolkit.py`
+- `references/cli.md` 是唯一 CLI 使用说明
+- `references/api_reference.md` 是唯一 Tushare 接口总表
 
 ## Task Workflow
 
@@ -30,20 +40,21 @@
 
 - `python -m venv .venv && source .venv/bin/activate`: 创建本地虚拟环境
 - `python -m pip install -r requirements.txt`: 安装运行依赖
-- `python scripts/poll_realtime_quotes.py --symbols 600000,510300 --pretty`: 批量轮询最新行情
-- `python scripts/tushare_toolkit.py generate-docs`: 根据本地 CSV 重新生成参考文档与唯一接口总表
+- `python scripts/tushare_toolkit.py generate-docs`: 根据本地 CSV 重新生成 `references/api_reference.md`
 - `python -m py_compile scripts/*.py`: 快速语法校验
+- `cd "$STOCK_ANALYSIS_API_ROOT" && uv run python scripts/poll_realtime_quotes.py --symbols 600000,510300 --pretty`: 调用 API 仓库 realtime quote CLI
+- `cd "$STOCK_ANALYSIS_API_ROOT" && uv run python scripts/stock_analyze.py --market cn --symbols 300827 --mode base --pretty`: 调用 API 仓库客观分析 CLI
 
 ## Testing Guidelines
 
 当前没有单元测试。每次改动至少完成以下验证：
 
 - 运行 `python -m py_compile scripts/*.py`
-- 若修改了轮询脚本，使用真实 `.env` 做一次股票 + ETF 的批量查询
-- 若修改了文档生成逻辑，运行 `python scripts/tushare_toolkit.py generate-docs`
-- 若本地没有 `data/api-doc.csv.csv`，则验证生成器会自动回退到 `references/api_reference.md` 并更新该总表
-
-后续若新增测试，请统一放在顶层 `tests/` 目录，并使用 `test_*.py` 命名。
+- 若修改了 Tushare 工具脚本，运行 `python scripts/tushare_toolkit.py generate-docs`
+- 设置 `STOCK_ANALYSIS_API_ROOT` 后，至少执行一次：
+  - `uv run python scripts/poll_realtime_quotes.py --symbols 600000,510300 --pretty`
+  - `uv run python scripts/stock_analyze.py --market cn --symbols 300827 --mode base --pretty`
+- 检查 `references/cli.md`、`SKILL.md`、`README.md` 对命令、字段和固定模板的描述一致
 
 ## Coding Style & Naming Conventions
 
@@ -53,8 +64,8 @@
 - 函数与变量使用 `snake_case`
 - 公共辅助函数保留简短 docstring
 - 用户可见文本以中文为主，保持术语一致
-- 轮询脚本输出优先返回机器可读 JSON，不返回松散打印文本
-- 辅助能力优先集中在 `scripts/tushare_toolkit.py`，避免再拆出低价值小模块
+- 本仓库不新增 CLI wrapper；如需新增本地脚本，优先证明无法直接通过 API 仓库 CLI 满足需求
+- 本地辅助能力优先集中在 `scripts/tushare_toolkit.py`
 
 ## Commit & Pull Request Guidelines
 
@@ -62,8 +73,8 @@
 
 - 改了什么能力或结构
 - 是否更新了 `docs/plan.md`
-- 是否影响 `SKILL.md` / `references/` / 轮询输出结构
-- 若改了轮询脚本，附一段示例 JSON 输出
+- 是否影响 `SKILL.md` / `references/cli.md` / `references/api_reference.md`
+- 若改了 CLI 使用说明，附一段对应命令示例
 
 ## Security & Configuration Tips
 

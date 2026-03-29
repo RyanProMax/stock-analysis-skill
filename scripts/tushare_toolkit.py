@@ -256,12 +256,23 @@ def write_reference_index(rows: list[dict], reference_index_path: str):
     """写入单一接口总表。"""
     index_file = Path(reference_index_path)
     index_file.parent.mkdir(parents=True, exist_ok=True)
-    df_md = pd.DataFrame(
-        rows,
-        columns=["ID", "接口名", "标题(详细文档)", "分类", "描述"],
-    )
+    columns = ["ID", "接口名", "标题(详细文档)", "分类", "描述"]
+
+    def stringify(value: Any) -> str:
+        if value is None:
+            return ""
+        return str(value).replace("\n", " ").strip()
+
+    header = "| " + " | ".join(columns) + " |"
+    separator = "| " + " | ".join("---" for _ in columns) + " |"
+    table_lines = [header, separator]
+    for row in rows:
+        table_lines.append(
+            "| " + " | ".join(stringify(row.get(column, "")) for column in columns) + " |"
+        )
+
     content = "# API Reference\n\n由 `python scripts/tushare_toolkit.py generate-docs` 生成。\n\n"
-    content += df_md.to_markdown(index=False)
+    content += "\n".join(table_lines)
     content += "\n"
     index_file.write_text(content, encoding="utf-8")
 
