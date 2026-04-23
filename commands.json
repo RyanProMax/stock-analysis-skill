@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "commands": {
+    "hkipo": {
+      "description": "自动分析当前可认购与待上市港股 IPO 池",
+      "entrypoints": ["im", "web"],
+      "executor": {
+        "command": "python3",
+        "args": ["commands/hkipo.py"]
+      }
+    },
+    "cnipo": {
+      "description": "预留 A 股 IPO 指令位（暂未实现）",
+      "entrypoints": ["im", "web"],
+      "executor": {
+        "command": "python3",
+        "args": ["commands/cnipo.py"]
+      }
+    }
+  }
+}

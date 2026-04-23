@@ -2,14 +2,17 @@
 
 ## Project Structure & Module Organization
 
-这是一个根目录单一 `stock-analysis-skill` 仓库。当前只保留两类能力说明：
+这是一个根目录单一 `stock-analysis-skill` 仓库。当前只保留三类能力说明：
 
 - `CLI 使用技能`：直接消费 `stock-analysis-api` 仓库中的内部 CLI
 - `Tushare 使用技能`：保留 Tushare 本地工具与接口参考资产
+- `Slash Commands`：通过 `commands.json` + `commands/*.py` 暴露 IPO 池类命令
 
 核心文件如下：
 
 - `SKILL.md`: skill 元数据与智能体使用说明
+- `commands.json`: skill command 声明
+- `commands/*.py`: slash command 执行入口
 - `scripts/tushare_toolkit.py`: `.env` 加载、Tushare 初始化、代码标准化与参考文档生成
 - `references/cli.md`: CLI 使用说明、JSON 结构、汇总规则、固定模板
 - `references/api_reference.md`: Tushare 接口总表
@@ -23,6 +26,7 @@
   - `scripts/poll_realtime_quotes.py`
   - `scripts/stock_analyze.py`
 - 单票分析、单票研报摘要、标准化实时行情默认先走 CLI，不先走 Tushare
+- IPO 池类命令允许通过 `commands.json` + `commands/*.py` 暴露；复杂研究型 command 优先输出结构化提示词，由宿主 Agent 继续完成联网分析
 - 本仓库不再维护对应 wrapper 脚本
 - Tushare 本地辅助能力统一收口到 `scripts/tushare_toolkit.py`
 - `references/cli.md` 是唯一 CLI 使用说明
@@ -41,8 +45,8 @@
 
 - `python -m venv .venv && source .venv/bin/activate`: 创建本地虚拟环境
 - `python -m pip install -r requirements.txt`: 安装运行依赖
+- `python -m py_compile scripts/*.py commands/*.py`: 快速语法校验
 - `python scripts/tushare_toolkit.py generate-docs`: 根据本地 CSV 重新生成 `references/api_reference.md`
-- `python -m py_compile scripts/*.py`: 快速语法校验
 - `cd "$STOCK_ANALYSIS_API_ROOT" && uv run python scripts/poll_realtime_quotes.py --symbols 600000,510300 --pretty`: 调用 API 仓库 realtime quote CLI
 - `cd "$STOCK_ANALYSIS_API_ROOT" && uv run python scripts/stock_analyze.py --market cn --symbols 300827 --mode base --pretty`: 调用 API 仓库客观分析 CLI
 
@@ -50,12 +54,12 @@
 
 当前没有单元测试。每次改动至少完成以下验证：
 
-- 运行 `python -m py_compile scripts/*.py`
+- 运行 `python -m py_compile scripts/*.py commands/*.py`
 - 若修改了 Tushare 工具脚本，运行 `python scripts/tushare_toolkit.py generate-docs`
 - 设置 `STOCK_ANALYSIS_API_ROOT` 后，至少执行一次：
   - `uv run python scripts/poll_realtime_quotes.py --symbols 600000,510300 --pretty`
   - `uv run python scripts/stock_analyze.py --market cn --symbols 300827 --mode base --pretty`
-- 检查 `references/cli.md`、`SKILL.md`、`README.md` 对命令、字段和固定模板的描述一致
+- 检查 `README.md`、`SKILL.md`、`AGENTS.md`、`commands.json` 对命令、字段和固定模板的描述一致
 
 ## Coding Style & Naming Conventions
 

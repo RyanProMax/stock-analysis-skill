@@ -1,18 +1,32 @@
 ---
 name: stock-analysis-skill
-description: 面向中文自然语言的股票分析技能。优先通过 `stock-analysis-api` 的标准 CLI 获取客观分析与低 token 行情结果；同时保留 Tushare 的直接使用能力，用于自定义数据研究、接口查阅和参考文档生成。
+description: 面向中文自然语言的股票分析技能。优先通过 `stock-analysis-api` 的标准 CLI 获取客观分析与低 token 行情结果；同时保留 Tushare 的直接使用能力，并提供 IPO 池类 slash command 工作流。
 metadata:
-  version: 2.0.2
+  version: 2.1.0
 ---
 
 # stock-analysis-skill
 
-这是一个单一 skill，但当前只保留两类能力说明：
+这是一个单一 skill，但当前只保留三类能力说明：
 
 - `CLI 使用技能`
 - `Tushare 使用技能`
+- `Slash Commands`
 
 不要再把这个仓库当成 quote / analyze 的实现源。标准化客观分析和标准化实时行情，统一直接消费 `stock-analysis-api` 的 CLI。
+
+## Slash Commands
+
+当前仓库额外提供一层 skill command 入口，供 cli-claw 这类宿主在 slash command 上直接调用：
+
+- `/hkipo`: 自动发现当前“可认购 + 已截止认购但未上市”的港股 IPO 池，并触发结构化分析工作流
+- `/cnipo`: 预留 A 股 IPO 指令位，当前只返回占位说明
+
+这些 command 不等价于 `stock-analysis-api` CLI：
+
+- `/hkipo` 是 IPO 池研究工作流，不要求用户先给代码
+- 当前 `stock-analysis-api` 的标准 `stock_analyze.py` 仍以 `cn/us` 为主，不负责港股 IPO 状态发现
+- 因此 `/hkipo` 事实层依赖当前联网检索到的 HKEX / 公司公告等一手来源，财务/估值层可借用 `stock-analysis-api`、`financial-stock-analysis` 或高星研究仓库的方法论补充
 
 ## 路由优先级
 
@@ -54,6 +68,8 @@ metadata:
 
 - “查 300627 的研报” 默认按 `stock_analyze.py` 处理，不默认按 `report_rc` 原始接口处理
 - 只有当用户明确说“我要原始券商研报记录 / 原始 report_rc 数据”时，才改走 Tushare
+- `/hkipo` 属于 skill-native IPO 池工作流：默认先发现当前港股 IPO 池，再做结构化分析，不要求用户提供股票代码
+- `/cnipo` 当前只占位，不进入真实分析
 
 ## CLI 使用技能
 

@@ -2,53 +2,44 @@
 
 ## Task
 
-将仓库从 “Tushare-only 轮询实现仓库” 收口为 `stock-analysis-skill`，只保留：
-
-- `CLI 使用技能`
-- `Tushare 使用技能`
-
-并修正 skill 路由优先级，确保单票分析 / 单票研报摘要默认先走 CLI，而不是先走 Tushare。
+为 `stock-analysis-skill` 增加 skill command 声明与 IPO 研究入口：先实现 `/hkipo`，自动发现当前“可认购 + 已截止认购但未上市”的港股 IPO 池，并输出给宿主 Agent 的结构化分析提示；同时预留 `/cnipo` 指令位。
 
 ## Goal
 
-- 删除本地 quote wrapper，标准化客观分析 / 实时 quote 统一直接消费 `stock-analysis-api`
-- 将仓库命名、文档和职责统一收口到 `stock-analysis-skill`
-- 保留 `scripts/tushare_toolkit.py` 与 `references/api_reference.md`
-- 新增 `references/cli.md`，统一记录 CLI 命令、JSON 结构、汇总规则和固定模板
+- 新增 `commands.json`，声明 `/hkipo` 与 `/cnipo`
+- 为 `/hkipo` 提供可执行的 command 脚本，输出结构化 `assistant_prompt`
+- 为 `/cnipo` 提供占位脚本，明确“暂未实现”
+- 更新 `SKILL.md` / `README.md` / `AGENTS.md`，同步 slash command 约定与 IPO 分析边界
+- 完成基础语法校验与文档一致性检查
 
 ## Planned Changes
 
 - [x] 更新当前任务计划与执行进度
-- [x] 删除 `scripts/poll_realtime_quotes.py`
-- [x] 精简 `requirements.txt`
-- [x] 更新 `.env.example`
-- [x] 重写 `README.md`
-- [x] 重写 `SKILL.md`
-- [x] 重写 `AGENTS.md`
-- [x] 新增 `references/cli.md`
-- [x] 强化 `SKILL.md` / `README.md` / `references/cli.md` 中的 CLI-first 路由规则
-- [x] 收口 `SKILL.md` frontmatter 到 skill loader 支持的字段集合
-- [ ] 运行语法检查与真实命令验证
-- [ ] 提交一次独立 commit
+- [x] 新增 `commands.json`
+- [x] 新增 `commands/hkipo.py`
+- [x] 新增 `commands/cnipo.py`
+- [x] 更新 `SKILL.md`
+- [x] 更新 `README.md`
+- [x] 更新 `AGENTS.md`
+- [x] 运行语法检查与一致性验证
+- [x] 提交一次独立 commit
 
 ## Progress
 
-- 2026-03-29: 已确认标准化 quote / analyze 的唯一实现源改为 `stock-analysis-api`，本仓库不再维护 wrapper。
-- 2026-03-29: 已确认 `Tushare 使用技能` 继续保留 `scripts/tushare_toolkit.py` 与 `references/api_reference.md`。
-- 2026-03-29: 已确认本仓库改名为 `stock-analysis-skill`，并采用“单一 skill、双能力模式”。
-- 2026-03-29: 已移除本地 `scripts/poll_realtime_quotes.py`，文档改为直接调用 `STOCK_ANALYSIS_API_ROOT` 下的 CLI。
-- 2026-03-29: 已补充硬规则：单票分析、单票研报摘要、标准化实时行情必须优先走 CLI；只有明确要求原始 Tushare 数据时才走 Tushare。
-- 2026-03-29: 已移除 `SKILL.md` 中不被 skill loader 支持的 `author / credentials / requirements` 等字段，改用最小 frontmatter。
+- 2026-04-23: 已确认 `/hkipo` 走 skill-native IPO 池工作流，不耦合到 `cli-claw` 的股票业务逻辑。
+- 2026-04-23: 已新增 `commands.json`，声明 `/hkipo` 与 `/cnipo` 的 entrypoint/executor。
+- 2026-04-23: 已新增 `/hkipo` command 脚本，输出面向宿主 Agent 的结构化分析 prompt，要求自动发现当前港股 IPO 池、联网核验日期和认购数据，并按固定模板出报告。
+- 2026-04-23: 已新增 `/cnipo` 占位脚本，当前只返回“已预留，暂未实现”。
+- 2026-04-23: 已更新 `SKILL.md` / `README.md` / `AGENTS.md`，同步 slash command 与 IPO 分析边界。
+- 2026-04-23: 已执行 `python3 -m py_compile scripts/*.py commands/*.py`，语法校验通过。
+- 2026-04-23: 已复查 `README.md` / `SKILL.md` / `AGENTS.md` / `commands.json`，slash command 与 IPO 工作流描述一致。
 
 ## Validation
 
-- 待执行 `python -m py_compile scripts/*.py`
-- 待执行 `python scripts/tushare_toolkit.py generate-docs`
-- 待执行：
-  - `cd "$STOCK_ANALYSIS_API_ROOT" && uv run python scripts/poll_realtime_quotes.py --symbols 600000,510300 --pretty`
-  - `cd "$STOCK_ANALYSIS_API_ROOT" && uv run python scripts/stock_analyze.py --market cn --symbols 300827 --mode base --pretty`
-- 待检查 `README.md` / `SKILL.md` / `AGENTS.md` / `references/cli.md` 对仓库职责表述一致
+- 已执行 `python3 -m py_compile scripts/*.py commands/*.py`
+- 已检查 `README.md` / `SKILL.md` / `AGENTS.md` / `commands.json` 对 slash command 和 IPO 工作流的描述一致
 
 ## Completion Notes
 
-- 待完成
+- `stock-analysis-skill` 现已具备 slash command 声明能力，`/hkipo` 会向宿主 Agent 输出固定结构的港股 IPO 分析 prompt，`/cnipo` 保持预留占位。
+- 真实 IPO 事实核验仍由宿主 Agent 联网完成；本仓库只负责 command 契约与研究框架提示，不在本地硬编码港股 IPO 数据源。
