@@ -100,6 +100,28 @@ Progress:
 - 2026-04-27：根据用户反馈，已将 `/hkipo` 从长报告模板升级为评分卡 + 简报 + 绿鞋/基石 + 首日回测校准工作流。
 - 2026-04-27：进一步移除“简评”章节，将维度整合进总览表，并加入融资倍数热度与暗盘修正规则；极端融资/暗盘样本会把首日赔率评分上修。
 
+
+### M6 — 港股 IPO 近 100 样本回测 MVP
+
+Status: `done`
+
+Scope:
+
+- 新增 `scripts/hkipo_backtest.py`，从公开 IPO 列表抓取近期已上市港股 IPO 样本并输出分桶回测
+- 更新 `README.md` / `SKILL.md` / `references/hkipo.md`，说明回测工具的输入、输出和限制
+- 更新 `PLANS/ACTIVE.md` / `PLANS/ROADMAP.md`，记录本轮进展
+
+Validation:
+
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `python3 scripts/hkipo_backtest.py --limit 20 --source aastocks --format markdown`
+- 人工检查输出包含样本数、首日胜率、平均/中位涨幅、破发率和热度分桶
+
+Progress:
+
+- 2026-04-27：用户确认开始实现自动回测 MVP；优先使用 AAStocks Listed IPO 页面，因为其公开字段含上市日、发行价、超购倍数、一手中签率和首日涨幅。
+- 2026-04-27：100 样本回测已跑通：有效首日涨幅 97 个，胜率 75.3%，中位首日涨幅 16.22%，>=1000x 超购分桶胜率 92.2%、中位首日涨幅 75.53%。
+
 ## Progress
 
 - 2026-04-27：移除旧 `docs/plan.md`，统一使用 `PLANS/`。
@@ -113,6 +135,8 @@ Progress:
 
 - 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
 - 已通过：`python3 commands/hkipo.py <<< '{}'`
+- 已通过：`python3 scripts/hkipo_backtest.py --limit 20 --source aastocks --format markdown`
+- 已通过：`python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --format markdown`
 - 已通过：人工检查 `SKILL.md` / `README.md` / `commands/hkipo.py` / `references/hkipo.md` 的 `/hkipo` 评分、绿鞋、回测和简明输出规则一致
 - 已通过：`test ! -e docs/plan.md && test -f PLANS/ROADMAP.md && test -f PLANS/ACTIVE.md && test -f references/futu.md`
 - 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
@@ -127,4 +151,5 @@ Progress:
 - M3 已完成：统一输出 contract 已落到 `references/futu.md`。
 - M4 已完成：watchlist 自动选路规则已落到 `references/futu.md`，并同步 `SKILL.md` / `README.md` / `references/cli.md`。
 - M5 已完成：`/hkipo` 已升级为评分卡 + 简明报告 + 绿鞋/基石 + 首日回测校准工作流，并新增 `references/hkipo.md`。
+- M6 已完成：新增 `scripts/hkipo_backtest.py`，可抓取 AAStocks 近期已上市港股 IPO 并输出首日表现分桶回测。
 - 下一轮可开始实现具体调用封装，或补只读 Futu/OpenD 环境验证。

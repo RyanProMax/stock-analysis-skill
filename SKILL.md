@@ -31,6 +31,7 @@ metadata:
 - `/hkipo` 必须读取 `references/hkipo.md`，使用 0-100 首日赔率评分卡，优先覆盖融资/认购热度、发行结构、回测适配，再覆盖基本面、估值、证据质量
 - `/hkipo` 必须检查绿鞋 / 超额配股权、稳定价格操作人、基石质量与占比、保荐人、回拨和公众货比例
 - `/hkipo` 默认输出简明报告：结论先行、单表评分总览、回测校准、Sources；不要输出单独“简评”章节，维度细节整合进表格
+- 需要校准权重时，运行 `python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --format markdown` 获取近 100 个已上市港股 IPO 的首日表现分桶
 
 ## 路由优先级
 

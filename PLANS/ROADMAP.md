@@ -36,6 +36,7 @@
 ## Backlog
 
 - [ ] `/cnipo` 从占位升级为 A 股 IPO 池工作流
+- [x] 港股 IPO 池工作流增加近 100 个已上市 IPO 首日表现回测 MVP
 - [ ] 港股 IPO 池工作流增加稳定的一手来源核验清单
 - [ ] 研究是否接入富途资讯 / 公告 / 研报 / 社区情绪类 skills，补齐文章提到的 Skill Hub 能力
 - [ ] 为跨 skill 能力增加最小验证样例，避免只更新说明不验证路由
@@ -47,3 +48,5 @@
 - 2026-04-27：移除旧 `docs/plan.md`，统一使用 `PLANS/`；完成 Futu/OpenD 路由优先级、能力边界和交易安全要求。
 - 2026-04-27：新增 `references/futu.md`，定义 Futu/OpenD 路由与输出 Contract。
 - 2026-04-27：完成 watchlist 自动选路规则：A 股轻量轮询优先 CLI，混合市场 / 深行情 / 账户联动优先 Futu。
+
+- 2026-04-27：新增 `scripts/hkipo_backtest.py`，用 AAStocks Listed IPO 页面进行近 100 个港股 IPO 首日表现回测，验证超购热度分桶。

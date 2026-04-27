@@ -102,6 +102,19 @@ Score effect:
 
 ## Backtest Calibration
 
+### Automated Backtest MVP
+
+Run this command before or during `/hkipo` calibration when network access is available:
+
+```bash
+python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --format markdown
+```
+
+The MVP uses AAStocks Listed IPO fields: listing date, offer/listing price, public over-subscription rate, applied lots for one lot, one-lot success rate, last price, first-day return and accumulated return. It reports total win rate, average/median first-day return, break rate, heat buckets and simple heat-score correlation.
+
+Limitations: it does not yet parse greenshoe, cornerstone investors, grey-market returns, sectors, or sponsors. Use it to calibrate the heat/odds weights, not as a complete scoring replacement.
+
+
 Before ranking current IPOs, collect a small recent sample of already listed HK IPOs, ideally 5-10 names from the last 1-3 months or the same sector/deal type.
 
 For each sample, capture:
