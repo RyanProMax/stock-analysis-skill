@@ -5,7 +5,7 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from hkipo_backtest import IpoSample, summarize_score_calibration
+from hkipo_backtest import IpoSample, apply_futu_debut_returns, summarize_score_calibration
 
 
 def make_sample(code: str, odds_score: int, debut_return_pct: float) -> IpoSample:
@@ -61,6 +61,21 @@ class ScoreCalibrationTest(unittest.TestCase):
         mismatch_codes = {row["code"] for row in calibration["mismatch_samples"]}
         self.assertIn("00002.HK", mismatch_codes)
         self.assertIn("00005.HK", mismatch_codes)
+
+
+class FutuDebutReturnTest(unittest.TestCase):
+    def test_applies_futu_first_day_close_to_debut_return(self) -> None:
+        sample = make_sample("02635.HK", 62, 10.0)
+        sample.listing_date = "2025/12/23"
+        sample.offer_price = 80.0
+
+        updated = apply_futu_debut_returns([sample], fetch_close=lambda code, date: 100.0)
+
+        self.assertEqual(updated, 1)
+        self.assertEqual(sample.debut_return_source, "futu_kline")
+        self.assertEqual(sample.futu_debut_close, 100.0)
+        self.assertEqual(sample.listed_table_debut_return_pct, 10.0)
+        self.assertAlmostEqual(sample.debut_return_pct, 25.0)
 
 
 if __name__ == "__main__":

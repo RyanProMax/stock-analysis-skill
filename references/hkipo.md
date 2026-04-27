@@ -110,7 +110,13 @@ Run this command before or during `/hkipo` calibration when network access is av
 python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --format markdown
 ```
 
-The script uses AAStocks Listed IPO fields: listing date, offer/listing price, market-cap range, public over-subscription rate, applied lots for one lot, one-lot success rate, last price, first-day return and accumulated return. It reports total win rate, average/median first-day return, break rate, heat buckets, score buckets, industry buckets, valuation/market-cap buckets, score/return correlation, score rank correlation, top-vs-bottom score quintile spread, and high-score loser / low-score winner mismatch samples.
+The script uses AAStocks Listed IPO fields: listing date, offer/listing price, market-cap range, public over-subscription rate, applied lots for one lot, one-lot success rate, last price, first-day return and accumulated return. When OpenD is logged in, use Futu historical daily K-line to recompute first-day close returns:
+
+```bash
+.venv/bin/python scripts/hkipo_backtest.py --limit 100 --source aastocks --debut-price-source futu-kline --format markdown
+```
+
+AAStocks still provides the recent listed IPO sample list and offer price. Futu `get_ipo_list(HK)` covers current IPOs only; it is not a recent-100 listed IPO history source and does not provide historical greenshoe, cornerstone or grey-market fields. The report includes total win rate, average/median first-day return, break rate, heat buckets, score buckets, industry buckets, valuation/market-cap buckets, score/return correlation, score rank correlation, top-vs-bottom score quintile spread, and high-score loser / low-score winner mismatch samples.
 
 Industry is inferred heuristically from the company name by default. Greenshoe, cornerstone and grey-market fields are supported through an optional enrichment CSV:
 

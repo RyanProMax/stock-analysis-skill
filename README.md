@@ -134,7 +134,15 @@ Tushare 接口总表见 [references/api_reference.md](./references/api_reference
 python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --format markdown
 ```
 
-当前脚本使用 AAStocks Listed IPO 页面，自动抓取近期已上市港股 IPO 的上市日、发行价、市值区间、公开超购倍数、一手中签率和首日涨幅，并输出胜率、平均/中位首日涨幅、破发率、热度分桶、评分分桶、行业分桶、估值/市值分桶、多维评分相关性、评分排序相关性和高分破发 / 低分大涨失配样本。
+当前脚本默认使用 AAStocks Listed IPO 页面，自动抓取近期已上市港股 IPO 的上市日、发行价、市值区间、公开超购倍数、一手中签率和首日涨幅，并输出胜率、平均/中位首日涨幅、破发率、热度分桶、评分分桶、行业分桶、估值/市值分桶、多维评分相关性、评分排序相关性和高分破发 / 低分大涨失配样本。
+
+若 OpenD 已登录，可用 Futu 历史日 K 线重算首日收盘涨幅；AAStocks 仍只作为最近 100 个 IPO 样本清单和发行价来源：
+
+```bash
+.venv/bin/python scripts/hkipo_backtest.py --limit 100 --source aastocks --debut-price-source futu-kline --format markdown
+```
+
+Futu `get_ipo_list(HK)` 只覆盖当前 IPO 列表，不提供最近 100 个已上市 IPO 清单，也不提供绿鞋 / 基石 / 暗盘历史字段。
 
 行业默认通过公司名启发式分类；绿鞋、基石、暗盘可用 enrichment CSV 补充：
 

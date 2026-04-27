@@ -14,7 +14,7 @@ import sys
 import time
 from dataclasses import asdict, dataclass
 from html.parser import HTMLParser
-from typing import Iterable
+from typing import Callable, Iterable
 
 AASTOCKS_LISTED_IPO_URL = "https://aastocks.com/en/stocks/market/ipo/listedipo.aspx"
 USER_AGENT = "Mozilla/5.0 (compatible; stock-analysis-skill/1.0)"
@@ -47,6 +47,10 @@ class IpoSample:
     structure_score: float | None
     grey_score: float | None
     odds_score: int | None
+    debut_return_source: str = "listed_table"
+    listed_table_debut_return_pct: float | None = None
+    futu_debut_close: float | None = None
+    futu_debut_return_pct: float | None = None
 
 
 class TableParser(HTMLParser):
@@ -119,6 +123,19 @@ def parse_int(value: str | None) -> int | None:
 
 def parse_pct(value: str | None) -> float | None:
     return parse_number(value)
+
+
+def normalize_listing_date(value: str) -> str | None:
+    match = re.search(r"(\d{4})[/-](\d{1,2})[/-](\d{1,2})", value)
+    if not match:
+        return None
+    year, month, day = match.groups()
+    return f"{int(year):04d}-{int(month):02d}-{int(day):02d}"
+
+
+def to_futu_hk_code(code: str) -> str:
+    match = re.fullmatch(r"(\d{5})\.HK", code.strip())
+    return f"HK.{match.group(1)}" if match else code.strip()
 
 
 def split_name_code(value: str) -> tuple[str, str]:
@@ -291,6 +308,75 @@ def score_from_dimensions(
     score += structure_score if structure_score is not None else 7.5
     score += grey_score if grey_score is not None else 7.5
     return round(max(0, min(100, score)))
+
+
+def make_futu_debut_close_fetcher(host: str, port: int) -> tuple[Callable[[str, str], float | None], object]:
+    from futu import AuType, KLType, OpenQuoteContext, RET_OK
+
+    try:
+        ctx = OpenQuoteContext(host=host, port=port, ai_type=1)
+    except TypeError:
+        ctx = OpenQuoteContext(host=host, port=port)
+
+    def fetch_close(code: str, listing_date: str) -> float | None:
+        futu_code = to_futu_hk_code(code)
+        ret, data, _ = ctx.request_history_kline(
+            futu_code,
+            start=listing_date,
+            end=listing_date,
+            ktype=KLType.K_DAY,
+            autype=AuType.NONE,
+            max_count=1,
+        )
+        if ret != RET_OK or data is None or len(data) == 0:
+            return None
+        row = data.iloc[0] if hasattr(data, "iloc") else data[0]
+        close = row.get("close") if hasattr(row, "get") else None
+        return float(close) if close not in {None, ""} else None
+
+    return fetch_close, ctx
+
+
+def close_futu_context(ctx: object | None) -> None:
+    if ctx is None:
+        return
+    close = getattr(ctx, "close", None)
+    if callable(close):
+        close()
+
+
+def apply_futu_debut_returns(
+    samples: list[IpoSample],
+    fetch_close: Callable[[str, str], float | None] | None = None,
+    delay: float = 0.55,
+    host: str = "127.0.0.1",
+    port: int = 11111,
+) -> int:
+    ctx = None
+    if fetch_close is None:
+        fetch_close, ctx = make_futu_debut_close_fetcher(host, port)
+    updated = 0
+    try:
+        for sample in samples:
+            listing_date = normalize_listing_date(sample.listing_date)
+            if listing_date is None or sample.offer_price is None or sample.offer_price <= 0:
+                continue
+            close = fetch_close(sample.code, listing_date)
+            if close is None or close <= 0:
+                continue
+            if sample.listed_table_debut_return_pct is None:
+                sample.listed_table_debut_return_pct = sample.debut_return_pct
+            futu_return = (close - sample.offer_price) / sample.offer_price * 100
+            sample.futu_debut_close = close
+            sample.futu_debut_return_pct = futu_return
+            sample.debut_return_pct = futu_return
+            sample.debut_return_source = "futu_kline"
+            updated += 1
+            if delay > 0 and ctx is not None:
+                time.sleep(delay)
+    finally:
+        close_futu_context(ctx)
+    return updated
 
 
 def find_ipo_table(html: str) -> list[list[str]]:
@@ -554,6 +640,10 @@ def summarize(samples: list[IpoSample]) -> dict:
         )
     xs = [float(sample.odds_score) for sample in scored]
     ys = [sample.debut_return_pct for sample in scored if sample.debut_return_pct is not None]
+    debut_return_source_counts: dict[str, int] = {}
+    for sample in valid:
+        source = sample.debut_return_source
+        debut_return_source_counts[source] = debut_return_source_counts.get(source, 0) + 1
     by_industry = []
     for industry in sorted({sample.industry for sample in valid}):
         industry_returns = [sample.debut_return_pct for sample in valid if sample.industry == industry and sample.debut_return_pct is not None]
@@ -577,6 +667,7 @@ def summarize(samples: list[IpoSample]) -> dict:
     return {
         "sample_count": len(samples),
         "valid_debut_return_count": len(valid),
+        "debut_return_source_counts": debut_return_source_counts,
         "win_rate": len([value for value in returns if value > 0]) / len(returns) if returns else None,
         "avg_return_pct": mean(returns),
         "median_return_pct": median(returns),
@@ -605,6 +696,19 @@ def fmt_num(value: float | None, digits: int = 2) -> str:
     return "N/A" if value is None else f"{value:.{digits}f}"
 
 
+def fmt_source_counts(counts: dict[str, int]) -> str:
+    if not counts:
+        return "N/A"
+    return "；".join(f"{source} {count}" for source, count in sorted(counts.items()))
+
+
+def render_data_source_note(summary: dict) -> str:
+    sources = summary.get("debut_return_source_counts", {})
+    if sources.get("futu_kline"):
+        return "数据源：AAStocks Listed IPO 页面提供样本清单、发行价、超购和一手中签率；Futu/OpenD 历史日 K 线提供首日收盘价并重算首日涨幅。"
+    return "数据源：AAStocks Listed IPO 页面；字段定义以页面备注为准。"
+
+
 def render_markdown(summary: dict) -> str:
     lines = [
         "# 港股 IPO 首日回测",
@@ -613,6 +717,7 @@ def render_markdown(summary: dict) -> str:
         f"- 样本数：{summary['sample_count']}；有效首日涨幅样本：{summary['valid_debut_return_count']}",
         f"- 首日胜率：{fmt_pct(summary['win_rate'])}；破发率：{fmt_pct(summary['break_rate'])}",
         f"- 平均首日涨幅：{fmt_num(summary['avg_return_pct'])}%；中位首日涨幅：{fmt_num(summary['median_return_pct'])}%",
+        f"- 首日涨幅来源：{fmt_source_counts(summary['debut_return_source_counts'])}",
         f"- 多维评分与首日涨幅相关系数：{fmt_num(summary['score_return_correlation'], 3)}",
         f"- 评分排序相关系数：{fmt_num(summary['score_calibration']['score_return_rank_correlation'], 3)}；Top 20% 评分中位首日涨幅 {fmt_num(summary['score_calibration']['top_score_median_return_pct'])}%，Bottom 20% {fmt_num(summary['score_calibration']['bottom_score_median_return_pct'])}%，分差 {fmt_num(summary['score_calibration']['top_bottom_median_spread_pct'])}pct",
         f"- 字段覆盖：市值 {summary['enrichment_coverage']['market_cap']}/{summary['sample_count']}；绿鞋 {summary['enrichment_coverage']['greenshoe']}/{summary['sample_count']}；基石 {summary['enrichment_coverage']['cornerstone']}/{summary['sample_count']}；暗盘 {summary['enrichment_coverage']['grey_market']}/{summary['sample_count']}",
@@ -669,7 +774,7 @@ def render_markdown(summary: dict) -> str:
         "- 若 >=1000x 分桶显著跑赢，应保留极端热度加权；若 200-1000x 与 >=1000x 分化不大，应降低边际加分。",
         "- 破发样本需单独复盘行业、估值和发行结构，避免只按热度打分。",
         "",
-        "数据源：AAStocks Listed IPO 页面；字段定义以页面备注为准。",
+        render_data_source_note(summary),
     ]
     return "\n".join(lines)
 
@@ -691,9 +796,21 @@ def main() -> int:
     parser.add_argument("--format", choices=["markdown", "json"], default="markdown")
     parser.add_argument("--csv", help="optional CSV output path for raw samples")
     parser.add_argument("--enrichment-csv", help="optional CSV with code,industry,greenshoe,cornerstone,grey_market_return_pct")
+    parser.add_argument("--debut-price-source", choices=["listed-table", "futu-kline"], default="listed-table")
+    parser.add_argument("--futu-host", default="127.0.0.1", help="Futu OpenD host for --debut-price-source futu-kline")
+    parser.add_argument("--futu-port", type=int, default=11111, help="Futu OpenD port for --debut-price-source futu-kline")
+    parser.add_argument("--futu-delay", type=float, default=0.55, help="delay between Futu historical K-line requests")
     args = parser.parse_args()
     try:
         samples = load_aastocks_samples(args.limit, load_enrichment(args.enrichment_csv))
+        if args.debut_price_source == "futu-kline":
+            updated = apply_futu_debut_returns(
+                samples,
+                delay=args.futu_delay,
+                host=args.futu_host,
+                port=args.futu_port,
+            )
+            print(f"Futu/OpenD 首日 K 线覆盖：{updated}/{len(samples)}", file=sys.stderr)
     except Exception as exc:
         print(f"回测数据抓取失败：{exc}", file=sys.stderr)
         return 1

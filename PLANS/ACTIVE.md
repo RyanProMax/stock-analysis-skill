@@ -233,6 +233,43 @@ Review status:
 
 - passed
 
+### M11 — Futu K 线校验港股 IPO 首日回测
+
+Status: `done`
+
+Scope:
+
+- 扩展 `scripts/hkipo_backtest.py`：支持用 Futu/OpenD 历史日 K 线重算首日涨幅
+- 保留 AAStocks 作为最近 100 个已上市 IPO 样本清单来源，明确 Futu `get_ipo_list` 只覆盖当前 IPO 列表
+- 新增最小回归测试覆盖 Futu 首日收益写回逻辑
+- 更新 `README.md` / `SKILL.md` / `references/hkipo.md` 的 Futu 回测命令与数据边界
+- 更新 `PLANS/ACTIVE.md` / `PLANS/ROADMAP.md`，记录 Futu/OpenD 实测结果
+
+Validation:
+
+- `.venv/bin/python /Users/ryan/.agents/skills/futuapi/scripts/quote/get_ipo_list.py HK --json`
+- `.venv/bin/python /Users/ryan/.agents/skills/futuapi/scripts/quote/get_history_kl_quota.py --json`
+- `python3 -m unittest tests/test_hkipo_backtest.py`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `.venv/bin/python scripts/hkipo_backtest.py --limit 100 --source aastocks --debut-price-source futu-kline --format markdown`
+- `git diff --check`
+
+Progress:
+
+- 2026-04-28 北京时间：用户明确要求用已登录的 Futu/OpenD 拉数据并回测；已确认 `get_ipo_list(HK)` 只返回当前 IPO 列表且不含绿鞋 / 基石 / 暗盘字段。
+- 2026-04-28 北京时间：已用 Futu 历史日 K 线接口成功读取 `HK.02635` 上市日 K 线，可用于重算首日收盘涨幅。
+- 2026-04-28 北京时间：首次用系统 `python3` 跑 Futu 模式失败，原因是 Futu SDK 安装在项目 `.venv`；已将 Futu 模式验证命令改为 `.venv/bin/python`。
+- 2026-04-28 北京时间：Futu/OpenD 100 样本回测跑通，上市日 K 线覆盖 95/100；报告中 `首日涨幅来源` 显示 `futu_kline 95`。
+- 2026-04-28 北京时间：Futu K 线重算后的结果与表格首日涨幅基本一致：评分排序相关系数 0.561，Top 20% 评分中位首日涨幅 88.78%，80-89 分桶中位首日涨幅 95.34%。
+
+Validation status:
+
+- passed
+
+Review status:
+
+- passed
+
 ## Progress
 
 - 2026-04-27：移除旧 `docs/plan.md`，统一使用 `PLANS/`。
@@ -262,6 +299,12 @@ Review status:
 - 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
 - 已通过：`python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --format markdown`
 - 已通过：`git diff --check`
+- 已通过：`.venv/bin/python /Users/ryan/.agents/skills/futuapi/scripts/quote/get_ipo_list.py HK --json`
+- 已通过：`.venv/bin/python /Users/ryan/.agents/skills/futuapi/scripts/quote/get_history_kl_quota.py --json`
+- 已通过：`python3 -m unittest tests/test_hkipo_backtest.py`
+- 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
+- 已通过：`.venv/bin/python scripts/hkipo_backtest.py --limit 100 --source aastocks --debut-price-source futu-kline --format markdown`
+- 已通过：`git diff --check`
 
 ## Handoff
 
@@ -277,3 +320,4 @@ Review status:
 - 下一轮可在只读边界内继续补 quote / IPO / 持仓查询类封装或输出模板。
 - M9 已完成：`SKILL.md` 按 skill 编写要求精简为路由规范；description 改为触发条件描述；只读边界、订阅、导出和文档生成表述已同步。
 - M10 已完成：`hkipo_backtest.py` 已能按评分分桶、评分排序相关性和失配样本评估评分与首日涨幅的一致性；最近 100 样本验证显示评分方向基本合理，但绿鞋 / 基石 / 暗盘仍需 enrichment 数据源补齐。
+- M11 已完成：`hkipo_backtest.py` 已支持 Futu/OpenD 历史日 K 线重算首日收盘涨幅；最近 100 样本实测覆盖 95/100，Futu 重算后评分方向仍基本合理。
