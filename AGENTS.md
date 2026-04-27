@@ -35,7 +35,7 @@
 - Tushare 本地辅助能力统一收口到 `scripts/tushare_toolkit.py`
 - `references/cli.md` 是唯一 CLI 使用说明
 - `references/api_reference.md` 是唯一 Tushare 接口总表
-- Futu/OpenD 能力只通过已安装 skills 路由，本仓库不复制富途脚本、不保存交易密码、不默认执行实盘交易
+- Futu/OpenD 能力只通过已安装 skills 路由，本仓库不复制富途脚本、不保存交易密码；通过本 skill 只允许查询操作，禁止下单、改单、撤单、订阅、交易解锁或任何写入类行为
 
 ## Task Workflow
 

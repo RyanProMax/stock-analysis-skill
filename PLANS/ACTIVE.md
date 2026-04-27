@@ -147,7 +147,7 @@ Progress:
 
 ### M8 — 安装受控 Futu/OpenD 本地环境
 
-Status: `in_progress`
+Status: `done`
 
 Scope:
 
@@ -155,6 +155,7 @@ Scope:
 - 使用独立 `uv` venv 安装并固定 Futu SDK 与数据分析依赖版本
 - 安装 macOS GUI 版 Futu OpenD，并写入 futu skill 版本戳
 - 验证 SDK import 与 OpenD 只读连接状态
+- 为 `stock-analysis-skill` 增加全局只读护栏，禁止任何写入、编辑、下单或交易状态变更行为
 
 Validation:
 
@@ -163,6 +164,7 @@ Validation:
 - `uv --version`
 - `.venv/bin/python -c 'import sys, futu, google.protobuf; ...'`
 - `.venv/bin/python /Users/ryan/.agents/skills/futuapi/scripts/quote/get_ipo_list.py HK --json`
+- `grep -R "模拟/实盘交易\|实盘下单 / 撤单 / 改单\|trade_intent\|确认执行" -n SKILL.md README.md AGENTS.md references/futu.md`
 
 Progress:
 
@@ -170,10 +172,12 @@ Progress:
 - 2026-04-27 20:08 北京时间：已用 `uv` 创建 `.venv`，Python 版本为 `3.12.12`，并安装 `futu-api==10.4.6408`、`backtrader==1.9.78.123`、`matplotlib==3.10.9`、`pandas==3.0.2`、`numpy==2.4.4`。
 - 2026-04-27 20:08 北京时间：已新增 `requirements-futu.txt` 与 `requirements-futu.lock` 记录固定版本，并在 `.gitignore` 忽略 `.venv`。
 - 2026-04-27 20:08 北京时间：已下载并安装 GUI 版 `/Applications/Futu_OpenD.app`，版本 `10.4.6408`，并写入 `/Users/ryan/.futu_skill_version=0.1.1`。
+- 2026-04-27 23:49 北京时间：用户完成 OpenD 登录后，`get_ipo_list.py HK --json` 已只读查询成功，返回 5 条港股 IPO 记录。
+- 2026-04-27 23:49 北京时间：已在 `SKILL.md` 增加全局只读护栏，并同步 `README.md` / `AGENTS.md` / `references/futu.md`，明确禁止下单、改单、撤单、订阅、交易解锁和其他写入类行为。
 
 Blockers:
 
-- OpenD GUI 已启动，但需要用户在界面完成登录；未登录前 `get_ipo_list.py HK --json` 只能验证到 SDK 可用，连接会停在 `127.0.0.1:11111`。
+- 无。
 
 ## Progress
 
@@ -195,6 +199,8 @@ Blockers:
 - 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
 - 已通过：人工检查 `AGENTS.md` / `README.md` / `SKILL.md` / `PLANS/*.md` / `references/futu.md` 职责不冲突
 - 已通过：确认 `PLANS/ACTIVE.md` 中没有进行中的 milestone
+- 已通过：`.venv/bin/python /Users/ryan/.agents/skills/futuapi/scripts/quote/get_ipo_list.py HK --json`
+- 已通过：人工检查 `SKILL.md` / `README.md` / `AGENTS.md` / `references/futu.md` 的 Futu/OpenD 说明已统一为只读查询，且不再保留实盘/模拟交易执行路径
 
 ## Handoff
 
@@ -206,4 +212,5 @@ Blockers:
 - M5 已完成：`/hkipo` 已升级为评分卡 + 简明报告 + 绿鞋/基石 + 首日回测校准工作流，并新增 `references/hkipo.md`。
 - M6 已完成：新增 `scripts/hkipo_backtest.py`，可抓取 AAStocks 近期已上市港股 IPO 并输出首日表现分桶回测。
 - M7 已完成：回测加入行业启发式分类、市值/估值分桶，并支持通过 enrichment CSV 补充绿鞋、基石、暗盘。
-- 下一轮可开始实现具体调用封装，或补只读 Futu/OpenD 环境验证。
+- M8 已完成：Futu/OpenD 登录后只读 IPO 查询验证通过；`stock-analysis-skill` 已增加全局只读护栏，禁止任何写入、编辑、下单、订阅或交易解锁行为。
+- 下一轮可在只读边界内继续补 quote / IPO / 持仓查询类封装或输出模板。

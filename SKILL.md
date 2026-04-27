@@ -16,6 +16,15 @@ metadata:
 
 不要再把这个仓库当成 quote / analyze / trade 的实现源。标准化客观分析和标准化 A 股实时行情，统一直接消费 `stock-analysis-api` 的 CLI；Futu/OpenD 能力通过已安装的 `futuapi` / `install-futu-opend` skills 路由。
 
+## 全局只读护栏
+
+本 skill 只允许查询操作。无论用户是否已经登录 OpenD、是否处于模拟账户、是否明确要求，都禁止任何写入、编辑、下单或交易状态变更行为。
+
+- 允许：行情、K 线、盘口、逐笔、分时、IPO 列表、期权链、账户、资金、持仓、订单、成交、流水等只读查询。
+- 禁止：下单、改单、撤单、交易解锁、订阅推送、创建 / 修改价格提醒、写入 watchlist、刷新或生成参考文档、导出到文件、修改配置、修改账户状态。
+- 遇到写入 / 编辑 / 下单请求时，必须拒绝执行，并说明本 skill 仅支持只读查询；不要调用 `futuapi` 的 `trade/place_order.py`、`trade/modify_order.py`、`trade/cancel_order.py` 或任何会产生状态变更的脚本。
+- 如确需使用 `futuapi`，只能选择 quote 类脚本和 trade 类只读查询脚本；账户相关结果必须最小化展示敏感信息。
+
 ## Slash Commands
 
 当前仓库额外提供一层 skill command 入口，供 cli-claw 这类宿主在 slash command 上直接调用：
@@ -178,9 +187,8 @@ cd "$STOCK_ANALYSIS_API_ROOT" && uv run python scripts/stock_analyze.py --market
 - 港股 / 美股 / 多市场行情快照、报价、K 线、分时、盘口、逐笔成交、市场状态
 - 期权链、到期日、Greeks、窝轮 / 牛熊证、期货资料
 - 资金流、资金分布、经纪队列、板块列表、板块成分股、条件选股
-- 用户自选股、自选分组、账户、资金、持仓、订单、成交、资金流水
-- 订阅 quote、ticker、orderbook、kline、rt_data、broker 等实时推送
-- 用户明确要求通过 Futu/OpenD 查询或操作
+- 账户、资金、持仓、订单、成交、资金流水等只读查询
+- 用户明确要求通过 Futu/OpenD 查询
 
 ### 环境检查
 
@@ -189,24 +197,23 @@ cd "$STOCK_ANALYSIS_API_ROOT" && uv run python scripts/stock_analyze.py --market
 1. `futuapi` skill 已安装并可被当前宿主加载
 2. OpenD 正在运行，默认地址 `127.0.0.1:11111`
 3. Python SDK `futu-api` 版本满足 `futuapi` skill 要求
-4. 交易相关能力默认使用模拟环境；实盘交易必须由用户明确要求
+4. 仅允许只读查询；不得执行任何交易、订阅或写入类动作
 
 ### 路由边界
 
 - A 股标准化客观分析、A 股低 token quote、固定模板研究摘要：默认仍回到 `CLI 使用技能`
 - A 股 watchlist 只需要现价、涨跌幅、全量快照、简单异动提醒时：默认走 `poll_realtime_quotes.py`
-- 混合市场 watchlist、带 `HK.` / `US.` 等前缀代码，或需要盘口、逐笔、分时、K 线、订阅推送时：走 `Futu/OpenD 使用技能`
+- 混合市场 watchlist、带 `HK.` / `US.` 等前缀代码，或需要盘口、逐笔、分时、K 线查询时：走 `Futu/OpenD 使用技能`
 - 原始 Tushare 接口、接口清单、自定义字段导出：走 `Tushare 使用技能`
-- 港 / 美 / 多市场盘口、期权、账户、持仓、订单、订阅：走 `Futu/OpenD 使用技能`
+- 港 / 美 / 多市场盘口、期权、账户、持仓、订单等只读查询：走 `Futu/OpenD 使用技能`
 - OpenD 下载、安装、升级、启动、SDK 升级：走 `install-futu-opend`
 
-### 交易安全
+### 只读安全
 
-- 默认只读或模拟交易；不得默认执行实盘交易
-- 实盘下单 / 撤单 / 改单必须满足：用户明确说“实盘”或等价表达，并在执行前二次确认关键字段
-- 二次确认至少包含：账户、市场、代码、方向、数量、价格 / 订单类型、交易环境、有效期
-- 禁止要求、保存或代填交易密码；OpenD 解锁必须由用户在 GUI 中手动完成
-- 任何交易动作都要在回复中保留 audit 摘要：时间（北京时间）、操作、参数、执行结果或失败原因
+- 只允许查询操作；模拟交易也不允许下单、改单、撤单或订阅推送
+- 禁止要求、保存或代填交易密码；禁止通过 SDK 或脚本调用交易解锁
+- 禁止调用任何会改变账户、订单、订阅、自选股、提醒、配置或本地文件状态的 Futu/OpenD 脚本
+- 用户请求写入、编辑、下单、撤单、改单、订阅或解锁时，必须拒绝执行并说明本 skill 仅支持只读查询
 
 ## Tushare 使用技能
 
@@ -259,7 +266,7 @@ python scripts/tushare_toolkit.py generate-docs
 ## What This Skill Is Not For
 
 - 不直接给买卖建议或替代投资顾问
-- 不自动下单或执行交易；只有用户明确要求并二次确认后，才可路由到 Futu/OpenD 交易能力
+- 不下单、不改单、不撤单、不订阅推送、不解锁交易；即使用户明确要求也不得路由到 Futu/OpenD 写入或交易能力
 - 不输出主观 thesis、confidence 或 target price
 - 不在没有权限或数据的情况下伪造结果
 
