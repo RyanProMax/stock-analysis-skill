@@ -393,6 +393,114 @@ def pearson(xs: list[float], ys: list[float]) -> float | None:
     return numerator / (denom_x * denom_y)
 
 
+def ranks(values: list[float]) -> list[float]:
+    indexed = sorted(enumerate(values), key=lambda item: item[1])
+    result = [0.0] * len(values)
+    index = 0
+    while index < len(indexed):
+        end = index + 1
+        while end < len(indexed) and indexed[end][1] == indexed[index][1]:
+            end += 1
+        average_rank = (index + 1 + end) / 2
+        for original_index, _ in indexed[index:end]:
+            result[original_index] = average_rank
+        index = end
+    return result
+
+
+def spearman(xs: list[float], ys: list[float]) -> float | None:
+    if len(xs) < 2 or len(xs) != len(ys):
+        return None
+    return pearson(ranks(xs), ranks(ys))
+
+
+def score_bucket(odds_score: int | None) -> str:
+    if odds_score is None:
+        return "unknown"
+    if odds_score >= 90:
+        return "90-100"
+    if odds_score >= 80:
+        return "80-89"
+    if odds_score >= 65:
+        return "65-79"
+    if odds_score >= 50:
+        return "50-64"
+    return "<50"
+
+
+def compact_mismatch_sample(sample: IpoSample, mismatch_type: str) -> dict:
+    return {
+        "type": mismatch_type,
+        "code": sample.code,
+        "name": sample.name,
+        "industry": sample.industry,
+        "odds_score": sample.odds_score,
+        "listing_date": sample.listing_date,
+        "heat_bucket": sample.heat_bucket,
+        "oversub_rate": sample.oversub_rate,
+        "one_lot_success_rate": sample.one_lot_success_rate,
+        "debut_return_pct": sample.debut_return_pct,
+    }
+
+
+def summarize_score_calibration(samples: list[IpoSample]) -> dict:
+    scored = [
+        sample for sample in samples
+        if sample.odds_score is not None and sample.debut_return_pct is not None
+    ]
+    by_score_bucket = []
+    for bucket in ["90-100", "80-89", "65-79", "50-64", "<50", "unknown"]:
+        bucket_samples = [sample for sample in scored if score_bucket(sample.odds_score) == bucket]
+        bucket_returns = [sample.debut_return_pct for sample in bucket_samples if sample.debut_return_pct is not None]
+        if not bucket_samples:
+            continue
+        wins = [value for value in bucket_returns if value > 0]
+        breaks = [value for value in bucket_returns if value < 0]
+        by_score_bucket.append(
+            {
+                "bucket": bucket,
+                "count": len(bucket_samples),
+                "win_rate": len(wins) / len(bucket_returns) if bucket_returns else None,
+                "avg_return_pct": mean(bucket_returns),
+                "median_return_pct": median(bucket_returns),
+                "break_rate": len(breaks) / len(bucket_returns) if bucket_returns else None,
+            }
+        )
+    xs = [float(sample.odds_score) for sample in scored if sample.odds_score is not None]
+    ys = [sample.debut_return_pct for sample in scored if sample.debut_return_pct is not None]
+    by_score = sorted(scored, key=lambda item: item.odds_score or -1, reverse=True)
+    edge_count = max(1, math.ceil(len(by_score) * 0.2)) if by_score else 0
+    top_returns = [sample.debut_return_pct for sample in by_score[:edge_count] if sample.debut_return_pct is not None]
+    bottom_returns = [sample.debut_return_pct for sample in by_score[-edge_count:] if sample.debut_return_pct is not None]
+    high_score_breaks = [
+        compact_mismatch_sample(sample, "高分破发")
+        for sample in sorted(
+            [item for item in scored if (item.odds_score or 0) >= 80 and (item.debut_return_pct or 0) < 0],
+            key=lambda item: (-(item.odds_score or 0), item.debut_return_pct or 0),
+        )
+    ]
+    low_score_winners = [
+        compact_mismatch_sample(sample, "低分大涨")
+        for sample in sorted(
+            [item for item in scored if (item.odds_score or 0) < 65 and (item.debut_return_pct or 0) >= 50],
+            key=lambda item: (-(item.debut_return_pct or 0), item.odds_score or 0),
+        )
+    ]
+    top_median = median(top_returns)
+    bottom_median = median(bottom_returns)
+    return {
+        "scored_count": len(scored),
+        "by_score_bucket": by_score_bucket,
+        "score_return_rank_correlation": spearman(xs, ys),
+        "top_score_median_return_pct": top_median,
+        "bottom_score_median_return_pct": bottom_median,
+        "top_bottom_median_spread_pct": (
+            top_median - bottom_median if top_median is not None and bottom_median is not None else None
+        ),
+        "mismatch_samples": (high_score_breaks + low_score_winners)[:10],
+    }
+
+
 def apply_industry_scores(samples: list[IpoSample]) -> None:
     valid = [sample for sample in samples if sample.debut_return_pct is not None]
     grouped: dict[str, list[float]] = {}
@@ -474,6 +582,7 @@ def summarize(samples: list[IpoSample]) -> dict:
         "median_return_pct": median(returns),
         "break_rate": len([value for value in returns if value < 0]) / len(returns) if returns else None,
         "score_return_correlation": pearson(xs, ys),
+        "score_calibration": summarize_score_calibration(scored),
         "enrichment_coverage": {
             "greenshoe": len([sample for sample in samples if sample.greenshoe is not None]),
             "cornerstone": len([sample for sample in samples if sample.cornerstone is not None]),
@@ -498,13 +607,14 @@ def fmt_num(value: float | None, digits: int = 2) -> str:
 
 def render_markdown(summary: dict) -> str:
     lines = [
-        "# 港股 IPO 首日回测 MVP",
+        "# 港股 IPO 首日回测",
         "",
         "## 总览",
         f"- 样本数：{summary['sample_count']}；有效首日涨幅样本：{summary['valid_debut_return_count']}",
         f"- 首日胜率：{fmt_pct(summary['win_rate'])}；破发率：{fmt_pct(summary['break_rate'])}",
         f"- 平均首日涨幅：{fmt_num(summary['avg_return_pct'])}%；中位首日涨幅：{fmt_num(summary['median_return_pct'])}%",
         f"- 多维评分与首日涨幅相关系数：{fmt_num(summary['score_return_correlation'], 3)}",
+        f"- 评分排序相关系数：{fmt_num(summary['score_calibration']['score_return_rank_correlation'], 3)}；Top 20% 评分中位首日涨幅 {fmt_num(summary['score_calibration']['top_score_median_return_pct'])}%，Bottom 20% {fmt_num(summary['score_calibration']['bottom_score_median_return_pct'])}%，分差 {fmt_num(summary['score_calibration']['top_bottom_median_spread_pct'])}pct",
         f"- 字段覆盖：市值 {summary['enrichment_coverage']['market_cap']}/{summary['sample_count']}；绿鞋 {summary['enrichment_coverage']['greenshoe']}/{summary['sample_count']}；基石 {summary['enrichment_coverage']['cornerstone']}/{summary['sample_count']}；暗盘 {summary['enrichment_coverage']['grey_market']}/{summary['sample_count']}",
         "",
         "## 融资/认购热度分桶",
@@ -522,12 +632,29 @@ def render_markdown(summary: dict) -> str:
                 break_rate=fmt_pct(bucket["break_rate"]),
             )
         )
+    lines += ["", "## 评分分桶校准", "| 评分分桶 | 样本数 | 胜率 | 平均首日涨幅 | 中位首日涨幅 | 破发率 |", "|---|---:|---:|---:|---:|---:|"]
+    for bucket in summary["score_calibration"]["by_score_bucket"]:
+        lines.append(
+            "| {bucket} | {count} | {win_rate} | {avg} | {median} | {break_rate} |".format(
+                bucket=bucket["bucket"],
+                count=bucket["count"],
+                win_rate=fmt_pct(bucket["win_rate"]),
+                avg=fmt_num(bucket["avg_return_pct"]),
+                median=fmt_num(bucket["median_return_pct"]),
+                break_rate=fmt_pct(bucket["break_rate"]),
+            )
+        )
     lines += ["", "## 行业分桶", "| 行业 | 样本数 | 胜率 | 中位首日涨幅 |", "|---|---:|---:|---:|"]
     for item in sorted(summary["by_industry"], key=lambda row: row["median_return_pct"] or -999, reverse=True):
         lines.append(f"| {item['industry']} | {item['count']} | {fmt_pct(item['win_rate'])} | {fmt_num(item['median_return_pct'])}% |")
     lines += ["", "## 估值/市值分桶", "| 市值分桶 | 样本数 | 胜率 | 中位首日涨幅 |", "|---|---:|---:|---:|"]
     for item in summary["by_valuation"]:
         lines.append(f"| {item['bucket']} | {item['count']} | {fmt_pct(item['win_rate'])} | {fmt_num(item['median_return_pct'])}% |")
+    lines += ["", "## 评分失配样本", "| 类型 | 代码 | 公司 | 行业 | 评分 | 上市日 | 热度分桶 | 首日涨幅 |", "|---|---|---|---|---:|---|---|---:|"]
+    for sample in summary["score_calibration"]["mismatch_samples"]:
+        lines.append(f"| {sample['type']} | {sample['code']} | {sample['name']} | {sample['industry']} | {sample['odds_score']} | {sample['listing_date']} | {sample['heat_bucket']} | {fmt_num(sample['debut_return_pct'])}% |")
+    if not summary["score_calibration"]["mismatch_samples"]:
+        lines.append("| 无 | - | - | - | - | - | - | - |")
     lines += ["", "## Top 10 首日涨幅", "| 代码 | 公司 | 行业 | 评分 | 上市日 | 超购倍数 | 一手中签率 | 首日涨幅 |", "|---|---|---|---:|---|---:|---:|---:|"]
     for sample in summary["top_debut_returns"]:
         lines.append(f"| {sample['code']} | {sample['name']} | {sample['industry']} | {sample['odds_score']} | {sample['listing_date']} | {fmt_num(sample['oversub_rate'], 1)}x | {fmt_num(sample['one_lot_success_rate'], 1)}% | {fmt_num(sample['debut_return_pct'])}% |")
@@ -538,6 +665,7 @@ def render_markdown(summary: dict) -> str:
         "",
         "## 校准建议",
         "- 当前增强版自动纳入行业启发式分类和市值/估值分桶；绿鞋、基石、暗盘通过 enrichment CSV 纳入。",
+        "- 当前评分校准仍是同源样本内评估；行业分使用样本分桶启发式，不等同于样本外预测。",
         "- 若 >=1000x 分桶显著跑赢，应保留极端热度加权；若 200-1000x 与 >=1000x 分化不大，应降低边际加分。",
         "- 破发样本需单独复盘行业、估值和发行结构，避免只按热度打分。",
         "",

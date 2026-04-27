@@ -200,6 +200,39 @@ Progress:
 - 2026-04-28 00:38 北京时间：开始按 skill 编写要求优化 md 说明，优先处理 description、重复说明和只读边界冲突。
 - 2026-04-28 00:38 北京时间：已完成 `SKILL.md` 精简、frontmatter description 调整，并同步 `README.md` / `AGENTS.md` / `references/cli.md` / `references/futu.md` 的只读边界表述。
 
+### M10 — 回测评分合理性校准
+
+Status: `done`
+
+Scope:
+
+- 扩展 `scripts/hkipo_backtest.py`：按评分分桶、排序相关性和失配样本评估评分与首日涨幅的一致性
+- 新增最小回归测试覆盖评分校准摘要
+- 更新 `README.md` / `SKILL.md` / `references/hkipo.md` 的回测输出说明
+- 更新 `PLANS/ACTIVE.md` / `PLANS/ROADMAP.md`，记录 100 样本校准结论
+
+Validation:
+
+- `python3 -m unittest tests/test_hkipo_backtest.py`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --format markdown`
+- `git diff --check`
+
+Progress:
+
+- 2026-04-28 北京时间：开始按用户要求评估最近 100 个港股新股的评分与首日涨幅是否匹配；当前缺口是只有相关系数和 Top/Worst 首日表现，缺少评分分桶与高分破发/低分大涨失配样本。
+- 2026-04-28 北京时间：已新增评分分桶、评分排序相关性、Top/Bottom 评分分位首日涨幅差和高分破发 / 低分大涨失配样本。
+- 2026-04-28 北京时间：100 样本回测结果显示评分方向基本合理：评分排序相关系数 0.561；Top 20% 评分中位首日涨幅 88.78%，Bottom 20% 为 0.00%；80-89 分桶胜率 95.8%、中位首日涨幅 95.34%，<50 分桶胜率 41.7%、中位首日涨幅 -2.21%。
+- 2026-04-28 北京时间：限制仍明确保留：绿鞋 / 基石 / 暗盘覆盖为 0/100，行业分是同源样本内启发式，不等同于样本外预测。
+
+Validation status:
+
+- passed
+
+Review status:
+
+- passed
+
 ## Progress
 
 - 2026-04-27：移除旧 `docs/plan.md`，统一使用 `PLANS/`。
@@ -225,6 +258,10 @@ Progress:
 - 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
 - 已通过：`rg -n "订阅默认|订阅推送见|自定义导出|文档生成任务|三类能力|价格提醒联动|原始 Tushare 字段或导出" SKILL.md README.md AGENTS.md references/*.md PLANS/*.md` 无命中
 - 已通过：`git diff --check`
+- 已通过：`python3 -m unittest tests/test_hkipo_backtest.py`
+- 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
+- 已通过：`python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --format markdown`
+- 已通过：`git diff --check`
 
 ## Handoff
 
@@ -239,3 +276,4 @@ Progress:
 - M8 已完成：Futu/OpenD 登录后只读 IPO 查询验证通过；`stock-analysis-skill` 已增加全局只读护栏，禁止任何写入、编辑、下单、订阅或交易解锁行为。
 - 下一轮可在只读边界内继续补 quote / IPO / 持仓查询类封装或输出模板。
 - M9 已完成：`SKILL.md` 按 skill 编写要求精简为路由规范；description 改为触发条件描述；只读边界、订阅、导出和文档生成表述已同步。
+- M10 已完成：`hkipo_backtest.py` 已能按评分分桶、评分排序相关性和失配样本评估评分与首日涨幅的一致性；最近 100 样本验证显示评分方向基本合理，但绿鞋 / 基石 / 暗盘仍需 enrichment 数据源补齐。

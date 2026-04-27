@@ -36,6 +36,7 @@
 
 - [ ] `/cnipo` 从占位升级为 A 股 IPO 池工作流
 - [x] 港股 IPO 池工作流增加近 100 个已上市 IPO 首日表现回测 MVP
+- [x] 港股 IPO 回测补充评分分桶、排序相关性和高分/低分失配样本
 - [ ] 港股 IPO 回测补充绿鞋/基石/暗盘 enrichment 数据源自动抓取
 - [ ] 港股 IPO 池工作流增加稳定的一手来源核验清单
 - [ ] 研究是否接入富途资讯 / 公告 / 研报 / 社区情绪类 skills，补齐文章提到的 Skill Hub 能力
@@ -51,3 +52,4 @@
 - 2026-04-27：用户完成 OpenD 登录后，港股 IPO 只读查询验证通过；同步 `SKILL.md` / `README.md` / `AGENTS.md` / `references/futu.md` 的全局只读护栏。
 
 - 2026-04-27：新增 `scripts/hkipo_backtest.py`，用 AAStocks Listed IPO 页面进行近 100 个港股 IPO 首日表现回测，验证超购热度分桶。
+- 2026-04-28：增强 `scripts/hkipo_backtest.py` 的评分合理性校准，新增评分分桶、评分排序相关性、Top/Bottom 评分分位首日涨幅差和失配样本输出。

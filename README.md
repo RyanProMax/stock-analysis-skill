@@ -126,15 +126,15 @@ Tushare 接口总表见 [references/api_reference.md](./references/api_reference
 
 `/hkipo` 的事实数据优先来自当前联网检索到的 HKEX / 公司公告等一手来源；财经站只补充认购倍数、中签率、灰市、首日涨幅等二级数据。评分、融资倍数热度、绿鞋/基石检查、回测校准和单表简明输出规则见 [references/hkipo.md](./references/hkipo.md)。
 
-### 港股 IPO 回测 MVP
+### 港股 IPO 回测
 
-用于校准 `/hkipo` 的融资/认购热度评分：
+用于校准 `/hkipo` 的首日赔率评分：
 
 ```bash
 python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --format markdown
 ```
 
-当前 MVP 使用 AAStocks Listed IPO 页面，自动抓取近期已上市港股 IPO 的上市日、发行价、市值区间、公开超购倍数、一手中签率和首日涨幅，并输出胜率、平均/中位首日涨幅、破发率、热度分桶、行业分桶、估值/市值分桶和多维评分相关性。
+当前脚本使用 AAStocks Listed IPO 页面，自动抓取近期已上市港股 IPO 的上市日、发行价、市值区间、公开超购倍数、一手中签率和首日涨幅，并输出胜率、平均/中位首日涨幅、破发率、热度分桶、评分分桶、行业分桶、估值/市值分桶、多维评分相关性、评分排序相关性和高分破发 / 低分大涨失配样本。
 
 行业默认通过公司名启发式分类；绿鞋、基石、暗盘可用 enrichment CSV 补充：
 
