@@ -101,7 +101,7 @@ OpenD 未安装、未启动或 SDK 版本不满足时，转入 `install-futu-ope
 - 事实层优先依赖当前联网检索到的 HKEX / 公司公告等一手来源；财经站只补充认购倍数、中签率、灰市、首日涨幅等二级数据。
 - 必须检查绿鞋 / 超额配股权、稳定价格操作人、基石质量与占比、保荐人、回拨和公众货比例。
 - 默认输出简明报告：结论先行、单表评分总览、回测校准、Sources；维度细节整合进表格，不单列“简评”。
-- 需要校准权重时运行：`.venv/bin/python scripts/hkipo_backtest.py --limit 100 --source aastocks --debut-price-source futu-kline --format markdown`；OpenD 或 Futu SDK 不可用时降级为 `python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --debut-price-source listed-table --format markdown`。重点看评分分桶、评分排序相关性、Top/Bottom 评分分位首日涨幅差和失配样本。
+- 需要校准权重时运行：`.venv/bin/python scripts/hkipo_backtest.py --limit 100 --source aastocks --enrichment-source xinguyufu --debut-price-source futu-kline --format markdown`；OpenD 或 Futu SDK 不可用时降级为 `python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --enrichment-source xinguyufu --debut-price-source listed-table --format markdown`。重点看绿鞋/基石/暗盘覆盖、评分分桶、评分排序相关性、Top/Bottom 评分分位首日涨幅差和失配样本。
 
 ## 输出要求
 

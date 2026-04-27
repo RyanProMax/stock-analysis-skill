@@ -139,12 +139,18 @@ python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --format markdow
 若 OpenD 已登录，可用 Futu 历史日 K 线重算首日收盘涨幅；AAStocks 仍只作为最近 100 个 IPO 样本清单和发行价来源：
 
 ```bash
-.venv/bin/python scripts/hkipo_backtest.py --limit 100 --source aastocks --debut-price-source futu-kline --format markdown
+.venv/bin/python scripts/hkipo_backtest.py --limit 100 --source aastocks --enrichment-source xinguyufu --debut-price-source futu-kline --format markdown
 ```
 
 Futu `get_ipo_list(HK)` 只覆盖当前 IPO 列表，不提供最近 100 个已上市 IPO 清单，也不提供绿鞋 / 基石 / 暗盘历史字段。
 
-行业默认通过公司名启发式分类；绿鞋、基石、暗盘可用 enrichment CSV 补充：
+行业默认通过公司名启发式分类；绿鞋、基石、暗盘、保荐人和稳价人可用新股渔夫公开 API 补充。该抓取方式参考 AKShare 的公开网页接口模式：使用浏览器 UA 请求公开页面 / JSON，再按字段名映射。
+
+```bash
+python3 scripts/hkipo_backtest.py --limit 100 --enrichment-source xinguyufu --format markdown
+```
+
+离线或人工核验场景也可用 enrichment CSV 补充：
 
 ```bash
 python3 scripts/hkipo_backtest.py --limit 100 --enrichment-csv data/hkipo_enrichment.csv

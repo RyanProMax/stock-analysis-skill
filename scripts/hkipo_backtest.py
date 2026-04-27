@@ -15,8 +15,10 @@ import time
 from dataclasses import asdict, dataclass
 from html.parser import HTMLParser
 from typing import Callable, Iterable
+from urllib.parse import quote
 
 AASTOCKS_LISTED_IPO_URL = "https://aastocks.com/en/stocks/market/ipo/listedipo.aspx"
+XINGUYUFU_IPO_API_URL = "https://xinguyufu.cn/api/ipo"
 USER_AGENT = "Mozilla/5.0 (compatible; stock-analysis-skill/1.0)"
 
 
@@ -51,6 +53,11 @@ class IpoSample:
     listed_table_debut_return_pct: float | None = None
     futu_debut_close: float | None = None
     futu_debut_return_pct: float | None = None
+    enrichment_source: str | None = None
+    sponsor: str | None = None
+    stabilizer: str | None = None
+    clawback_pct: float | None = None
+    futu_grey_market_return_pct: float | None = None
 
 
 class TableParser(HTMLParser):
@@ -93,9 +100,13 @@ class TableParser(HTMLParser):
                 self._current_table = None
 
 
-def fetch_url(url: str, timeout: int = 30) -> str:
+def fetch_url(url: str, timeout: int = 30, insecure_tls: bool = False) -> str:
+    command = ["curl", "-L", "--max-time", str(timeout), "-A", USER_AGENT, "-sS"]
+    if insecure_tls:
+        command.append("-k")
+    command.append(url)
     completed = subprocess.run(
-        ["curl", "-L", "--max-time", str(timeout), "-A", USER_AGENT, "-sS", url],
+        command,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -136,6 +147,11 @@ def normalize_listing_date(value: str) -> str | None:
 def to_futu_hk_code(code: str) -> str:
     match = re.fullmatch(r"(\d{5})\.HK", code.strip())
     return f"HK.{match.group(1)}" if match else code.strip()
+
+
+def normalize_hk_numeric_code(code: str) -> str:
+    match = re.search(r"(\d{5})", code.strip())
+    return match.group(1) if match else code.strip()
 
 
 def split_name_code(value: str) -> tuple[str, str]:
@@ -376,6 +392,74 @@ def apply_futu_debut_returns(
                 time.sleep(delay)
     finally:
         close_futu_context(ctx)
+    return updated
+
+
+def parse_xinguyufu_bool(value: object) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if text in {"有", "yes", "Yes", "YES", "true", "True", "1"}:
+        return "yes"
+    if text in {"无", "no", "No", "NO", "false", "False", "0", "--", "-"}:
+        return "no"
+    return text
+
+
+def fetch_xinguyufu_ipo_row(code: str, base_url: str = XINGUYUFU_IPO_API_URL, timeout: int = 30) -> dict | None:
+    numeric_code = normalize_hk_numeric_code(code)
+    url = f"{base_url}?limit=30&stock={quote(numeric_code)}"
+    payload = json.loads(fetch_url(url, timeout=timeout))
+    rows = payload.get("data") or []
+    for row in rows:
+        if normalize_hk_numeric_code(str(row.get("代码", ""))) == numeric_code:
+            return row
+    return rows[0] if rows else None
+
+
+def apply_xinguyufu_enrichment(
+    samples: list[IpoSample],
+    fetch_row: Callable[[str], dict | None] | None = None,
+    delay: float = 0.1,
+    base_url: str = XINGUYUFU_IPO_API_URL,
+) -> int:
+    if fetch_row is None:
+        fetch_row = lambda code: fetch_xinguyufu_ipo_row(code, base_url=base_url)
+    updated = 0
+    for sample in samples:
+        numeric_code = normalize_hk_numeric_code(sample.code)
+        row = fetch_row(numeric_code)
+        if not row:
+            continue
+        grey_market = row.get("暗盘涨幅_百分比")
+        futu_grey = row.get("富途暗盘_百分比")
+        greenshoe_pct = row.get("绿鞋公开_百分比")
+        cornerstone = parse_xinguyufu_bool(row.get("基石"))
+        sponsor = row.get("保荐人")
+        stabilizer = row.get("稳价人")
+        clawback = row.get("回拨比例_百分比")
+        industry = row.get("行业")
+
+        sample.enrichment_source = "xinguyufu"
+        sample.grey_market_return_pct = parse_number(str(grey_market)) if grey_market is not None else sample.grey_market_return_pct
+        sample.futu_grey_market_return_pct = parse_number(str(futu_grey)) if futu_grey is not None else sample.futu_grey_market_return_pct
+        sample.clawback_pct = parse_number(str(clawback)) if clawback is not None else sample.clawback_pct
+        if greenshoe_pct is not None:
+            parsed_greenshoe_pct = parse_number(str(greenshoe_pct))
+            sample.greenshoe = "yes" if parsed_greenshoe_pct and parsed_greenshoe_pct > 0 else "no"
+        if cornerstone is not None:
+            sample.cornerstone = cornerstone
+        if sponsor not in {None, "", "--", "-"}:
+            sample.sponsor = str(sponsor)
+        if stabilizer not in {None, "", "--", "-"}:
+            sample.stabilizer = str(stabilizer)
+        if industry not in {None, "", "--", "-"}:
+            sample.industry = str(industry)
+        updated += 1
+        if delay > 0 and fetch_row is not None:
+            time.sleep(delay)
     return updated
 
 
@@ -644,6 +728,11 @@ def summarize(samples: list[IpoSample]) -> dict:
     for sample in valid:
         source = sample.debut_return_source
         debut_return_source_counts[source] = debut_return_source_counts.get(source, 0) + 1
+    enrichment_source_counts: dict[str, int] = {}
+    for sample in samples:
+        if sample.enrichment_source:
+            source = sample.enrichment_source
+            enrichment_source_counts[source] = enrichment_source_counts.get(source, 0) + 1
     by_industry = []
     for industry in sorted({sample.industry for sample in valid}):
         industry_returns = [sample.debut_return_pct for sample in valid if sample.industry == industry and sample.debut_return_pct is not None]
@@ -668,6 +757,7 @@ def summarize(samples: list[IpoSample]) -> dict:
         "sample_count": len(samples),
         "valid_debut_return_count": len(valid),
         "debut_return_source_counts": debut_return_source_counts,
+        "enrichment_source_counts": enrichment_source_counts,
         "win_rate": len([value for value in returns if value > 0]) / len(returns) if returns else None,
         "avg_return_pct": mean(returns),
         "median_return_pct": median(returns),
@@ -678,6 +768,9 @@ def summarize(samples: list[IpoSample]) -> dict:
             "greenshoe": len([sample for sample in samples if sample.greenshoe is not None]),
             "cornerstone": len([sample for sample in samples if sample.cornerstone is not None]),
             "grey_market": len([sample for sample in samples if sample.grey_market_return_pct is not None]),
+            "futu_grey_market": len([sample for sample in samples if sample.futu_grey_market_return_pct is not None]),
+            "stabilizer": len([sample for sample in samples if sample.stabilizer is not None]),
+            "sponsor": len([sample for sample in samples if sample.sponsor is not None]),
             "market_cap": len([sample for sample in samples if sample.market_cap_mid_hkd_b is not None]),
         },
         "by_heat_bucket": by_bucket,
@@ -704,9 +797,13 @@ def fmt_source_counts(counts: dict[str, int]) -> str:
 
 def render_data_source_note(summary: dict) -> str:
     sources = summary.get("debut_return_source_counts", {})
+    enrichment_sources = summary.get("enrichment_source_counts", {})
+    enrichment_note = ""
+    if enrichment_sources.get("xinguyufu"):
+        enrichment_note = "新股渔夫公开 API 补充绿鞋、基石、暗盘、保荐人和稳价人字段。"
     if sources.get("futu_kline"):
-        return "数据源：AAStocks Listed IPO 页面提供样本清单、发行价、超购和一手中签率；Futu/OpenD 历史日 K 线提供首日收盘价并重算首日涨幅。"
-    return "数据源：AAStocks Listed IPO 页面；字段定义以页面备注为准。"
+        return f"数据源：AAStocks Listed IPO 页面提供样本清单、发行价、超购和一手中签率；Futu/OpenD 历史日 K 线提供首日收盘价并重算首日涨幅。{enrichment_note}"
+    return f"数据源：AAStocks Listed IPO 页面；字段定义以页面备注为准。{enrichment_note}"
 
 
 def render_markdown(summary: dict) -> str:
@@ -718,9 +815,10 @@ def render_markdown(summary: dict) -> str:
         f"- 首日胜率：{fmt_pct(summary['win_rate'])}；破发率：{fmt_pct(summary['break_rate'])}",
         f"- 平均首日涨幅：{fmt_num(summary['avg_return_pct'])}%；中位首日涨幅：{fmt_num(summary['median_return_pct'])}%",
         f"- 首日涨幅来源：{fmt_source_counts(summary['debut_return_source_counts'])}",
+        f"- 补充字段来源：{fmt_source_counts(summary['enrichment_source_counts'])}",
         f"- 多维评分与首日涨幅相关系数：{fmt_num(summary['score_return_correlation'], 3)}",
         f"- 评分排序相关系数：{fmt_num(summary['score_calibration']['score_return_rank_correlation'], 3)}；Top 20% 评分中位首日涨幅 {fmt_num(summary['score_calibration']['top_score_median_return_pct'])}%，Bottom 20% {fmt_num(summary['score_calibration']['bottom_score_median_return_pct'])}%，分差 {fmt_num(summary['score_calibration']['top_bottom_median_spread_pct'])}pct",
-        f"- 字段覆盖：市值 {summary['enrichment_coverage']['market_cap']}/{summary['sample_count']}；绿鞋 {summary['enrichment_coverage']['greenshoe']}/{summary['sample_count']}；基石 {summary['enrichment_coverage']['cornerstone']}/{summary['sample_count']}；暗盘 {summary['enrichment_coverage']['grey_market']}/{summary['sample_count']}",
+        f"- 字段覆盖：市值 {summary['enrichment_coverage']['market_cap']}/{summary['sample_count']}；绿鞋 {summary['enrichment_coverage']['greenshoe']}/{summary['sample_count']}；基石 {summary['enrichment_coverage']['cornerstone']}/{summary['sample_count']}；辉立暗盘 {summary['enrichment_coverage']['grey_market']}/{summary['sample_count']}；富途暗盘 {summary['enrichment_coverage']['futu_grey_market']}/{summary['sample_count']}；稳价人 {summary['enrichment_coverage']['stabilizer']}/{summary['sample_count']}",
         "",
         "## 融资/认购热度分桶",
         "| 热度分桶 | 样本数 | 胜率 | 平均首日涨幅 | 中位首日涨幅 | 破发率 |",
@@ -769,7 +867,7 @@ def render_markdown(summary: dict) -> str:
     lines += [
         "",
         "## 校准建议",
-        "- 当前增强版自动纳入行业启发式分类和市值/估值分桶；绿鞋、基石、暗盘通过 enrichment CSV 纳入。",
+        "- 当前增强版自动纳入行业、市值/估值、绿鞋、基石和暗盘；字段来源可能是公开 API 或 enrichment CSV。",
         "- 当前评分校准仍是同源样本内评估；行业分使用样本分桶启发式，不等同于样本外预测。",
         "- 若 >=1000x 分桶显著跑赢，应保留极端热度加权；若 200-1000x 与 >=1000x 分化不大，应降低边际加分。",
         "- 破发样本需单独复盘行业、估值和发行结构，避免只按热度打分。",
@@ -796,6 +894,8 @@ def main() -> int:
     parser.add_argument("--format", choices=["markdown", "json"], default="markdown")
     parser.add_argument("--csv", help="optional CSV output path for raw samples")
     parser.add_argument("--enrichment-csv", help="optional CSV with code,industry,greenshoe,cornerstone,grey_market_return_pct")
+    parser.add_argument("--enrichment-source", choices=["none", "xinguyufu"], default="none")
+    parser.add_argument("--enrichment-delay", type=float, default=0.1, help="delay between public enrichment API requests")
     parser.add_argument("--debut-price-source", choices=["listed-table", "futu-kline"], default="listed-table")
     parser.add_argument("--futu-host", default="127.0.0.1", help="Futu OpenD host for --debut-price-source futu-kline")
     parser.add_argument("--futu-port", type=int, default=11111, help="Futu OpenD port for --debut-price-source futu-kline")
@@ -803,6 +903,9 @@ def main() -> int:
     args = parser.parse_args()
     try:
         samples = load_aastocks_samples(args.limit, load_enrichment(args.enrichment_csv))
+        if args.enrichment_source == "xinguyufu":
+            updated = apply_xinguyufu_enrichment(samples, delay=args.enrichment_delay)
+            print(f"新股渔夫补充字段覆盖：{updated}/{len(samples)}", file=sys.stderr)
         if args.debut_price_source == "futu-kline":
             updated = apply_futu_debut_returns(
                 samples,

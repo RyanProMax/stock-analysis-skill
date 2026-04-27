@@ -5,7 +5,12 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from hkipo_backtest import IpoSample, apply_futu_debut_returns, summarize_score_calibration
+from hkipo_backtest import (
+    IpoSample,
+    apply_futu_debut_returns,
+    apply_xinguyufu_enrichment,
+    summarize_score_calibration,
+)
 
 
 def make_sample(code: str, odds_score: int, debut_return_pct: float) -> IpoSample:
@@ -76,6 +81,36 @@ class FutuDebutReturnTest(unittest.TestCase):
         self.assertEqual(sample.futu_debut_close, 100.0)
         self.assertEqual(sample.listed_table_debut_return_pct, 10.0)
         self.assertAlmostEqual(sample.debut_return_pct, 25.0)
+
+
+class XinguyufuEnrichmentTest(unittest.TestCase):
+    def test_applies_xinguyufu_structure_and_grey_market_fields(self) -> None:
+        sample = make_sample("02589.HK", 80, 40.0)
+        rows = {
+            "02589": {
+                "暗盘涨幅_百分比": 62.04,
+                "富途暗盘_百分比": 61.5,
+                "绿鞋公开_百分比": 30.0,
+                "基石": "有",
+                "保荐人": "东方融资(香港)",
+                "稳价人": "中信里昂证券",
+                "回拨比例_百分比": 50.0,
+                "行业": "食品饮料",
+            }
+        }
+
+        updated = apply_xinguyufu_enrichment([sample], fetch_row=lambda code: rows.get(code))
+
+        self.assertEqual(updated, 1)
+        self.assertEqual(sample.enrichment_source, "xinguyufu")
+        self.assertEqual(sample.greenshoe, "yes")
+        self.assertEqual(sample.cornerstone, "yes")
+        self.assertEqual(sample.grey_market_return_pct, 62.04)
+        self.assertEqual(sample.futu_grey_market_return_pct, 61.5)
+        self.assertEqual(sample.sponsor, "东方融资(香港)")
+        self.assertEqual(sample.stabilizer, "中信里昂证券")
+        self.assertEqual(sample.clawback_pct, 50.0)
+        self.assertEqual(sample.industry, "食品饮料")
 
 
 if __name__ == "__main__":

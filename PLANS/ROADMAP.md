@@ -38,7 +38,7 @@
 - [x] 港股 IPO 池工作流增加近 100 个已上市 IPO 首日表现回测 MVP
 - [x] 港股 IPO 回测补充评分分桶、排序相关性和高分/低分失配样本
 - [x] 港股 IPO 回测支持用 Futu/OpenD 历史日 K 线重算首日涨幅
-- [ ] 港股 IPO 回测补充绿鞋/基石/暗盘 enrichment 数据源自动抓取
+- [x] 港股 IPO 回测补充绿鞋/基石/暗盘 enrichment 数据源自动抓取
 - [ ] 港股 IPO 池工作流增加稳定的一手来源核验清单
 - [ ] 研究是否接入富途资讯 / 公告 / 研报 / 社区情绪类 skills，补齐文章提到的 Skill Hub 能力
 - [ ] 为跨 skill 能力增加最小验证样例，避免只更新说明不验证路由
@@ -55,3 +55,4 @@
 - 2026-04-27：新增 `scripts/hkipo_backtest.py`，用 AAStocks Listed IPO 页面进行近 100 个港股 IPO 首日表现回测，验证超购热度分桶。
 - 2026-04-28：增强 `scripts/hkipo_backtest.py` 的评分合理性校准，新增评分分桶、评分排序相关性、Top/Bottom 评分分位首日涨幅差和失配样本输出。
 - 2026-04-28：`scripts/hkipo_backtest.py` 支持 `--debut-price-source futu-kline`，用 Futu/OpenD 历史日 K 线重算首日收盘涨幅；最近 100 样本实测覆盖 95/100。
+- 2026-04-28：`scripts/hkipo_backtest.py` 支持 `--enrichment-source xinguyufu`，通过新股渔夫公开 API 补充绿鞋、基石、暗盘、保荐人和稳价人；最近 100 样本实测补充覆盖 97/100。

@@ -113,12 +113,14 @@ python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --format markdow
 The script uses AAStocks Listed IPO fields: listing date, offer/listing price, market-cap range, public over-subscription rate, applied lots for one lot, one-lot success rate, last price, first-day return and accumulated return. When OpenD is logged in, use Futu historical daily K-line to recompute first-day close returns:
 
 ```bash
-.venv/bin/python scripts/hkipo_backtest.py --limit 100 --source aastocks --debut-price-source futu-kline --format markdown
+.venv/bin/python scripts/hkipo_backtest.py --limit 100 --source aastocks --enrichment-source xinguyufu --debut-price-source futu-kline --format markdown
 ```
 
-AAStocks still provides the recent listed IPO sample list and offer price. Futu `get_ipo_list(HK)` covers current IPOs only; it is not a recent-100 listed IPO history source and does not provide historical greenshoe, cornerstone or grey-market fields. The report includes total win rate, average/median first-day return, break rate, heat buckets, score buckets, industry buckets, valuation/market-cap buckets, score/return correlation, score rank correlation, top-vs-bottom score quintile spread, and high-score loser / low-score winner mismatch samples.
+AAStocks still provides the recent listed IPO sample list and offer price. Futu `get_ipo_list(HK)` covers current IPOs only; it is not a recent-100 listed IPO history source and does not provide historical greenshoe, cornerstone or grey-market fields. Use `--enrichment-source xinguyufu` to fetch public Xinguyufu API rows by stock code for greenshoe, cornerstone, grey-market, sponsor and stabilizer fields. This follows the open-source AKShare-style pattern of requesting public financial web pages / JSON with a browser user-agent and mapping fields explicitly.
 
-Industry is inferred heuristically from the company name by default. Greenshoe, cornerstone and grey-market fields are supported through an optional enrichment CSV:
+The report includes total win rate, average/median first-day return, break rate, heat buckets, score buckets, industry buckets, valuation/market-cap buckets, score/return correlation, score rank correlation, top-vs-bottom score quintile spread, and high-score loser / low-score winner mismatch samples.
+
+Industry is inferred heuristically from the company name by default unless enrichment supplies an industry field. Greenshoe, cornerstone and grey-market fields are also supported through an optional enrichment CSV:
 
 ```bash
 python3 scripts/hkipo_backtest.py --limit 100 --enrichment-csv data/hkipo_enrichment.csv

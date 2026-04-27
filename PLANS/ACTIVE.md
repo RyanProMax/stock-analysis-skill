@@ -270,6 +270,41 @@ Review status:
 
 - passed
 
+### M12 — 补全绿鞋/基石/暗盘 enrichment 并回测
+
+Status: `done`
+
+Scope:
+
+- 参考 AKShare 的公开网页数据接口实现方式，新增可选公开数据源 enrichment
+- 扩展 `scripts/hkipo_backtest.py`：支持按代码从新股渔夫公开 API 补绿鞋、基石、暗盘、保荐人和稳价人字段
+- 保持 AAStocks 作为样本清单，Futu/OpenD 作为首日 K 线来源
+- 新增最小回归测试覆盖 enrichment 字段映射
+- 更新 `README.md` / `SKILL.md` / `references/hkipo.md` 的命令和数据源边界
+- 更新 `PLANS/ACTIVE.md` / `PLANS/ROADMAP.md`，记录补全覆盖率和回测结果
+
+Validation:
+
+- `python3 -m unittest tests/test_hkipo_backtest.py`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `.venv/bin/python scripts/hkipo_backtest.py --limit 100 --source aastocks --enrichment-source xinguyufu --debut-price-source futu-kline --format markdown`
+- `git diff --check`
+
+Progress:
+
+- 2026-04-28 北京时间：开始按用户要求参考开源实现补全数据源。已确认 AKShare `stock_ipo_hk_ths` 的模式是带浏览器 UA 抓公开页面并抽取表格；新股渔夫公开页面暴露 `/api/ipo` JSON 字段，可按单个代码查询绿鞋、基石、暗盘等字段。
+- 2026-04-28 北京时间：已新增 `--enrichment-source xinguyufu`，逐票按代码补充绿鞋、基石、辉立暗盘、富途暗盘、保荐人、稳价人、回拨和行业字段。
+- 2026-04-28 北京时间：100 样本实测：新股渔夫补充字段覆盖 97/100；Futu/OpenD 首日 K 线覆盖 95/100。
+- 2026-04-28 北京时间：补全字段后的评分校准结果：评分排序相关系数 0.579；Top 20% 评分中位首日涨幅 87.26%，Bottom 20% 为 -0.12%；80-89 分桶胜率 95.0%、中位首日涨幅 88.02%。
+
+Validation status:
+
+- passed
+
+Review status:
+
+- passed
+
 ## Progress
 
 - 2026-04-27：移除旧 `docs/plan.md`，统一使用 `PLANS/`。
@@ -305,6 +340,10 @@ Review status:
 - 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
 - 已通过：`.venv/bin/python scripts/hkipo_backtest.py --limit 100 --source aastocks --debut-price-source futu-kline --format markdown`
 - 已通过：`git diff --check`
+- 已通过：`python3 -m unittest tests/test_hkipo_backtest.py`
+- 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
+- 已通过：`.venv/bin/python scripts/hkipo_backtest.py --limit 100 --source aastocks --enrichment-source xinguyufu --debut-price-source futu-kline --format markdown`
+- 已通过：`git diff --check`
 
 ## Handoff
 
@@ -321,3 +360,4 @@ Review status:
 - M9 已完成：`SKILL.md` 按 skill 编写要求精简为路由规范；description 改为触发条件描述；只读边界、订阅、导出和文档生成表述已同步。
 - M10 已完成：`hkipo_backtest.py` 已能按评分分桶、评分排序相关性和失配样本评估评分与首日涨幅的一致性；最近 100 样本验证显示评分方向基本合理，但绿鞋 / 基石 / 暗盘仍需 enrichment 数据源补齐。
 - M11 已完成：`hkipo_backtest.py` 已支持 Futu/OpenD 历史日 K 线重算首日收盘涨幅；最近 100 样本实测覆盖 95/100，Futu 重算后评分方向仍基本合理。
+- M12 已完成：`hkipo_backtest.py` 已支持新股渔夫公开 API enrichment；最近 100 样本补充字段覆盖 97/100，绿鞋 80/100、基石 97/100、辉立暗盘 97/100、富途暗盘 95/100，结合 Futu K 线后的评分排序相关系数 0.579。
