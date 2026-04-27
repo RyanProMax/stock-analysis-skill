@@ -5,6 +5,7 @@
 这是一个根目录单一 `stock-analysis-skill` 仓库。当前只保留三类能力说明：
 
 - `CLI 使用技能`：直接消费 `stock-analysis-api` 仓库中的内部 CLI
+- `Futu/OpenD 使用技能`：路由到已安装的 `futuapi` / `install-futu-opend` skills
 - `Tushare 使用技能`：保留 Tushare 本地工具与接口参考资产
 - `Slash Commands`：通过 `commands.json` + `commands/*.py` 暴露 IPO 池类命令
 
@@ -16,7 +17,9 @@
 - `scripts/tushare_toolkit.py`: `.env` 加载、Tushare 初始化、代码标准化与参考文档生成
 - `references/cli.md`: CLI 使用说明、JSON 结构、汇总规则、固定模板
 - `references/api_reference.md`: Tushare 接口总表
-- `docs/plan.md`: 当前任务、进展、验证结果
+- `references/futu.md`: Futu/OpenD 路由与输出 Contract
+- `PLANS/ROADMAP.md`: 跨轮次长期跟进项与整合路线
+- `PLANS/ACTIVE.md`: 当前复杂任务目标、milestone、验证与 handoff
 - `.env.example`: 本地环境变量模板
 
 当前架构要点：
@@ -25,21 +28,30 @@
 - 标准化 quote / analyze 能力统一直接消费 `stock-analysis-api`：
   - `scripts/poll_realtime_quotes.py`
   - `scripts/stock_analyze.py`
-- 单票分析、单票研报摘要、标准化实时行情默认先走 CLI，不先走 Tushare
+- 单票分析、单票研报摘要、A 股标准化实时行情默认先走 CLI，不先走 Futu 或 Tushare
+- 港 / 美 / 多市场行情、盘口、期权、账户、持仓、订单、订阅默认路由到 Futu/OpenD skills
 - IPO 池类命令允许通过 `commands.json` + `commands/*.py` 暴露；复杂研究型 command 优先输出结构化提示词，由宿主 Agent 继续完成联网分析
 - 本仓库不再维护对应 wrapper 脚本
 - Tushare 本地辅助能力统一收口到 `scripts/tushare_toolkit.py`
 - `references/cli.md` 是唯一 CLI 使用说明
 - `references/api_reference.md` 是唯一 Tushare 接口总表
+- Futu/OpenD 能力只通过已安装 skills 路由，本仓库不复制富途脚本、不保存交易密码、不默认执行实盘交易
 
 ## Task Workflow
 
 每次任务都必须遵循下面的顺序：
 
-1. 开始任务前，先更新 `docs/plan.md`，写清楚任务目标、计划改动和当前进度。
-2. 实现过程中持续回填 `docs/plan.md` 的 `Progress` 和 `Validation`。
-3. 任务完成后，重新梳理当前项目架构并更新到本文件。
-4. 每次完成任务必须提交一次 commit，不把多个已完成任务混在同一个 commit 里。
+1. 所有任务统一使用 `PLANS/`；先看 `PLANS/ROADMAP.md`，再更新 `PLANS/ACTIVE.md`。
+2. 若 `PLANS/ACTIVE.md` 不存在，先创建；不要再使用 `docs/plan.md`。
+3. `PLANS/ACTIVE.md` 是复杂任务执行期间的单一真相源；一次只允许一个 milestone 处于 `in_progress`。
+4. 实现过程中持续回填 active plan 的 `Progress` 和 `Validation`；未完成但需跨轮次追踪的事项同步回写 `PLANS/ROADMAP.md`。
+5. 任务完成后，重新梳理当前项目架构并按需更新到本文件。
+6. 每次完成任务必须提交一次 commit，不把多个已完成任务混在同一个 commit 里；若上层执行环境禁止自动提交，则在收尾说明中明确未提交。
+
+## Timezone Convention
+
+- 面向用户展示任务时间、轮询时间、下一次运行时间时，默认使用北京时间（Asia/Shanghai, UTC+8）。
+- 若底层调度或数据库存储使用 UTC，回复用户时必须转换为北京时间并标注“北京时间”。
 
 ## Build, Test, and Development Commands
 
@@ -77,7 +89,7 @@
 提交信息保持短而直接，优先中文动宾结构。一次提交只解决一个已完成任务。PR 需要说明：
 
 - 改了什么能力或结构
-- 是否更新了 `docs/plan.md`
+- 是否更新了 `PLANS/ACTIVE.md` / `PLANS/ROADMAP.md`
 - 是否影响 `SKILL.md` / `references/cli.md` / `references/api_reference.md`
 - 若改了 CLI 使用说明，附一段对应命令示例
 

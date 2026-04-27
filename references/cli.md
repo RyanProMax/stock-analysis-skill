@@ -6,17 +6,18 @@
 
 ## 默认选择规则
 
-以下请求默认直接走 CLI，不先走 Tushare：
+以下请求默认直接走 CLI，不先走 Futu 或 Tushare：
 
 - 单票客观分析
 - 单票研报摘要
 - 单票“最近怎么样”
-- 标准化实时行情轮询
+- A 股股票 / ETF 标准化实时行情轮询
 
 示例：
 
 - “查 300627 的研报” 默认走 `stock_analyze.py`
 - 只有“查 300627 的原始 report_rc 记录”才走 Tushare 直连
+- 港 / 美 / 多市场 watchlist、盘口、逐笔、分时、K 线、订阅推送见 `references/futu.md`
 
 ## 环境变量
 
