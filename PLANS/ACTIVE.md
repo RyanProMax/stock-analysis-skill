@@ -179,6 +179,27 @@ Blockers:
 
 - 无。
 
+
+### M9 — 优化 skill md 说明
+
+Status: `done`
+
+Scope:
+
+- 优化 `SKILL.md` 的 frontmatter description，使其只描述触发条件，不复述执行流程
+- 收敛 `SKILL.md` / `README.md` / `AGENTS.md` / `references/*.md` 中只读边界、订阅和导出表述
+- 保留 CLI、Futu/OpenD、Tushare、Slash Commands 四类路由，但减少重复说明并改为引用 owner reference
+
+Validation:
+
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- 人工检查 `SKILL.md` / `README.md` / `AGENTS.md` / `references/cli.md` / `references/futu.md` 的路由和只读约束一致
+
+Progress:
+
+- 2026-04-28 00:38 北京时间：开始按 skill 编写要求优化 md 说明，优先处理 description、重复说明和只读边界冲突。
+- 2026-04-28 00:38 北京时间：已完成 `SKILL.md` 精简、frontmatter description 调整，并同步 `README.md` / `AGENTS.md` / `references/cli.md` / `references/futu.md` 的只读边界表述。
+
 ## Progress
 
 - 2026-04-27：移除旧 `docs/plan.md`，统一使用 `PLANS/`。
@@ -201,6 +222,9 @@ Blockers:
 - 已通过：确认 `PLANS/ACTIVE.md` 中没有进行中的 milestone
 - 已通过：`.venv/bin/python /Users/ryan/.agents/skills/futuapi/scripts/quote/get_ipo_list.py HK --json`
 - 已通过：人工检查 `SKILL.md` / `README.md` / `AGENTS.md` / `references/futu.md` 的 Futu/OpenD 说明已统一为只读查询，且不再保留实盘/模拟交易执行路径
+- 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
+- 已通过：`rg -n "订阅默认|订阅推送见|自定义导出|文档生成任务|三类能力|价格提醒联动|原始 Tushare 字段或导出" SKILL.md README.md AGENTS.md references/*.md PLANS/*.md` 无命中
+- 已通过：`git diff --check`
 
 ## Handoff
 
@@ -214,3 +238,4 @@ Blockers:
 - M7 已完成：回测加入行业启发式分类、市值/估值分桶，并支持通过 enrichment CSV 补充绿鞋、基石、暗盘。
 - M8 已完成：Futu/OpenD 登录后只读 IPO 查询验证通过；`stock-analysis-skill` 已增加全局只读护栏，禁止任何写入、编辑、下单、订阅或交易解锁行为。
 - 下一轮可在只读边界内继续补 quote / IPO / 持仓查询类封装或输出模板。
+- M9 已完成：`SKILL.md` 按 skill 编写要求精简为路由规范；description 改为触发条件描述；只读边界、订阅、导出和文档生成表述已同步。

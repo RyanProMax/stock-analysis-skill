@@ -17,7 +17,7 @@
 
 - “查 300627 的研报” 默认走 `stock_analyze.py`
 - 只有“查 300627 的原始 report_rc 记录”才走 Tushare 直连
-- 港 / 美 / 多市场 watchlist、盘口、逐笔、分时、K 线、订阅推送见 `references/futu.md`
+- 港 / 美 / 多市场 watchlist、盘口、逐笔、分时、K 线、市场状态见 `references/futu.md`
 
 ## 环境变量
 

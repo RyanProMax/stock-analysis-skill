@@ -1,278 +1,120 @@
 ---
 name: stock-analysis-skill
-description: 面向中文自然语言的股票分析技能。优先通过 `stock-analysis-api` 的标准 CLI 获取客观分析与低 token 行情结果；同时保留 Tushare 原始数据能力、Futu/OpenD 多市场行情与交易路由能力，并提供 IPO 池类 slash command 工作流。
+description: Use when users ask in Chinese or natural language for stock objective analysis, realtime quotes, research-report summaries, HK IPO pool screening, raw Tushare data, or read-only Futu/OpenD market/account queries.
 metadata:
-  version: 2.1.0
+  version: 2.1.1
 ---
 
 # stock-analysis-skill
 
-这是一个单一 skill，但当前只保留四类能力说明：
+`stock-analysis-skill` 是股票任务的意图路由与输出约束，不是行情、分析或交易实现源。当前只保留四类入口：
 
-- `CLI 使用技能`
-- `Futu/OpenD 使用技能`
-- `Tushare 使用技能`
-- `Slash Commands`
-
-不要再把这个仓库当成 quote / analyze / trade 的实现源。标准化客观分析和标准化 A 股实时行情，统一直接消费 `stock-analysis-api` 的 CLI；Futu/OpenD 能力通过已安装的 `futuapi` / `install-futu-opend` skills 路由。
+- `CLI 使用技能`：标准化 A 股客观分析、单票研报摘要、A 股 / ETF 低 token 实时行情。
+- `Futu/OpenD 使用技能`：港 / 美 / 多市场行情、深度行情、衍生品、账户 / 持仓 / 订单等只读查询。
+- `Tushare 使用技能`：用户明确要求的原始 Tushare 接口、字段、时间窗或接口查阅。
+- `Slash Commands`：`/hkipo` 港股 IPO 池研究工作流；`/cnipo` 目前占位。
 
 ## 全局只读护栏
 
-本 skill 只允许查询操作。无论用户是否已经登录 OpenD、是否处于模拟账户、是否明确要求，都禁止任何写入、编辑、下单或交易状态变更行为。
+运行时使用本 skill 时只允许查询和结果展示；不得产生任何账户、订单、订阅、配置、自选股、提醒或本地文件状态变更。
 
-- 允许：行情、K 线、盘口、逐笔、分时、IPO 列表、期权链、账户、资金、持仓、订单、成交、流水等只读查询。
-- 禁止：下单、改单、撤单、交易解锁、订阅推送、创建 / 修改价格提醒、写入 watchlist、刷新或生成参考文档、导出到文件、修改配置、修改账户状态。
-- 遇到写入 / 编辑 / 下单请求时，必须拒绝执行，并说明本 skill 仅支持只读查询；不要调用 `futuapi` 的 `trade/place_order.py`、`trade/modify_order.py`、`trade/cancel_order.py` 或任何会产生状态变更的脚本。
-- 如确需使用 `futuapi`，只能选择 quote 类脚本和 trade 类只读查询脚本；账户相关结果必须最小化展示敏感信息。
-
-## Slash Commands
-
-当前仓库额外提供一层 skill command 入口，供 cli-claw 这类宿主在 slash command 上直接调用：
-
-- `/hkipo`: 自动发现当前“可认购 + 已截止认购但未上市”的港股 IPO 池，并按评分卡输出简明优先级报告
-- `/cnipo`: 预留 A 股 IPO 指令位，当前只返回占位说明
-
-这些 command 不等价于 `stock-analysis-api` CLI：
-
-- `/hkipo` 是 IPO 池研究工作流，不要求用户先给代码
-- 当前 `stock-analysis-api` 的标准 `stock_analyze.py` 仍以 `cn/us` 为主，不负责港股 IPO 状态发现
-- `/hkipo` 事实层必须依赖当前联网检索到的 HKEX / 公司公告等一手来源；财经站只补充认购倍数、中签率、灰市、首日涨幅等二级数据
-- `/hkipo` 必须读取 `references/hkipo.md`，使用 0-100 首日赔率评分卡，优先覆盖融资/认购热度、发行结构、回测适配，再覆盖基本面、估值、证据质量
-- `/hkipo` 必须检查绿鞋 / 超额配股权、稳定价格操作人、基石质量与占比、保荐人、回拨和公众货比例
-- `/hkipo` 默认输出简明报告：结论先行、单表评分总览、回测校准、Sources；不要输出单独“简评”章节，维度细节整合进表格
-- 需要校准权重时，运行 `python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --format markdown` 获取近 100 个已上市港股 IPO 的首日表现分桶
+- 允许：行情、K 线、盘口、逐笔、分时、IPO、期权链、账户、资金、持仓、订单、成交、流水等只读查询。
+- 禁止：下单、改单、撤单、交易解锁、订阅推送、创建 / 修改价格提醒、写入 watchlist、修改配置、导出文件或任何其他写入动作。
+- 用户请求写入 / 编辑 / 下单 / 订阅 / 解锁时，必须拒绝执行；不得用模拟账户、已登录 OpenD 或用户二次确认作为绕过理由。
+- 仓库维护例外：只有在用户明确要求维护本仓库文档 / 脚本时，才允许运行会更新本仓库文件的维护命令，例如 `scripts/tushare_toolkit.py generate-docs`。
+- 不输出买卖建议、目标价、主观 conviction、`recommendation`、`confidence`、`price_target`、`thesis`。
+- 账户、资金、持仓等敏感信息按最小必要原则展示。
 
 ## 路由优先级
 
-先判断是不是“标准化分析 / 标准化行情”问题，再按能力边界决定进入 `CLI 使用技能`、`Futu/OpenD 使用技能`、`Tushare 使用技能` 或 `Slash Commands`。
+先判断用户意图，再选择唯一主路由；不要为同一个问题同时散开到多个数据源。
 
-### 默认必须先走 CLI 的场景
+| 用户意图 | 默认路由 | 关键边界 |
+| --- | --- | --- |
+| `/hkipo` | `Slash Commands` | 自动发现港股 IPO 池，按 `references/hkipo.md` 评分 |
+| `/cnipo` | `Slash Commands` | 当前只返回占位说明 |
+| 单票客观分析、研报式摘要、“最近怎么样” | `CLI 使用技能` | 默认走 `stock_analyze.py`，不直接查原始 `report_rc` |
+| A 股股票 / ETF 低 token 实时行情 | `CLI 使用技能` | 默认走 `poll_realtime_quotes.py` |
+| 港 / 美 / 多市场行情、盘口、逐笔、分时、K 线、期权、持仓、订单等只读查询 | `Futu/OpenD 使用技能` | 仅限只读；OpenD 问题转 `install-futu-opend` |
+| 原始 Tushare 数据、接口清单、自定义字段或时间窗 | `Tushare 使用技能` | 只有用户明确要求原始接口时才使用 |
 
-以下请求默认必须先走 `CLI 使用技能`，不要先走 Futu 或 Tushare：
+明确例外：
 
-- 单只股票的客观分析
-- 单只股票的“研报 / 研究摘要 / 最新看法 / 客观结论”
-- “帮我看 300627 最近怎么样”
-- “帮我查 300627 的研报”
-- “给我 300627 的客观分析结果”
-- A 股股票 / ETF 的低 token 实时行情轮询
-
-这些请求的默认目标是：
-
-- 标准化结果
-- 固定模板
-- 稳定 JSON contract
-
-所以应先调用：
-
-- `scripts/stock_analyze.py`
-- `scripts/poll_realtime_quotes.py`
-
-### 只有这些情况才走 Tushare
-
-只有在以下场景，才优先进入 `Tushare 使用技能`：
-
-- 用户明确要求原始 Tushare 接口数据
-- 用户明确点名 `report_rc`、`research_report`、`news` 等接口
-- 用户要自定义字段、自定义时间窗、自定义导出
-- 用户要查接口列表、生成参考文档、研究 Tushare 能力边界
-- CLI 无法覆盖当前需求，且需要继续深挖原始数据
-
-### 明确例外
-
-- “查 300627 的研报” 默认按 `stock_analyze.py` 处理，不默认按 `report_rc` 原始接口处理
-- 只有当用户明确说“我要原始券商研报记录 / 原始 report_rc 数据”时，才改走 Tushare
-- `/hkipo` 属于 skill-native IPO 池工作流：默认先发现当前港股 IPO 池，再按 `references/hkipo.md` 做首日赔率评分、融资倍数热度评估、绿鞋/基石检查、首日回测校准和单表简明优先级输出，不要求用户提供股票代码
-- `/cnipo` 当前只占位，不进入真实分析
+- “查 300627 的研报”默认走 `stock_analyze.py`；只有“原始券商研报记录 / 原始 report_rc 数据”才走 Tushare。
+- A 股 watchlist 只需现价、涨跌幅、全量快照或简单异动提醒时，默认仍走 `poll_realtime_quotes.py`。
+- 混合市场 watchlist、带 `HK.` / `US.` 等前缀，或需要盘口、逐笔、分时、K 线时，走 `Futu/OpenD 使用技能`。
 
 ## CLI 使用技能
 
-### 适用场景
+适用于标准化结果、固定模板和稳定 JSON contract。执行前确认：
 
-以下场景优先直接调用 `stock-analysis-api`：
+1. `STOCK_ANALYSIS_API_ROOT` 指向 `stock-analysis-api` 仓库根目录。
+2. `uv` 可用。
+3. API 仓库存在 `scripts/poll_realtime_quotes.py` 与 `scripts/stock_analyze.py`。
+4. A 股数据所需的 `TUSHARE_TOKEN` / `TUSHARE_HTTP_URL` 可被 API 仓库读取。
 
-- 获取指定股票的客观分析结果
-- 获取指定股票的研报式客观摘要
-- 获取一组 A 股 / ETF 的低 token 实时行情
-- 需要稳定 JSON contract，而不是自由文本
-- 需要固定模板汇总结果，而不是临时发挥
-
-### 环境检查
-
-执行前先检查：
-
-1. `STOCK_ANALYSIS_API_ROOT` 已配置，且指向 `stock-analysis-api` 仓库根目录
-2. `uv` 可用
-3. `stock-analysis-api` 仓库中存在：
-   - `scripts/poll_realtime_quotes.py`
-   - `scripts/stock_analyze.py`
-4. 若查询 A 股数据，确认 API 仓库可读取 `TUSHARE_TOKEN` / `TUSHARE_HTTP_URL`
-
-推荐 `.env`：
-
-```bash
-STOCK_ANALYSIS_API_ROOT="/absolute/path/to/stock-analysis-api"
-TUSHARE_TOKEN="your_token_here"
-TUSHARE_HTTP_URL=""
-```
-
-### 标准命令
-
-实时行情：
+标准命令：
 
 ```bash
 cd "$STOCK_ANALYSIS_API_ROOT" && uv run python scripts/poll_realtime_quotes.py --symbols 600000,510300 --pretty
-```
-
-客观分析：
-
-```bash
 cd "$STOCK_ANALYSIS_API_ROOT" && uv run python scripts/stock_analyze.py --market cn --symbols 300827 --mode base --pretty
 ```
 
-### 固定模板
-
-默认不要直接把 raw JSON 原样塞给用户；优先按固定模板汇总。
-
-#### realtime quote 模板
-
-- `请求`
-- `结果摘要`
-- `逐标的行情`
-- `降级与异常`
-
-汇总规则：
-
-- 顶层摘要只看 `summary.ok / summary.failed`
-- 单标的内容只看 `items[]`
-- `quote_data.mode != realtime` 或 `item.status != ok` 必须进入“降级与异常”
-- `change_pct / turnover_rate / amplitude` 一律按 ratio 解读
-
-#### objective analyze 模板
-
-- `请求`
-- `执行状态`
-- `客观分析摘要`
-- `模块摘要`
-- `降级与限制`
-
-汇总规则：
-
-- 主摘要只取 `data.items[0].summary.research_strategy`
-- 必须按固定 8 项输出：
-  - `expectations_vs_reported`
-  - `fundamental_quality`
-  - `valuation_context`
-  - `catalyst_path`
-  - `price_action_confirmation`
-  - `cross_signal_alignment`
-  - `risk_flags`
-  - `evidence_strength`
-- 模块状态只取 `item.meta.modules`
-- 禁止把源端字段升级成主观建议，不输出：
-  - `recommendation`
-  - `confidence`
-  - `price_target`
-  - `thesis`
-  - `conviction`
-
-详细 JSON 结构、字段说明、模板示例统一见 `references/cli.md`。
+输出规则统一见 `references/cli.md`。默认不要原样转贴 raw JSON；除非用户明确要求调试或原始输出，优先按固定模板汇总。`change_pct`、`turnover_rate`、`amplitude` 等 ratio 字段面向用户展示为百分比。
 
 ## Futu/OpenD 使用技能
 
-### 适用场景
+适用于 `HK.` / `US.` 等多市场代码、深度行情、期权链、窝轮 / 牛熊证、期货资料、资金流、板块、条件选股、账户、资金、持仓、订单、成交和流水等只读查询。
 
-以下场景优先路由到已安装的 `futuapi` skill；若 OpenD 未安装、未启动或 SDK 版本不满足要求，再路由到 `install-futu-opend`：
+进入该路由前确认：
 
-- 港股 / 美股 / 多市场行情快照、报价、K 线、分时、盘口、逐笔成交、市场状态
-- 期权链、到期日、Greeks、窝轮 / 牛熊证、期货资料
-- 资金流、资金分布、经纪队列、板块列表、板块成分股、条件选股
-- 账户、资金、持仓、订单、成交、资金流水等只读查询
-- 用户明确要求通过 Futu/OpenD 查询
+1. `futuapi` skill 已安装并可加载。
+2. OpenD 正在运行，默认地址 `127.0.0.1:11111`。
+3. Python SDK `futu-api` 版本满足 `futuapi` skill 要求。
+4. 请求不涉及交易、订阅、提醒、自选股、配置或本地文件写入。
 
-### 环境检查
-
-进入 Futu/OpenD 路由前先确认：
-
-1. `futuapi` skill 已安装并可被当前宿主加载
-2. OpenD 正在运行，默认地址 `127.0.0.1:11111`
-3. Python SDK `futu-api` 版本满足 `futuapi` skill 要求
-4. 仅允许只读查询；不得执行任何交易、订阅或写入类动作
-
-### 路由边界
-
-- A 股标准化客观分析、A 股低 token quote、固定模板研究摘要：默认仍回到 `CLI 使用技能`
-- A 股 watchlist 只需要现价、涨跌幅、全量快照、简单异动提醒时：默认走 `poll_realtime_quotes.py`
-- 混合市场 watchlist、带 `HK.` / `US.` 等前缀代码，或需要盘口、逐笔、分时、K 线查询时：走 `Futu/OpenD 使用技能`
-- 原始 Tushare 接口、接口清单、自定义字段导出：走 `Tushare 使用技能`
-- 港 / 美 / 多市场盘口、期权、账户、持仓、订单等只读查询：走 `Futu/OpenD 使用技能`
-- OpenD 下载、安装、升级、启动、SDK 升级：走 `install-futu-opend`
-
-### 只读安全
-
-- 只允许查询操作；模拟交易也不允许下单、改单、撤单或订阅推送
-- 禁止要求、保存或代填交易密码；禁止通过 SDK 或脚本调用交易解锁
-- 禁止调用任何会改变账户、订单、订阅、自选股、提醒、配置或本地文件状态的 Futu/OpenD 脚本
-- 用户请求写入、编辑、下单、撤单、改单、订阅或解锁时，必须拒绝执行并说明本 skill 仅支持只读查询
+OpenD 未安装、未启动或 SDK 版本不满足时，转入 `install-futu-opend`。输出 contract、watchlist 选路、失败降级和拒绝模板统一见 `references/futu.md`。
 
 ## Tushare 使用技能
 
-### 适用场景
+仅在用户明确要求原始 Tushare 数据或接口能力时使用，例如：
 
-以下场景使用本仓库自带的 Tushare 能力：
+- 点名 `report_rc`、`research_report`、`news` 等接口。
+- 要求自定义字段、自定义时间窗或接口清单。
+- CLI 无法覆盖当前需求，且需要继续深挖原始数据。
 
-- 用户明确要求原始 Tushare 数据，而不是标准化分析结论
-- 查询和整理 Tushare 接口
-- 做自定义数据研究
-- 生成或刷新本地接口总表
-- 直接围绕 Tushare 组织研究工作流
+原则：
 
-### 环境检查
+- 单票分析、单票研报摘要、A 股标准化实时行情，默认回到 `CLI 使用技能`。
+- 数据权限不够或接口返回为空时，直接说明限制，不伪造。
+- 面向用户的查询默认只在回复中展示结果，不写文件、不导出。
+- `scripts/tushare_toolkit.py generate-docs` 只用于仓库维护任务；接口总表见 `references/api_reference.md`。
 
-执行前先检查：
+## Slash Commands
 
-1. Python 可用
-2. `tushare` 已安装
-3. `TUSHARE_TOKEN` 已配置；如需覆盖接口地址，再配置 `TUSHARE_HTTP_URL`
+- `/hkipo`：自动发现当前“可认购 + 已截止认购但未上市”的港股 IPO 池，并按评分卡输出简明优先级报告。
+- `/cnipo`：预留 A 股 IPO 指令位，当前只返回占位说明。
 
-若缺失 token，最短修复路径：
+`/hkipo` 要求：
 
-```bash
-TUSHARE_TOKEN=your_token
-TUSHARE_HTTP_URL=
-```
+- 读取 `references/hkipo.md`，使用 0-100 首日赔率评分卡。
+- 事实层优先依赖当前联网检索到的 HKEX / 公司公告等一手来源；财经站只补充认购倍数、中签率、灰市、首日涨幅等二级数据。
+- 必须检查绿鞋 / 超额配股权、稳定价格操作人、基石质量与占比、保荐人、回拨和公众货比例。
+- 默认输出简明报告：结论先行、单表评分总览、回测校准、Sources；维度细节整合进表格，不单列“简评”。
+- 需要校准权重时运行：`python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --format markdown`。
 
-### 本地工具
+## 输出要求
 
-生成 / 刷新接口总表：
-
-```bash
-python scripts/tushare_toolkit.py generate-docs
-```
-
-说明：
-
-- `scripts/tushare_toolkit.py` 负责 `.env` 加载、Tushare 初始化、参考文档生成
-- `references/api_reference.md` 是当前唯一 Tushare 接口总表
-
-### 使用原则
-
-- 单票分析 / 单票研报 / 单票客观总结，默认回到 `CLI 使用技能`
-- 先理解任务，再选接口
-- 数据权限不够时要明确说限制，不要硬编
-- 缺失数据时宁可说明为空，也不要伪造
-- 需要标准化客观分析或标准化实时行情时，回到 `CLI 使用技能`
-
-## What This Skill Is Not For
-
-- 不直接给买卖建议或替代投资顾问
-- 不下单、不改单、不撤单、不订阅推送、不解锁交易；即使用户明确要求也不得路由到 Futu/OpenD 写入或交易能力
-- 不输出主观 thesis、confidence 或 target price
-- 不在没有权限或数据的情况下伪造结果
+- 结论先行，只输出影响用户决策、验收或下一步行动的信息。
+- 面向用户展示时间默认使用北京时间（Asia/Shanghai, UTC+8）。
+- 明确标注数据源、请求标的、成功 / 失败 / 降级状态。
+- 源端不可用、权限不足或结果缺失时，说明限制，不补编。
+- 财务与账户相关结果只做事实汇总和风险提示，不替代投资顾问。
 
 ## References
 
 - CLI 使用说明：`references/cli.md`
+- 港股 IPO 评分与回测：`references/hkipo.md`
 - Tushare 接口总表：`references/api_reference.md`
 - Futu/OpenD 路由与输出 Contract：`references/futu.md`
 - Futu/OpenD 能力：已安装的 `futuapi` 与 `install-futu-opend` skills
