@@ -122,6 +122,28 @@ Progress:
 - 2026-04-27：用户确认开始实现自动回测 MVP；优先使用 AAStocks Listed IPO 页面，因为其公开字段含上市日、发行价、超购倍数、一手中签率和首日涨幅。
 - 2026-04-27：100 样本回测已跑通：有效首日涨幅 97 个，胜率 75.3%，中位首日涨幅 16.22%，>=1000x 超购分桶胜率 92.2%、中位首日涨幅 75.53%。
 
+
+### M7 — 港股 IPO 回测加入行业/估值/结构/暗盘维度
+
+Status: `done`
+
+Scope:
+
+- 扩展 `scripts/hkipo_backtest.py`：加入行业启发式分类、市值/估值分桶、多维评分、enrichment CSV 支持绿鞋/基石/暗盘
+- 更新 `README.md` / `references/hkipo.md`，说明 enrichment CSV 和缺失字段处理
+- 运行增强版 100 样本回测并记录校准结果
+
+Validation:
+
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `python3 scripts/hkipo_backtest.py --limit 20 --source aastocks --format markdown`
+- `python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --format markdown`
+
+Progress:
+
+- 2026-04-27：增强版 100 样本回测已跑通：多维评分相关系数 0.412；市值字段覆盖 47/100；绿鞋/基石/暗盘在 AAStocks 列表源中覆盖 0/100，需要 enrichment CSV 或逐票来源补充。
+- 2026-04-27：行业分桶显示 `ai_tech`、`biotech`、`semiconductor` 中位首日涨幅较强；`consumer` 分桶显著偏弱。
+
 ## Progress
 
 - 2026-04-27：移除旧 `docs/plan.md`，统一使用 `PLANS/`。
@@ -152,4 +174,5 @@ Progress:
 - M4 已完成：watchlist 自动选路规则已落到 `references/futu.md`，并同步 `SKILL.md` / `README.md` / `references/cli.md`。
 - M5 已完成：`/hkipo` 已升级为评分卡 + 简明报告 + 绿鞋/基石 + 首日回测校准工作流，并新增 `references/hkipo.md`。
 - M6 已完成：新增 `scripts/hkipo_backtest.py`，可抓取 AAStocks 近期已上市港股 IPO 并输出首日表现分桶回测。
+- M7 已完成：回测加入行业启发式分类、市值/估值分桶，并支持通过 enrichment CSV 补充绿鞋、基石、暗盘。
 - 下一轮可开始实现具体调用封装，或补只读 Futu/OpenD 环境验证。

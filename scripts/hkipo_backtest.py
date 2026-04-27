@@ -25,6 +25,9 @@ class IpoSample:
     name: str
     code: str
     listing_date: str
+    market_cap_text: str
+    market_cap_mid_hkd_b: float | None
+    industry: str
     offer_price: float | None
     listing_price: float | None
     oversub_rate: float | None
@@ -34,6 +37,15 @@ class IpoSample:
     debut_return_pct: float | None
     accumulated_return_pct: float | None
     heat_bucket: str
+    valuation_bucket: str
+    grey_market_return_pct: float | None
+    greenshoe: str | None
+    cornerstone: str | None
+    heat_score: float | None
+    industry_score: float | None
+    valuation_score: float | None
+    structure_score: float | None
+    grey_score: float | None
     odds_score: int | None
 
 
@@ -116,6 +128,140 @@ def split_name_code(value: str) -> tuple[str, str]:
     return value[: match.start()].strip(), match.group(1)
 
 
+def parse_market_cap_mid(value: str | None) -> float | None:
+    if value is None or value.strip().upper() == "N/A":
+        return None
+    numbers = [float(item.replace(",", "")) for item in re.findall(r"\d+(?:\.\d+)?", value)]
+    if not numbers:
+        return None
+    if len(numbers) >= 2:
+        return statistics.mean(numbers[:2])
+    return numbers[0]
+
+
+def classify_industry(name: str) -> str:
+    upper = name.upper()
+    rules = [
+        ("biotech", ["-B", "BIO", "PHARM", "HEALTH", "MED", "DIAG", "VIGONVITA"]),
+        ("semiconductor", ["SEMI", "GPIXEL", "FOURSEMI", "CHIP", "MICRO", "TIANYU"]),
+        ("ai_tech", ["TECH", "ROBOT", "VISION", "DEEPEXI", "MANYCORE", "HAIZHI", "NSING"]),
+        ("auto_ev", ["AUTO", "EV", "ZHIDA", "VOYAH", "BATTERY", "ENERGY"]),
+        ("consumer", ["FOOD", "NOODLES", "POOLING", "TONGSHIFU", "GOLDEN LEAF", "BENQ"]),
+        ("financial", ["FUTURES", "SECUR", "INSUR", "BANK"]),
+    ]
+    for industry, keywords in rules:
+        if any(keyword in upper for keyword in keywords):
+            return industry
+    return "other"
+
+
+def valuation_bucket(market_cap_mid_hkd_b: float | None) -> str:
+    if market_cap_mid_hkd_b is None:
+        return "unknown"
+    if market_cap_mid_hkd_b < 2:
+        return "<2B"
+    if market_cap_mid_hkd_b < 10:
+        return "2-10B"
+    if market_cap_mid_hkd_b < 50:
+        return "10-50B"
+    return ">=50B"
+
+
+def heat_score_from_rate(
+    oversub_rate: float | None,
+    one_lot_success_rate: float | None,
+    applied_lots_for_one_lot: int | None,
+) -> float | None:
+    if oversub_rate is None:
+        return None
+    if oversub_rate < 10:
+        score = 6
+    elif oversub_rate < 50:
+        score = 14
+    elif oversub_rate < 200:
+        score = 25
+    elif oversub_rate < 1000:
+        score = 35
+    else:
+        score = 45
+    if one_lot_success_rate is not None:
+        if one_lot_success_rate <= 1:
+            score += 3
+        elif one_lot_success_rate <= 5:
+            score += 2
+        elif one_lot_success_rate >= 30:
+            score -= 3
+    if applied_lots_for_one_lot is not None:
+        if applied_lots_for_one_lot >= 3000:
+            score += 3
+        elif applied_lots_for_one_lot >= 1000:
+            score += 2
+        elif applied_lots_for_one_lot >= 300:
+            score += 1
+    return max(0, min(50, score))
+
+
+def valuation_score_from_market_cap(market_cap_mid_hkd_b: float | None) -> float:
+    if market_cap_mid_hkd_b is None:
+        return 7.5
+    if market_cap_mid_hkd_b < 2:
+        return 11
+    if market_cap_mid_hkd_b < 10:
+        return 15
+    if market_cap_mid_hkd_b < 50:
+        return 10
+    return 7
+
+
+def structure_score_from_enrichment(greenshoe: str | None, cornerstone: str | None) -> float:
+    score = 5.0
+    green = (greenshoe or "").strip().lower()
+    corner = (cornerstone or "").strip().lower()
+    if green in {"yes", "y", "true", "1"}:
+        score += 4
+    elif green in {"no", "n", "false", "0"}:
+        score -= 2
+    if corner in {"yes", "y", "true", "1"}:
+        score += 3
+    elif corner in {"no", "n", "false", "0"}:
+        score -= 1
+    return max(0, min(10, score))
+
+
+def grey_score_from_return(grey_market_return_pct: float | None) -> float:
+    if grey_market_return_pct is None:
+        return 5.0
+    if grey_market_return_pct < 0:
+        return 0
+    if grey_market_return_pct < 20:
+        return 5
+    if grey_market_return_pct < 100:
+        return 8
+    if grey_market_return_pct < 250:
+        return 9
+    return 10
+
+
+def load_enrichment(path: str | None) -> dict[str, dict[str, str]]:
+    if not path:
+        return {}
+    rows: dict[str, dict[str, str]] = {}
+    with open(path, newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            code = (row.get("code") or "").strip()
+            if code:
+                rows[code] = row
+    return rows
+
+
+def get_enriched(row: dict[str, str], key: str) -> str | None:
+    value = row.get(key)
+    if value is None or value == "":
+        return None
+    return value
+
+
 def heat_bucket(oversub_rate: float | None) -> str:
     if oversub_rate is None:
         return "unknown"
@@ -130,18 +276,21 @@ def heat_bucket(oversub_rate: float | None) -> str:
     return ">=1000x"
 
 
-def score_from_heat(oversub_rate: float | None) -> int | None:
-    if oversub_rate is None:
+def score_from_dimensions(
+    heat_score: float | None,
+    industry_score: float | None,
+    valuation_score: float | None,
+    structure_score: float | None,
+    grey_score: float | None,
+) -> int | None:
+    if heat_score is None:
         return None
-    if oversub_rate < 10:
-        return 50
-    if oversub_rate < 50:
-        return 62
-    if oversub_rate < 200:
-        return 72
-    if oversub_rate < 1000:
-        return 84
-    return 94
+    score = heat_score
+    score += industry_score if industry_score is not None else 10
+    score += valuation_score if valuation_score is not None else 7.5
+    score += structure_score if structure_score is not None else 7.5
+    score += grey_score if grey_score is not None else 7.5
+    return round(max(0, min(100, score)))
 
 
 def find_ipo_table(html: str) -> list[list[str]]:
@@ -154,40 +303,65 @@ def find_ipo_table(html: str) -> list[list[str]]:
     return []
 
 
-def parse_samples_from_html(html: str) -> list[IpoSample]:
+def parse_samples_from_html(html: str, enrichment: dict[str, dict[str, str]] | None = None) -> list[IpoSample]:
     table = find_ipo_table(html)
+    enrichment = enrichment or {}
     samples: list[IpoSample] = []
     for row in table[1:]:
         if len(row) < 13 or not re.search(r"\d{5}\.HK", row[1]):
             continue
         name, code = split_name_code(row[1])
+        extra = enrichment.get(code, {})
         oversub = parse_number(row[7])
+        one_lot_success = parse_pct(row[9])
+        market_cap_text = row[4]
+        market_cap_mid = parse_market_cap_mid(market_cap_text)
+        industry = get_enriched(extra, "industry") or classify_industry(name)
+        grey_market_return = parse_pct(get_enriched(extra, "grey_market_return_pct"))
+        greenshoe = get_enriched(extra, "greenshoe")
+        cornerstone = get_enriched(extra, "cornerstone")
+        heat_score = heat_score_from_rate(oversub, one_lot_success, parse_int(row[8]))
+        valuation_score = valuation_score_from_market_cap(market_cap_mid)
+        structure_score = structure_score_from_enrichment(greenshoe, cornerstone)
+        grey_score = grey_score_from_return(grey_market_return)
         samples.append(
             IpoSample(
                 name=name,
                 code=code,
                 listing_date=row[2],
+                market_cap_text=market_cap_text,
+                market_cap_mid_hkd_b=market_cap_mid,
+                industry=industry,
                 offer_price=parse_number(row[5]),
                 listing_price=parse_number(row[6]),
                 oversub_rate=oversub,
                 applied_lots_for_one_lot=parse_int(row[8]),
-                one_lot_success_rate=parse_pct(row[9]),
+                one_lot_success_rate=one_lot_success,
                 last_price=parse_number(row[10]),
                 debut_return_pct=parse_pct(row[11]),
                 accumulated_return_pct=parse_pct(row[12]),
                 heat_bucket=heat_bucket(oversub),
-                odds_score=score_from_heat(oversub),
+                valuation_bucket=valuation_bucket(market_cap_mid),
+                grey_market_return_pct=grey_market_return,
+                greenshoe=greenshoe,
+                cornerstone=cornerstone,
+                heat_score=heat_score,
+                industry_score=None,
+                valuation_score=valuation_score,
+                structure_score=structure_score,
+                grey_score=grey_score,
+                odds_score=None,
             )
         )
     return samples
 
 
-def load_aastocks_samples(limit: int, delay: float = 0.2) -> list[IpoSample]:
+def load_aastocks_samples(limit: int, enrichment: dict[str, dict[str, str]] | None = None, delay: float = 0.2) -> list[IpoSample]:
     samples: list[IpoSample] = []
     page = 1
     while len(samples) < limit:
         url = AASTOCKS_LISTED_IPO_URL if page == 1 else f"{AASTOCKS_LISTED_IPO_URL}?s=3&o=0&page={page}"
-        page_samples = parse_samples_from_html(fetch_url(url))
+        page_samples = parse_samples_from_html(fetch_url(url), enrichment)
         if not page_samples:
             break
         existing_codes = {sample.code for sample in samples}
@@ -219,7 +393,36 @@ def pearson(xs: list[float], ys: list[float]) -> float | None:
     return numerator / (denom_x * denom_y)
 
 
+def apply_industry_scores(samples: list[IpoSample]) -> None:
+    valid = [sample for sample in samples if sample.debut_return_pct is not None]
+    grouped: dict[str, list[float]] = {}
+    for sample in valid:
+        grouped.setdefault(sample.industry, []).append(sample.debut_return_pct or 0)
+    industry_scores: dict[str, float] = {}
+    for industry, returns in grouped.items():
+        win_rate = len([value for value in returns if value > 0]) / len(returns)
+        med = statistics.median(returns)
+        score = 5 + win_rate * 6
+        if med > 50:
+            score += 4
+        elif med > 20:
+            score += 2
+        elif med < 0:
+            score -= 3
+        industry_scores[industry] = max(0, min(15, score))
+    for sample in samples:
+        sample.industry_score = industry_scores.get(sample.industry, 10.0)
+        sample.odds_score = score_from_dimensions(
+            sample.heat_score,
+            sample.industry_score,
+            sample.valuation_score,
+            sample.structure_score,
+            sample.grey_score,
+        )
+
+
 def summarize(samples: list[IpoSample]) -> dict:
+    apply_industry_scores(samples)
     valid = [sample for sample in samples if sample.debut_return_pct is not None]
     returns = [sample.debut_return_pct for sample in valid if sample.debut_return_pct is not None]
     scored = [sample for sample in valid if sample.odds_score is not None]
@@ -243,6 +446,26 @@ def summarize(samples: list[IpoSample]) -> dict:
         )
     xs = [float(sample.odds_score) for sample in scored]
     ys = [sample.debut_return_pct for sample in scored if sample.debut_return_pct is not None]
+    by_industry = []
+    for industry in sorted({sample.industry for sample in valid}):
+        industry_returns = [sample.debut_return_pct for sample in valid if sample.industry == industry and sample.debut_return_pct is not None]
+        if industry_returns:
+            by_industry.append({
+                "industry": industry,
+                "count": len(industry_returns),
+                "win_rate": len([value for value in industry_returns if value > 0]) / len(industry_returns),
+                "median_return_pct": median(industry_returns),
+            })
+    by_valuation = []
+    for bucket in ["<2B", "2-10B", "10-50B", ">=50B", "unknown"]:
+        bucket_returns = [sample.debut_return_pct for sample in valid if sample.valuation_bucket == bucket and sample.debut_return_pct is not None]
+        if bucket_returns:
+            by_valuation.append({
+                "bucket": bucket,
+                "count": len(bucket_returns),
+                "win_rate": len([value for value in bucket_returns if value > 0]) / len(bucket_returns),
+                "median_return_pct": median(bucket_returns),
+            })
     return {
         "sample_count": len(samples),
         "valid_debut_return_count": len(valid),
@@ -251,7 +474,15 @@ def summarize(samples: list[IpoSample]) -> dict:
         "median_return_pct": median(returns),
         "break_rate": len([value for value in returns if value < 0]) / len(returns) if returns else None,
         "score_return_correlation": pearson(xs, ys),
+        "enrichment_coverage": {
+            "greenshoe": len([sample for sample in samples if sample.greenshoe is not None]),
+            "cornerstone": len([sample for sample in samples if sample.cornerstone is not None]),
+            "grey_market": len([sample for sample in samples if sample.grey_market_return_pct is not None]),
+            "market_cap": len([sample for sample in samples if sample.market_cap_mid_hkd_b is not None]),
+        },
         "by_heat_bucket": by_bucket,
+        "by_industry": by_industry,
+        "by_valuation": by_valuation,
         "top_debut_returns": [asdict(sample) for sample in sorted(valid, key=lambda item: item.debut_return_pct or -999, reverse=True)[:10]],
         "worst_debut_returns": [asdict(sample) for sample in sorted(valid, key=lambda item: item.debut_return_pct or 999)[:10]],
     }
@@ -273,7 +504,8 @@ def render_markdown(summary: dict) -> str:
         f"- 样本数：{summary['sample_count']}；有效首日涨幅样本：{summary['valid_debut_return_count']}",
         f"- 首日胜率：{fmt_pct(summary['win_rate'])}；破发率：{fmt_pct(summary['break_rate'])}",
         f"- 平均首日涨幅：{fmt_num(summary['avg_return_pct'])}%；中位首日涨幅：{fmt_num(summary['median_return_pct'])}%",
-        f"- 简化热度评分与首日涨幅相关系数：{fmt_num(summary['score_return_correlation'], 3)}",
+        f"- 多维评分与首日涨幅相关系数：{fmt_num(summary['score_return_correlation'], 3)}",
+        f"- 字段覆盖：市值 {summary['enrichment_coverage']['market_cap']}/{summary['sample_count']}；绿鞋 {summary['enrichment_coverage']['greenshoe']}/{summary['sample_count']}；基石 {summary['enrichment_coverage']['cornerstone']}/{summary['sample_count']}；暗盘 {summary['enrichment_coverage']['grey_market']}/{summary['sample_count']}",
         "",
         "## 融资/认购热度分桶",
         "| 热度分桶 | 样本数 | 胜率 | 平均首日涨幅 | 中位首日涨幅 | 破发率 |",
@@ -290,16 +522,22 @@ def render_markdown(summary: dict) -> str:
                 break_rate=fmt_pct(bucket["break_rate"]),
             )
         )
-    lines += ["", "## Top 10 首日涨幅", "| 代码 | 公司 | 上市日 | 超购倍数 | 一手中签率 | 首日涨幅 |", "|---|---|---|---:|---:|---:|"]
+    lines += ["", "## 行业分桶", "| 行业 | 样本数 | 胜率 | 中位首日涨幅 |", "|---|---:|---:|---:|"]
+    for item in sorted(summary["by_industry"], key=lambda row: row["median_return_pct"] or -999, reverse=True):
+        lines.append(f"| {item['industry']} | {item['count']} | {fmt_pct(item['win_rate'])} | {fmt_num(item['median_return_pct'])}% |")
+    lines += ["", "## 估值/市值分桶", "| 市值分桶 | 样本数 | 胜率 | 中位首日涨幅 |", "|---|---:|---:|---:|"]
+    for item in summary["by_valuation"]:
+        lines.append(f"| {item['bucket']} | {item['count']} | {fmt_pct(item['win_rate'])} | {fmt_num(item['median_return_pct'])}% |")
+    lines += ["", "## Top 10 首日涨幅", "| 代码 | 公司 | 行业 | 评分 | 上市日 | 超购倍数 | 一手中签率 | 首日涨幅 |", "|---|---|---|---:|---|---:|---:|---:|"]
     for sample in summary["top_debut_returns"]:
-        lines.append(f"| {sample['code']} | {sample['name']} | {sample['listing_date']} | {fmt_num(sample['oversub_rate'], 1)}x | {fmt_num(sample['one_lot_success_rate'], 1)}% | {fmt_num(sample['debut_return_pct'])}% |")
-    lines += ["", "## Worst 10 首日涨幅", "| 代码 | 公司 | 上市日 | 超购倍数 | 一手中签率 | 首日涨幅 |", "|---|---|---|---:|---:|---:|"]
+        lines.append(f"| {sample['code']} | {sample['name']} | {sample['industry']} | {sample['odds_score']} | {sample['listing_date']} | {fmt_num(sample['oversub_rate'], 1)}x | {fmt_num(sample['one_lot_success_rate'], 1)}% | {fmt_num(sample['debut_return_pct'])}% |")
+    lines += ["", "## Worst 10 首日涨幅", "| 代码 | 公司 | 行业 | 评分 | 上市日 | 超购倍数 | 一手中签率 | 首日涨幅 |", "|---|---|---|---:|---|---:|---:|---:|"]
     for sample in summary["worst_debut_returns"]:
-        lines.append(f"| {sample['code']} | {sample['name']} | {sample['listing_date']} | {fmt_num(sample['oversub_rate'], 1)}x | {fmt_num(sample['one_lot_success_rate'], 1)}% | {fmt_num(sample['debut_return_pct'])}% |")
+        lines.append(f"| {sample['code']} | {sample['name']} | {sample['industry']} | {sample['odds_score']} | {sample['listing_date']} | {fmt_num(sample['oversub_rate'], 1)}x | {fmt_num(sample['one_lot_success_rate'], 1)}% | {fmt_num(sample['debut_return_pct'])}% |")
     lines += [
         "",
         "## 校准建议",
-        "- 当前 MVP 用公开超购倍数近似融资/认购热度，尚未纳入绿鞋、基石、暗盘和行业标签。",
+        "- 当前增强版自动纳入行业启发式分类和市值/估值分桶；绿鞋、基石、暗盘通过 enrichment CSV 纳入。",
         "- 若 >=1000x 分桶显著跑赢，应保留极端热度加权；若 200-1000x 与 >=1000x 分化不大，应降低边际加分。",
         "- 破发样本需单独复盘行业、估值和发行结构，避免只按热度打分。",
         "",
@@ -324,9 +562,10 @@ def main() -> int:
     parser.add_argument("--source", choices=["aastocks"], default="aastocks")
     parser.add_argument("--format", choices=["markdown", "json"], default="markdown")
     parser.add_argument("--csv", help="optional CSV output path for raw samples")
+    parser.add_argument("--enrichment-csv", help="optional CSV with code,industry,greenshoe,cornerstone,grey_market_return_pct")
     args = parser.parse_args()
     try:
-        samples = load_aastocks_samples(args.limit)
+        samples = load_aastocks_samples(args.limit, load_enrichment(args.enrichment_csv))
     except Exception as exc:
         print(f"回测数据抓取失败：{exc}", file=sys.stderr)
         return 1

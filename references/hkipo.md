@@ -110,9 +110,15 @@ Run this command before or during `/hkipo` calibration when network access is av
 python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --format markdown
 ```
 
-The MVP uses AAStocks Listed IPO fields: listing date, offer/listing price, public over-subscription rate, applied lots for one lot, one-lot success rate, last price, first-day return and accumulated return. It reports total win rate, average/median first-day return, break rate, heat buckets and simple heat-score correlation.
+The MVP uses AAStocks Listed IPO fields: listing date, offer/listing price, market-cap range, public over-subscription rate, applied lots for one lot, one-lot success rate, last price, first-day return and accumulated return. It reports total win rate, average/median first-day return, break rate, heat buckets, industry buckets, valuation/market-cap buckets and score/return correlation.
 
-Limitations: it does not yet parse greenshoe, cornerstone investors, grey-market returns, sectors, or sponsors. Use it to calibrate the heat/odds weights, not as a complete scoring replacement.
+Industry is inferred heuristically from the company name by default. Greenshoe, cornerstone and grey-market fields are supported through an optional enrichment CSV:
+
+```bash
+python3 scripts/hkipo_backtest.py --limit 100 --enrichment-csv data/hkipo_enrichment.csv
+```
+
+CSV optional columns: `code,industry,greenshoe,cornerstone,grey_market_return_pct`. Missing greenshoe/cornerstone/grey-market fields are treated as neutral and reported as missing coverage. Use this tool to calibrate heat/odds weights, not as a complete scoring replacement.
 
 
 Before ranking current IPOs, collect a small recent sample of already listed HK IPOs, ideally 5-10 names from the last 1-3 months or the same sector/deal type.

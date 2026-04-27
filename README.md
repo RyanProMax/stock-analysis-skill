@@ -134,9 +134,15 @@ Tushare 接口总表见 [references/api_reference.md](./references/api_reference
 python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --format markdown
 ```
 
-当前 MVP 使用 AAStocks Listed IPO 页面，自动抓取近期已上市港股 IPO 的上市日、发行价、公开超购倍数、一手中签率和首日涨幅，并输出胜率、平均/中位首日涨幅、破发率和热度分桶表现。
+当前 MVP 使用 AAStocks Listed IPO 页面，自动抓取近期已上市港股 IPO 的上市日、发行价、市值区间、公开超购倍数、一手中签率和首日涨幅，并输出胜率、平均/中位首日涨幅、破发率、热度分桶、行业分桶、估值/市值分桶和多维评分相关性。
 
-限制：暂未自动结构化绿鞋、基石、暗盘和行业标签；这些字段仍需在正式 `/hkipo` 报告中联网核验补充。
+行业默认通过公司名启发式分类；绿鞋、基石、暗盘可用 enrichment CSV 补充：
+
+```bash
+python3 scripts/hkipo_backtest.py --limit 100 --enrichment-csv data/hkipo_enrichment.csv
+```
+
+CSV 可选列：`code,industry,greenshoe,cornerstone,grey_market_return_pct`。若不提供，绿鞋/基石/暗盘按中性缺失处理，并在报告中显示覆盖率。
 
 ## Skill 使用
 
