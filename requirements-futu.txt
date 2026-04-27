@@ -1,0 +1,9 @@
+# Futu/OpenD local SDK environment.
+# Install with:
+#   uv venv --python 3.12 .venv
+#   uv pip install --python .venv/bin/python -r requirements-futu.txt
+futu-api==10.4.6408
+backtrader==1.9.78.123
+matplotlib==3.10.9
+pandas==3.0.2
+numpy==2.4.4

@@ -144,6 +144,37 @@ Progress:
 - 2026-04-27：增强版 100 样本回测已跑通：多维评分相关系数 0.412；市值字段覆盖 47/100；绿鞋/基石/暗盘在 AAStocks 列表源中覆盖 0/100，需要 enrichment CSV 或逐票来源补充。
 - 2026-04-27：行业分桶显示 `ai_tech`、`biotech`、`semiconductor` 中位首日涨幅较强；`consumer` 分桶显著偏弱。
 
+
+### M8 — 安装受控 Futu/OpenD 本地环境
+
+Status: `in_progress`
+
+Scope:
+
+- 确认当前主机默认 Python、`pyenv` 与 `uv` 状态
+- 使用独立 `uv` venv 安装并固定 Futu SDK 与数据分析依赖版本
+- 安装 macOS GUI 版 Futu OpenD，并写入 futu skill 版本戳
+- 验证 SDK import 与 OpenD 只读连接状态
+
+Validation:
+
+- `python3 --version`
+- `pyenv --version`
+- `uv --version`
+- `.venv/bin/python -c 'import sys, futu, google.protobuf; ...'`
+- `.venv/bin/python /Users/ryan/.agents/skills/futuapi/scripts/quote/get_ipo_list.py HK --json`
+
+Progress:
+
+- 2026-04-27 20:08 北京时间：确认默认 `python3` 是 Homebrew `3.14.3`；主机同时安装了 `pyenv 2.6.26` 与 `uv 0.10.12`。
+- 2026-04-27 20:08 北京时间：已用 `uv` 创建 `.venv`，Python 版本为 `3.12.12`，并安装 `futu-api==10.4.6408`、`backtrader==1.9.78.123`、`matplotlib==3.10.9`、`pandas==3.0.2`、`numpy==2.4.4`。
+- 2026-04-27 20:08 北京时间：已新增 `requirements-futu.txt` 与 `requirements-futu.lock` 记录固定版本，并在 `.gitignore` 忽略 `.venv`。
+- 2026-04-27 20:08 北京时间：已下载并安装 GUI 版 `/Applications/Futu_OpenD.app`，版本 `10.4.6408`，并写入 `/Users/ryan/.futu_skill_version=0.1.1`。
+
+Blockers:
+
+- OpenD GUI 已启动，但需要用户在界面完成登录；未登录前 `get_ipo_list.py HK --json` 只能验证到 SDK 可用，连接会停在 `127.0.0.1:11111`。
+
 ## Progress
 
 - 2026-04-27：移除旧 `docs/plan.md`，统一使用 `PLANS/`。
