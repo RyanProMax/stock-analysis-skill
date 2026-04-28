@@ -169,22 +169,27 @@ Keep the report terse:
 - Do not add a separate backtest section unless the user explicitly asks for details; the card's `回测` line is enough.
 - Outside the cards, only keep 1-3 conclusion bullets and compact sources.
 - Avoid wide Markdown tables in Feishu. They render with horizontal scrolling and clipped columns.
+- Avoid Markdown headings (`#`, `##`) in Feishu. Use bold labels and a short divider instead.
+- Use fixed emoji cues sparingly: 🟢 high priority, 🟡 watch, ⚪ observe; 💰 heat, 🛡 structure, 📈 backtest, ⚠️ risk, 🔗 sources.
 
 ```markdown
-# 港股 IPO 池（YYYY-MM-DD）
+**港股 IPO 池｜YYYY-MM-DD**
+----
 
-## 结论先行
-- 1-3 bullets only.
+**💡 关键结论**
+- 🟢 highest priority: code + one reason.
+- 🟡 watch: code + one reason.
+- ⚪ observe/cautious: code + one reason.
 
-## 优先级卡片
-**1. 代码 公司｜评分｜优先级**
-阶段：招股/截止/暗盘/上市日；Futu：发售价/一手/入场费/状态
-热度：最新孖展/公开认购/暗盘，标注日期和是否外部补充
-结构：绿鞋/基石/保荐/回拨
-回测：对应热度分桶和首日赔率映射
-风险：一句话最大风险
+**📌 优先级**
+**🟢 1｜代码 公司｜评分｜优先级**
+📍 阶段：招股/截止/暗盘/上市日；Futu：发售价/一手/入场费/状态
+💰 热度：最新孖展/公开认购/暗盘，标注日期和是否外部补充
+🛡 结构：绿鞋/基石/保荐/回拨
+📈 回测：对应热度分桶和首日赔率映射
+⚠️ 风险：一句话最大风险
 
-## Sources
+**🔗 来源**
 - Key links only; max 2-3 markdown links per IPO/sample; label purpose and date.
 ```
 

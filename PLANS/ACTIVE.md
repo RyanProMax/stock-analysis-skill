@@ -398,6 +398,36 @@ Review status:
 
 - passed
 
+### M16 — 细化 hkipo 飞书视觉层级
+
+Status: `done`
+
+Scope:
+
+- 去除 `/hkipo` 输出中的 `#` / `##` Markdown 大标题，改为普通加粗标签和短分隔。
+- 为结论、热度、结构、回测、风险、来源加入固定 emoji 信号。
+- 更新 `commands/hkipo.py`、`references/hkipo.md`、`SKILL.md`、`README.md`。
+
+Validation:
+
+- `python3 commands/hkipo.py <<< '{}'`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `rg -n "# 港股|## 结论|## Sources|emoji|🟢|💰|⚠️" SKILL.md README.md references/hkipo.md commands/hkipo.py`
+- `git diff --check`
+
+Progress:
+
+- 2026-04-28 北京时间：用户反馈飞书卡片中“结论先行 / 优先级卡片 / Sources”标题过大且重点不明显；本轮目标是去 Markdown 大标题，并用少量 emoji 强化关键信息。
+- 2026-04-28 北京时间：`/hkipo` 输出模板已改为普通加粗标题、短分隔和固定 emoji 信号，不再使用 `#` / `##` 大标题。
+
+Validation status:
+
+- passed
+
+Review status:
+
+- passed
+
 ## Progress
 
 - 2026-04-27：移除旧 `docs/plan.md`，统一使用 `PLANS/`。
@@ -449,6 +479,10 @@ Review status:
 - 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
 - 已通过：`rg -n "Markdown 表格|窄卡片|横向滚动|评分卡片|评分总览" SKILL.md README.md references/hkipo.md commands/hkipo.py`
 - 已通过：`git diff --check`
+- 已通过：`python3 commands/hkipo.py <<< '{}'`
+- 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
+- 已通过：`rg -n "# 港股|## 结论|## Sources|emoji|🟢|💰|⚠️" SKILL.md README.md references/hkipo.md commands/hkipo.py`
+- 已通过：`git diff --check`
 
 ## Handoff
 
@@ -469,3 +503,4 @@ Review status:
 - M13 已完成：`/hkipo` 已强制按北京时间当前日期取数；当前 IPO 池和基础日程字段优先 Futu/OpenD，Futu 缺失的孖展、暗盘、中签率等字段才允许外部财经源补充，且过期数据不得用于当前热度主评分。
 - M14 已完成：`/hkipo` 输出已压缩为最多 3 条结论 + 单张评分总览表 + Sources；不再解释触发文本日期差异、取数过程或评分推导。
 - M15 已完成：`/hkipo` 输出改为飞书友好的窄卡片列表，避免宽 Markdown 表格横向滚动和裁切；Sources 要求短链接和用途/日期标签。
+- M16 已完成：`/hkipo` 去除 `#` / `##` 大标题，改用普通加粗标签、短分隔和 🟢/🟡/⚪/💰/🛡/📈/⚠️/🔗 固定信号。
