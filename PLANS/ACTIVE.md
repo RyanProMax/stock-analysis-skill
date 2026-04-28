@@ -368,6 +368,36 @@ Review status:
 
 - passed
 
+### M15 — 优化 hkipo 飞书卡片排版
+
+Status: `done`
+
+Scope:
+
+- 将 `/hkipo` 从宽 Markdown 表格改为飞书友好的窄卡片列表，避免横向滚动和长表格裁切。
+- 保留关键必要信息：结论、每只 IPO 的评分/阶段/热度/结构/回测/风险、关键 Sources。
+- 更新 `commands/hkipo.py`、`references/hkipo.md`、`SKILL.md`、`README.md`。
+
+Validation:
+
+- `python3 commands/hkipo.py <<< '{}'`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `rg -n "Markdown 表格|窄卡片|横向滚动|评分卡片|评分总览" SKILL.md README.md references/hkipo.md commands/hkipo.py`
+- `git diff --check`
+
+Progress:
+
+- 2026-04-28 北京时间：用户反馈飞书消息卡片里的宽表格排版太差；本轮目标是改成正式、优雅、可读的窄卡片列表。
+- 2026-04-28 北京时间：`/hkipo` prompt 已禁止宽 Markdown 表格，改为最多 3 条结论 + 每只 IPO 5-6 行窄卡片 + 短链接 Sources。
+
+Validation status:
+
+- passed
+
+Review status:
+
+- passed
+
 ## Progress
 
 - 2026-04-27：移除旧 `docs/plan.md`，统一使用 `PLANS/`。
@@ -415,6 +445,10 @@ Review status:
 - 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
 - 已通过：`rg -n "触发文本|推导过程|废话|只保留|评分总览" SKILL.md README.md references/hkipo.md commands/hkipo.py`
 - 已通过：`git diff --check`
+- 已通过：`python3 commands/hkipo.py <<< '{}'`
+- 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
+- 已通过：`rg -n "Markdown 表格|窄卡片|横向滚动|评分卡片|评分总览" SKILL.md README.md references/hkipo.md commands/hkipo.py`
+- 已通过：`git diff --check`
 
 ## Handoff
 
@@ -434,3 +468,4 @@ Review status:
 - M12 已完成：`hkipo_backtest.py` 已支持新股渔夫公开 API enrichment；最近 100 样本补充字段覆盖 97/100，绿鞋 80/100、基石 97/100、辉立暗盘 97/100、富途暗盘 95/100，结合 Futu K 线后的评分排序相关系数 0.579。
 - M13 已完成：`/hkipo` 已强制按北京时间当前日期取数；当前 IPO 池和基础日程字段优先 Futu/OpenD，Futu 缺失的孖展、暗盘、中签率等字段才允许外部财经源补充，且过期数据不得用于当前热度主评分。
 - M14 已完成：`/hkipo` 输出已压缩为最多 3 条结论 + 单张评分总览表 + Sources；不再解释触发文本日期差异、取数过程或评分推导。
+- M15 已完成：`/hkipo` 输出改为飞书友好的窄卡片列表，避免宽 Markdown 表格横向滚动和裁切；Sources 要求短链接和用途/日期标签。

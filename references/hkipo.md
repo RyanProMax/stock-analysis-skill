@@ -165,9 +165,10 @@ Use this report shape by default. Do **not** include separate per-name narrative
 Keep the report terse:
 
 - Do not explain trigger text, date mismatches, collection steps, or scoring derivation.
-- Put all key per-IPO content into the overview table, including Futu field coverage, external heat data, backtest mapping, structure, valuation and risk.
-- Do not add a separate backtest section unless the user explicitly asks for details; the table's `首日回测映射` column is enough.
-- Outside the table, only keep 1-3 conclusion bullets and compact sources.
+- Put all key per-IPO content into compact per-name cards, including Futu field coverage, external heat data, backtest mapping, structure, valuation and risk.
+- Do not add a separate backtest section unless the user explicitly asks for details; the card's `回测` line is enough.
+- Outside the cards, only keep 1-3 conclusion bullets and compact sources.
+- Avoid wide Markdown tables in Feishu. They render with horizontal scrolling and clipped columns.
 
 ```markdown
 # 港股 IPO 池（YYYY-MM-DD）
@@ -175,12 +176,16 @@ Keep the report terse:
 ## 结论先行
 - 1-3 bullets only.
 
-## 评分总览
-| 代码 | 公司 | 阶段/上市日 | 评分/优先级 | Futu 当前字段 | 外部补充热度 | 首日回测映射 | 绿鞋/基石/保荐 | 基本面/估值 | 最大风险 |
-|---|---|---|---:|---|---|---|---|---|---|
+## 优先级卡片
+**1. 代码 公司｜评分｜优先级**
+阶段：招股/截止/暗盘/上市日；Futu：发售价/一手/入场费/状态
+热度：最新孖展/公开认购/暗盘，标注日期和是否外部补充
+结构：绿鞋/基石/保荐/回拨
+回测：对应热度分桶和首日赔率映射
+风险：一句话最大风险
 
 ## Sources
-- Key links only; max 2-3 sources per IPO/sample; label purpose and date.
+- Key links only; max 2-3 markdown links per IPO/sample; label purpose and date.
 ```
 
 Keep the whole report concise. Avoid long company introductions. Do not repeat the same fact in multiple sections.
