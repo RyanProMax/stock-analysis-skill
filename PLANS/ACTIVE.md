@@ -305,6 +305,38 @@ Review status:
 
 - passed
 
+### M13 — 约束 hkipo 当前数据源优先级与新鲜度
+
+Status: `done`
+
+Scope:
+
+- 强化 `SKILL.md` 的 `/hkipo` 规则：当前 IPO 池发现和上市/招股状态必须先走 Futu/OpenD 只读 `get_ipo_list(HK)`。
+- 强化 `references/hkipo.md` 的数据源优先级：Futu 当前 IPO 基础字段优先；Futu 缺失的孖展、公开认购、暗盘、中签率等字段才允许使用外部财经源。
+- 强化 `/hkipo` prompt：必须按当前日期重新获取最新数据，禁止把过期孖展/暗盘数据当作当前数据使用。
+- 同步 `README.md` 的 slash command 说明。
+
+Validation:
+
+- `python3 commands/hkipo.py <<< '{}'`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `rg -n "Futu/OpenD|过期|孖展|当前日期|get_ipo_list|外部财经" SKILL.md README.md references/hkipo.md commands/hkipo.py`
+- `git diff --check`
+
+Progress:
+
+- 2026-04-28 北京时间：用户指出天星医疗孖展数据使用了过期的 2026-04-24 口径；本轮目标是把“当前日期最新数据 + Futu 优先 + 外部源兜底”写成硬约束。
+- 2026-04-28 北京时间：`/hkipo` prompt 已改用北京时间日期，避免美国本地时区导致报告日期落后一天。
+- 2026-04-28 北京时间：已将当前 IPO 池发现和基础日程字段约束为优先使用 Futu/OpenD `get_ipo_list(HK)`；孖展、暗盘、中签率等 Futu 缺失字段才允许用外部财经源补齐。
+
+Validation status:
+
+- passed
+
+Review status:
+
+- passed
+
 ## Progress
 
 - 2026-04-27：移除旧 `docs/plan.md`，统一使用 `PLANS/`。
@@ -344,6 +376,10 @@ Review status:
 - 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
 - 已通过：`.venv/bin/python scripts/hkipo_backtest.py --limit 100 --source aastocks --enrichment-source xinguyufu --debut-price-source futu-kline --format markdown`
 - 已通过：`git diff --check`
+- 已通过：`python3 commands/hkipo.py <<< '{}'`
+- 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
+- 已通过：`rg -n "Futu/OpenD|过期|孖展|当前日期|get_ipo_list|外部财经" SKILL.md README.md references/hkipo.md commands/hkipo.py`
+- 已通过：`git diff --check`
 
 ## Handoff
 
@@ -361,3 +397,4 @@ Review status:
 - M10 已完成：`hkipo_backtest.py` 已能按评分分桶、评分排序相关性和失配样本评估评分与首日涨幅的一致性；最近 100 样本验证显示评分方向基本合理，但绿鞋 / 基石 / 暗盘仍需 enrichment 数据源补齐。
 - M11 已完成：`hkipo_backtest.py` 已支持 Futu/OpenD 历史日 K 线重算首日收盘涨幅；最近 100 样本实测覆盖 95/100，Futu 重算后评分方向仍基本合理。
 - M12 已完成：`hkipo_backtest.py` 已支持新股渔夫公开 API enrichment；最近 100 样本补充字段覆盖 97/100，绿鞋 80/100、基石 97/100、辉立暗盘 97/100、富途暗盘 95/100，结合 Futu K 线后的评分排序相关系数 0.579。
+- M13 已完成：`/hkipo` 已强制按北京时间当前日期取数；当前 IPO 池和基础日程字段优先 Futu/OpenD，Futu 缺失的孖展、暗盘、中签率等字段才允许外部财经源补充，且过期数据不得用于当前热度主评分。

@@ -124,7 +124,7 @@ Tushare 接口总表见 [references/api_reference.md](./references/api_reference
 - `/hkipo`: 自动发现当前“可认购 + 已截止认购但未上市”的港股 IPO 池，并按评分卡输出简明优先级报告
 - `/cnipo`: 预留 A 股 IPO 指令位，当前只返回占位说明
 
-`/hkipo` 的事实数据优先来自当前联网检索到的 HKEX / 公司公告等一手来源；财经站只补充认购倍数、中签率、灰市、首日涨幅等二级数据。评分、融资倍数热度、绿鞋/基石检查、回测校准和单表简明输出规则见 [references/hkipo.md](./references/hkipo.md)。
+`/hkipo` 必须按当前日期重新取数。当前 IPO 池、招股状态、上市日、招股截止日、发售价、一手股数和入场费优先使用 Futu/OpenD 只读 `get_ipo_list(HK)`；Futu/OpenD 不可用或字段缺失时，才用 HKEX / 公司公告 / 财经站补齐并标注降级。财经站只补充孖展/认购热度、中签率、灰市、首日涨幅等二级数据，且不得把过期数据当作当前热度评分依据。评分、融资倍数热度、绿鞋/基石检查、回测校准和单表简明输出规则见 [references/hkipo.md](./references/hkipo.md)。
 
 ### 港股 IPO 回测
 
