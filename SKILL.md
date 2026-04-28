@@ -102,7 +102,7 @@ OpenD 未安装、未启动或 SDK 版本不满足时，转入 `install-futu-ope
 - 当前 IPO 池发现、招股状态、上市日、招股截止日、发售价、一手股数和入场费优先使用 Futu/OpenD 只读 `get_ipo_list(HK)`；Futu/OpenD 不可用或字段为 `N/A` 时，才用 HKEX / 公司公告 / 财经站补齐，并明确降级。
 - 事实层中的招股书、全球发售、配发结果和上市文件优先依赖 HKEX / 公司公告等一手来源；财经站只补充 Futu/OpenD 与一手来源未提供的孖展/认购热度、中签率、一手中签率、灰市、首日涨幅等二级数据。
 - 必须检查绿鞋 / 超额配股权、稳定价格操作人、基石质量与占比、保荐人、回拨和公众货比例。
-- 默认输出简明报告：结论先行、单表评分总览、回测校准、Sources；维度细节整合进表格，不单列“简评”。
+- 默认输出极简报告：结论先行最多 3 条、单表评分总览、Sources；Futu 当前字段、外部补充热度、回测映射、发行结构、基本面/估值和风险全部整合进表格。不单列逐票解释、推导过程或回测校准段落。
 - 需要校准权重时运行：`.venv/bin/python scripts/hkipo_backtest.py --limit 100 --source aastocks --enrichment-source xinguyufu --debut-price-source futu-kline --format markdown`；OpenD 或 Futu SDK 不可用时降级为 `python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --enrichment-source xinguyufu --debut-price-source listed-table --format markdown`。重点看绿鞋/基石/暗盘覆盖、评分分桶、评分排序相关性、Top/Bottom 评分分位首日涨幅差和失配样本。
 
 ## 输出要求

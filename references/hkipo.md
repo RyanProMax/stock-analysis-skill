@@ -162,21 +162,25 @@ If reliable recent first-day data cannot be found quickly, do not invent it; set
 
 Use this report shape by default. Do **not** include separate per-name narrative sections; integrate dimension details into the table.
 
+Keep the report terse:
+
+- Do not explain trigger text, date mismatches, collection steps, or scoring derivation.
+- Put all key per-IPO content into the overview table, including Futu field coverage, external heat data, backtest mapping, structure, valuation and risk.
+- Do not add a separate backtest section unless the user explicitly asks for details; the table's `首日回测映射` column is enough.
+- Outside the table, only keep 1-3 conclusion bullets and compact sources.
+
 ```markdown
 # 港股 IPO 池（YYYY-MM-DD）
 
 ## 结论先行
-- 3-5 bullets only.
+- 1-3 bullets only.
 
 ## 评分总览
-| 代码 | 公司 | 阶段/上市日 | 评分/优先级 | 融资/认购热度 | 首日回测映射 | 绿鞋/基石/保荐 | 基本面/估值 | 最大风险 |
-|---|---|---|---:|---|---|---|---|---|
-
-## 回测校准
-- 样本、胜率、中位数、可借鉴模式、限制。
+| 代码 | 公司 | 阶段/上市日 | 评分/优先级 | Futu 当前字段 | 外部补充热度 | 首日回测映射 | 绿鞋/基石/保荐 | 基本面/估值 | 最大风险 |
+|---|---|---|---:|---|---|---|---|---|---|
 
 ## Sources
-- Group links by IPO/sample; label each link's purpose.
+- Key links only; max 2-3 sources per IPO/sample; label purpose and date.
 ```
 
 Keep the whole report concise. Avoid long company introductions. Do not repeat the same fact in multiple sections.

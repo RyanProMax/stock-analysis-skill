@@ -337,6 +337,37 @@ Review status:
 
 - passed
 
+### M14 — 压缩 hkipo 输出为关键表格
+
+Status: `done`
+
+Scope:
+
+- 收紧 `/hkipo` prompt，禁止解释触发文本日期差异、推导过程和冗长回测段落。
+- 将关键结论、数据源新鲜度、Futu 覆盖/外部补充、回测映射都整合进评分总览表。
+- 更新 `references/hkipo.md` / `SKILL.md` / `README.md` 的输出 contract。
+
+Validation:
+
+- `python3 commands/hkipo.py <<< '{}'`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `rg -n "触发文本|推导过程|废话|只保留|评分总览" SKILL.md README.md references/hkipo.md commands/hkipo.py`
+- `git diff --check`
+
+Progress:
+
+- 2026-04-28 北京时间：用户反馈 `/hkipo` 输出废话太多，并指出不应写死或解释旧触发文本日期；本轮目标是把报告压缩为极短结论 + 单表 + Sources。
+- 2026-04-28 北京时间：已将 `/hkipo` 输出模板改为最多 3 条结论 + 单张评分总览表 + Sources；移除单独回测校准段落，回测映射和数据源覆盖全部进表格。
+- 2026-04-28 北京时间：prompt 已明确禁止解释触发文本、系统日期或取数过程；若用户消息日期与当前北京时间日期不一致，直接按当前日期输出，不写差异说明。
+
+Validation status:
+
+- passed
+
+Review status:
+
+- passed
+
 ## Progress
 
 - 2026-04-27：移除旧 `docs/plan.md`，统一使用 `PLANS/`。
@@ -380,6 +411,10 @@ Review status:
 - 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
 - 已通过：`rg -n "Futu/OpenD|过期|孖展|当前日期|get_ipo_list|外部财经" SKILL.md README.md references/hkipo.md commands/hkipo.py`
 - 已通过：`git diff --check`
+- 已通过：`python3 commands/hkipo.py <<< '{}'`
+- 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
+- 已通过：`rg -n "触发文本|推导过程|废话|只保留|评分总览" SKILL.md README.md references/hkipo.md commands/hkipo.py`
+- 已通过：`git diff --check`
 
 ## Handoff
 
@@ -398,3 +433,4 @@ Review status:
 - M11 已完成：`hkipo_backtest.py` 已支持 Futu/OpenD 历史日 K 线重算首日收盘涨幅；最近 100 样本实测覆盖 95/100，Futu 重算后评分方向仍基本合理。
 - M12 已完成：`hkipo_backtest.py` 已支持新股渔夫公开 API enrichment；最近 100 样本补充字段覆盖 97/100，绿鞋 80/100、基石 97/100、辉立暗盘 97/100、富途暗盘 95/100，结合 Futu K 线后的评分排序相关系数 0.579。
 - M13 已完成：`/hkipo` 已强制按北京时间当前日期取数；当前 IPO 池和基础日程字段优先 Futu/OpenD，Futu 缺失的孖展、暗盘、中签率等字段才允许外部财经源补充，且过期数据不得用于当前热度主评分。
+- M14 已完成：`/hkipo` 输出已压缩为最多 3 条结论 + 单张评分总览表 + Sources；不再解释触发文本日期差异、取数过程或评分推导。
