@@ -428,6 +428,39 @@ Review status:
 
 - passed
 
+### M17 — 修复 hkipo Futu 命令跨目录兼容
+
+Status: `done`
+
+Scope:
+
+- 修复 `/hkipo` prompt 中的 Futu/OpenD 查询命令，不再使用当前工作区相对 `.venv/bin/python` 或用户机器硬编码路径。
+- 在 command executor 运行时解析当前 `stock-analysis-skill` 安装目录、可用 venv Python 和已安装 `futuapi` skill 脚本路径。
+- 增加回归测试，覆盖任意安装目录下生成的 prompt 不会依赖 `/Users/ryan` 或工作区 `.venv`。
+
+Validation:
+
+- `python3 -m unittest tests/test_hkipo_command.py`
+- `python3 -m unittest discover -s tests`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `python3 commands/hkipo.py <<< '{}'`
+- `cd /Users/ryan/projects/stock-analysis-skill && /Users/ryan/projects/stock-analysis-skill/.venv/bin/python /Users/ryan/.agents/skills/futuapi/scripts/quote/get_ipo_list.py HK --json`
+- `git diff --check`
+
+Progress:
+
+- 2026-04-30 北京时间：已确认 `/hkipo` 提示 Futu 不可用的根因是 prompt 使用相对 `.venv/bin/python`，而宿主 Agent 在工作区 cwd `/Users/ryan/projects/cli-claw` 下执行，找不到 `stock-analysis-skill` 的 Futu SDK venv。
+- 2026-04-30 北京时间：已将 `/hkipo` Futu 命令改为由 executor 运行时解析当前 skill 安装目录、venv Python 和 `futuapi` 脚本；若缺失则明确预检失败，不再让 Agent 猜工作区 `.venv`。
+- 2026-04-30 北京时间：已增加回归测试覆盖任意安装目录、venv symlink 保留、`futuapi` skill 自带 venv fallback 和缺失预检提示。
+
+Validation status:
+
+- passed
+
+Review status:
+
+- passed
+
 ## Progress
 
 - 2026-04-27：移除旧 `docs/plan.md`，统一使用 `PLANS/`。

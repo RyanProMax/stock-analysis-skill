@@ -29,6 +29,12 @@
 - 降级：源端不可用时输出 `status=degraded` 或 `status=failed`，不要伪造行情或账户数据。
 - 建议边界：不输出买卖建议、目标价、主观 conviction；只输出事实、触发原因和风险提示。
 
+## 跨 Skill 命令解析
+
+- `/hkipo` 这类 slash command 不应把 `futuapi` 脚本路径写死到某个用户目录，也不应让宿主 Agent 在当前工作区猜测 `.venv/bin/python`。
+- command executor 负责按当前 `stock-analysis-skill` 安装目录解析 Python venv，并在常见 skill 根目录或 `FUTUAPI_SKILL_DIR` 中查找 `futuapi/scripts/quote/get_ipo_list.py`。
+- 若未找到可用 Python 或 `futuapi` 脚本，prompt 必须明确写出 Futu/OpenD 预检失败原因，再允许降级到 HKEX / 公司公告 / 财经站。
+
 
 ## Watchlist 选路规则
 
