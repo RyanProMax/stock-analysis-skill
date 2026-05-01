@@ -7,7 +7,7 @@
 - `CLI 使用技能`：直接消费 `stock-analysis-api` 仓库中的内部 CLI
 - `Futu/OpenD 使用技能`：路由到已安装的 `futuapi` / `install-futu-opend` skills
 - `Tushare 使用技能`：保留 Tushare 本地工具与接口参考资产
-- `Slash Commands`：通过 `commands.json` + `commands/*.py` 暴露 IPO 池类命令
+- `Slash Commands`：通过 `commands.json` + `commands/*.py` 暴露单票研报与 IPO 池类命令
 
 核心文件如下：
 
@@ -16,6 +16,7 @@
 - `commands/*.py`: slash command 执行入口
 - `scripts/tushare_toolkit.py`: `.env` 加载、Tushare 初始化、代码标准化与参考文档生成
 - `references/cli.md`: CLI 使用说明、JSON 结构、汇总规则、固定模板
+- `references/research.md`: `/research` 单票深度研报模板、市场路由、降级与 Sources 规范
 - `references/api_reference.md`: Tushare 接口总表
 - `references/futu.md`: Futu/OpenD 路由与输出 Contract
 - `PLANS/ROADMAP.md`: 跨轮次长期跟进项与整合路线
@@ -30,7 +31,7 @@
   - `scripts/stock_analyze.py`
 - 单票分析、单票研报摘要、A 股标准化实时行情默认先走 CLI，不先走 Futu 或 Tushare
 - 港 / 美 / 多市场行情、盘口、期权、账户、持仓、订单等只读查询默认路由到 Futu/OpenD skills
-- IPO 池类命令允许通过 `commands.json` + `commands/*.py` 暴露；复杂研究型 command 优先输出结构化提示词，由宿主 Agent 继续完成联网分析
+- `/research` 与 IPO 池类命令允许通过 `commands.json` + `commands/*.py` 暴露；复杂研究型 command 优先输出结构化提示词，由宿主 Agent 继续完成联网分析
 - 本仓库不再维护对应 wrapper 脚本
 - Tushare 本地辅助能力统一收口到 `scripts/tushare_toolkit.py`
 - `references/cli.md` 是唯一 CLI 使用说明
@@ -64,7 +65,7 @@
 
 ## Testing Guidelines
 
-当前没有单元测试。每次改动至少完成以下验证：
+当前以 `unittest` 覆盖 slash command / 回测脚本，以 `py_compile` 做快速语法校验。每次改动至少完成以下验证：
 
 - 运行 `python -m py_compile scripts/*.py commands/*.py`
 - 若修改了 Tushare 工具脚本，运行 `python scripts/tushare_toolkit.py generate-docs`

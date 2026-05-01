@@ -16,6 +16,14 @@
         "command": "python3",
         "args": ["commands/cnipo.py"]
       }
+    },
+    "research": {
+      "description": "生成单只股票深度研报",
+      "entrypoints": ["im", "web"],
+      "executor": {
+        "command": "python3",
+        "args": ["commands/research.py"]
+      }
     }
   }
 }

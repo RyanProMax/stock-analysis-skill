@@ -461,6 +461,43 @@ Review status:
 
 - passed
 
+### M18 — 新增 /research 单票深度研报命令
+
+Status: `done`
+
+Scope:
+
+- 新增 `/research` skill command，沿用 `/hkipo` 的 thin executor + `assistant_prompt` 模式。
+- 第一版支持单只股票参数解析：A 股 6 位代码、`cn/us/hk` 显式市场、`US.AAPL` / `HK.00700` / `0700.HK` 等常见前缀格式。
+- A 股 / 美股优先复用 `stock-analysis-api/scripts/stock_analyze.py --mode full`；港股先作为后置支持，要求 Futu/OpenD + HKEX / AKShare / yfinance 降级路径。
+- 新增 `references/research.md`，沉淀统一研报模板、数据源路由、禁止事项、降级与来源规范。
+- 更新 `SKILL.md`、`README.md`、`commands.json` 与测试，确保 `/help` 可展示新命令且 command 输出 contract 一致。
+
+Validation:
+
+- `python3 -m unittest tests/test_research_command.py`
+- `python3 -m unittest discover -s tests`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `python3 commands/research.py <<< '{"argsText":"300750","args":["300750"],"workspace":{"name":"test"}}'`
+- `python3 commands/research.py <<< '{"argsText":"US.AAPL","args":["US.AAPL"],"workspace":{"name":"test"}}'`
+- `python3 commands/research.py <<< '{"argsText":"HK.00700","args":["HK.00700"],"workspace":{"name":"test"}}'`
+- `git diff --check`
+
+Progress:
+
+- 2026-05-01 北京时间：用户确认新增 `/research` 并要求 subagents 协作；已派生 reader 检查测试模式、implementer 草拟 `references/research.md`。
+- 2026-05-01 北京时间：本轮实现采用 TDD；先新增失败测试覆盖参数解析、assistant prompt、单票限制、A 股/美股 CLI 指令与港股后置数据层提示。
+- 2026-05-01 北京时间：已新增 `commands/research.py`、`references/research.md`、`tests/test_research_command.py`，并在 `commands.json` 注册 `/research`。
+- 2026-05-01 北京时间：review 发现 `US.` 前缀路径可能绕过 ticker 校验；已补安全回归测试、统一美股 symbol 校验并对可复制 CLI 参数使用 `shlex.quote`。
+
+Validation status:
+
+- passed
+
+Review status:
+
+- passed
+
 ## Progress
 
 - 2026-04-27：移除旧 `docs/plan.md`，统一使用 `PLANS/`。
