@@ -498,6 +498,41 @@ Review status:
 
 - passed
 
+### M19 — /research 动态解析 stock-analysis-api 命令
+
+Status: `done`
+
+Scope:
+
+- 让 `/research` executor 运行时解析可用的 `stock-analysis-api` 根目录，不再只在 prompt 中依赖 `$STOCK_ANALYSIS_API_ROOT`。
+- 搜索顺序优先环境变量，其次当前 skill 安装目录附近的 sibling `stock-analysis-api`；找到时输出可直接复制执行的绝对 `cd ... && uv run python scripts/stock_analyze.py ...` 命令。
+- 找不到 API 根目录时，在 prompt 中明确预检失败原因，并提示才允许按数据源不可用处理。
+- 增加回归测试覆盖 sibling root、环境变量优先、缺失预检和 shell-safe 命令参数。
+
+Validation:
+
+- `python3 -m unittest tests/test_research_command.py`
+- `python3 -m unittest discover -s tests`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `python3 commands/research.py <<< '{"argsText":"300750","args":["300750"],"workspace":{"name":"test"}}'`
+- `python3 commands/research.py <<< '{"argsText":"US.AAPL","args":["US.AAPL"],"workspace":{"name":"test"}}'`
+- `git diff --check`
+
+Progress:
+
+- 2026-05-01 北京时间：用户要求继续下一轮开发；本轮聚焦 `/research` 的 API CLI 命令可执行性，避免宿主 Agent 在不同 cwd 下猜环境变量或相对路径。
+- 2026-05-01 北京时间：已为 `/research` 增加 `stock-analysis-api` 根目录解析：`STOCK_ANALYSIS_API_ROOT` 优先，随后查找当前 skill 安装目录附近的 sibling `stock-analysis-api`；生成 shell-safe 绝对 `cd ... && uv run python scripts/stock_analyze.py ...` 命令。
+- 2026-05-01 北京时间：已补充回归测试，覆盖 sibling root、环境变量优先、空 env 不读取进程环境、缺失预检、不从宿主 cwd 猜 API 仓库、subprocess 入口和 `CLI_CLAW_SKILL_DIR` 驱动的宿主路径解析。
+- 2026-05-01 北京时间：已同步 `SKILL.md` / `README.md` / `AGENTS.md` / `references/research.md`，明确找不到 API 仓库时必须显式降级，不能猜相对路径或虚构 `$STOCK_ANALYSIS_API_ROOT`。
+
+Validation status:
+
+- passed
+
+Review status:
+
+- passed
+
 ## Progress
 
 - 2026-04-27：移除旧 `docs/plan.md`，统一使用 `PLANS/`。
@@ -574,3 +609,4 @@ Review status:
 - M14 已完成：`/hkipo` 输出已压缩为最多 3 条结论 + 单张评分总览表 + Sources；不再解释触发文本日期差异、取数过程或评分推导。
 - M15 已完成：`/hkipo` 输出改为飞书友好的窄卡片列表，避免宽 Markdown 表格横向滚动和裁切；Sources 要求短链接和用途/日期标签。
 - M16 已完成：`/hkipo` 去除 `#` / `##` 大标题，改用普通加粗标签、短分隔和 🟢/🟡/⚪/💰/🛡/📈/⚠️/🔗 固定信号。
+- M19 已完成：`/research` A 股 / 美股 prompt 已改为运行时解析 `stock-analysis-api` 绝对命令；找不到 API 仓库时显式预检失败并按研报降级规则继续。

@@ -1,8 +1,11 @@
 import json
+import os
 import pathlib
 import subprocess
 import sys
+import tempfile
 import unittest
+from unittest import mock
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "commands"))
@@ -31,6 +34,124 @@ class ResearchCommandTest(unittest.TestCase):
         self.assertIn("references/research.md", content)
         self.assertIn("A 股", content)
         self.assertIn("不输出买卖建议、目标价", content)
+
+    def test_cn_prompt_uses_runtime_resolved_absolute_api_command(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = pathlib.Path(raw_root).resolve()
+            skill_dir = root / "developer space" / "stock-analysis-skill"
+            api_root = root / "developer space" / "stock-analysis-api"
+            script_path = api_root / "scripts" / "stock_analyze.py"
+            skill_dir.mkdir(parents=True)
+            script_path.parent.mkdir(parents=True)
+            script_path.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+
+            result = research.build_reply(
+                {
+                    "argsText": "300750",
+                    "args": ["300750"],
+                    "workspace": {"name": "研究测试"},
+                },
+                skill_dir=skill_dir,
+                env={},
+            )
+
+        content = result["reply"]["content"]
+
+        self.assertIn(f"cd {research.shlex.quote(str(api_root))}", content)
+        self.assertIn("uv run python scripts/stock_analyze.py", content)
+        self.assertIn("--market cn --symbols 300750 --mode full --pretty", content)
+        self.assertNotIn('cd "$STOCK_ANALYSIS_API_ROOT"', content)
+
+    def test_env_api_root_takes_precedence_over_sibling_root(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = pathlib.Path(raw_root).resolve()
+            skill_dir = root / "stock-analysis-skill"
+            sibling_root = root / "stock-analysis-api"
+            env_root = root / "env stock api"
+            skill_dir.mkdir()
+            for api_root in (sibling_root, env_root):
+                script_path = api_root / "scripts" / "stock_analyze.py"
+                script_path.parent.mkdir(parents=True)
+                script_path.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+
+            result = research.build_reply(
+                {"argsText": "US.AAPL", "args": ["US.AAPL"]},
+                skill_dir=skill_dir,
+                env={"STOCK_ANALYSIS_API_ROOT": str(env_root)},
+            )
+
+        content = result["reply"]["content"]
+
+        self.assertIn(f"cd {research.shlex.quote(str(env_root))}", content)
+        self.assertNotIn(f"cd {research.shlex.quote(str(sibling_root))}", content)
+
+    def test_missing_api_root_reports_preflight_instead_of_relative_command(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = pathlib.Path(raw_root).resolve()
+            skill_dir = root / "stock-analysis-skill"
+            skill_dir.mkdir()
+
+            result = research.build_reply(
+                {"argsText": "US.AAPL", "args": ["US.AAPL"]},
+                skill_dir=skill_dir,
+                env={},
+            )
+
+        content = result["reply"]["content"]
+
+        self.assertIn("stock-analysis-api 预检：未找到", content)
+        self.assertNotIn('cd "$STOCK_ANALYSIS_API_ROOT"', content)
+
+    def test_empty_env_mapping_does_not_read_process_api_root(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = pathlib.Path(raw_root).resolve()
+            skill_dir = root / "stock-analysis-skill"
+            process_env_root = root / "process env api"
+            script_path = process_env_root / "scripts" / "stock_analyze.py"
+            skill_dir.mkdir()
+            script_path.parent.mkdir(parents=True)
+            script_path.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+
+            with mock.patch.dict(
+                os.environ,
+                {"STOCK_ANALYSIS_API_ROOT": str(process_env_root)},
+            ):
+                result = research.build_reply(
+                    {"argsText": "300750", "args": ["300750"]},
+                    skill_dir=skill_dir,
+                    env={},
+                )
+
+        content = result["reply"]["content"]
+
+        self.assertIn("stock-analysis-api 预检：未找到", content)
+        self.assertNotIn(f"cd {research.shlex.quote(str(process_env_root))}", content)
+
+    def test_api_root_resolution_does_not_guess_from_process_cwd(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = pathlib.Path(raw_root).resolve()
+            skill_dir = root / "installed" / "stock-analysis-skill"
+            cwd_api_root = root / "host workspace" / "stock-analysis-api"
+            script_path = cwd_api_root / "scripts" / "stock_analyze.py"
+            skill_dir.mkdir(parents=True)
+            script_path.parent.mkdir(parents=True)
+            script_path.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+
+            with mock.patch.object(
+                research.Path,
+                "cwd",
+                return_value=cwd_api_root.parent,
+            ):
+                result = research.build_reply(
+                    {"argsText": "US.AAPL", "args": ["US.AAPL"]},
+                    skill_dir=skill_dir,
+                    env={},
+                )
+
+        content = result["reply"]["content"]
+
+        self.assertIn("stock-analysis-api 预检：未找到", content)
+        self.assertNotIn(f"cd {research.shlex.quote(str(cwd_api_root))}", content)
 
     def test_us_prefixed_symbol_builds_assistant_prompt_with_us_cli(self) -> None:
         result = research.build_reply(
@@ -156,6 +277,63 @@ class ResearchCommandTest(unittest.TestCase):
         self.assertEqual(payload["reply"]["type"], "assistant_prompt")
         self.assertIn("US.AAPL", payload["reply"]["content"])
         self.assertTrue(payload["reply"]["ack"])
+
+    def test_main_uses_env_api_root_for_absolute_cli_command(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            api_root = pathlib.Path(raw_root).resolve() / "api root"
+            script_path = api_root / "scripts" / "stock_analyze.py"
+            script_path.parent.mkdir(parents=True)
+            script_path.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+            env = {**os.environ, "STOCK_ANALYSIS_API_ROOT": str(api_root)}
+
+            proc = subprocess.run(
+                [sys.executable, str(ROOT / "commands" / "research.py")],
+                input=json.dumps({"argsText": "300750", "args": ["300750"]}),
+                text=True,
+                capture_output=True,
+                check=True,
+                env=env,
+            )
+
+        payload = json.loads(proc.stdout)
+
+        self.assertIn(
+            f"cd {research.shlex.quote(str(api_root))}",
+            payload["reply"]["content"],
+        )
+
+    def test_main_uses_cli_claw_skill_dir_for_sibling_api_root(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = pathlib.Path(raw_root).resolve() / "workspace root"
+            skill_dir = root / "stock-analysis-skill"
+            api_root = root / "stock-analysis-api"
+            script_path = api_root / "scripts" / "stock_analyze.py"
+            skill_dir.mkdir(parents=True)
+            script_path.parent.mkdir(parents=True)
+            script_path.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+            env = dict(os.environ)
+            env.pop("STOCK_ANALYSIS_API_ROOT", None)
+            env["CLI_CLAW_SKILL_DIR"] = str(skill_dir)
+
+            proc = subprocess.run(
+                [sys.executable, str(ROOT / "commands" / "research.py")],
+                input=json.dumps({"argsText": "US.AAPL", "args": ["US.AAPL"]}),
+                text=True,
+                capture_output=True,
+                check=True,
+                env=env,
+            )
+
+        payload = json.loads(proc.stdout)
+
+        self.assertIn(
+            f"cd {research.shlex.quote(str(api_root))}",
+            payload["reply"]["content"],
+        )
+        self.assertIn(
+            "--market us --symbols AAPL --mode full --pretty",
+            payload["reply"]["content"],
+        )
 
 
 if __name__ == "__main__":

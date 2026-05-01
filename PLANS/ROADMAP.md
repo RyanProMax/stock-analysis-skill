@@ -19,7 +19,7 @@
 **整合原则**：
 
 - `stock-analysis-skill` 只负责意图路由、固定模板和安全边界
-- 标准 A 股低 token quote / objective analyze / `/research` A 股与美股深度研报底稿继续优先走 `stock-analysis-api` CLI
+- 标准 A 股低 token quote / objective analyze / `/research` A 股与美股深度研报底稿继续优先走 `stock-analysis-api` CLI；`/research` 由 executor 运行时解析绝对 API 命令，避免宿主工作区 cwd 影响
 - 港 / 美 / 多市场行情、盘口、期权、账户、持仓、订单等只读查询能力路由到 `futuapi`
 - OpenD 安装与连通性问题路由到 `install-futu-opend`
 - 禁止 AI 接触交易密码；禁止通过 SDK 或脚本调用交易解锁
@@ -69,3 +69,4 @@
 - 2026-04-28：`/hkipo` 飞书输出模板去除 `#` / `##` 大标题，改为普通加粗标签、短分隔和固定 emoji 信号。
 - 2026-04-30：`/hkipo` Futu/OpenD 查询命令改为运行时动态解析当前 skill 安装目录和 `futuapi` 脚本路径，不再依赖用户工作区相对 `.venv` 或固定用户目录。
 - 2026-05-01：新增 `/research` 单票深度研报 command 和 `references/research.md`，支持 A 股 / 美股优先、港股后置的统一研报模板与降级规范。
+- 2026-05-01：`/research` A 股 / 美股 prompt 已改为运行时解析 `stock-analysis-api` 绝对命令；优先 `STOCK_ANALYSIS_API_ROOT`，再查找 skill 安装目录附近 sibling，缺失时显式预检失败并降级。

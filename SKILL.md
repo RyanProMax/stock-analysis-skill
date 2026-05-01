@@ -31,7 +31,7 @@ metadata:
 
 | 用户意图 | 默认路由 | 关键边界 |
 | --- | --- | --- |
-| `/research <symbol>` | `Slash Commands` | 单票深度研报，A 股 / 美股优先复用 `stock_analyze.py --mode full`，港股走后置降级路径 |
+| `/research <symbol>` | `Slash Commands` | 单票深度研报，A 股 / 美股优先复用运行时解析出的 `stock_analyze.py --mode full` 绝对命令，港股走后置降级路径 |
 | `/hkipo` | `Slash Commands` | 自动发现港股 IPO 池，按 `references/hkipo.md` 评分 |
 | `/cnipo` | `Slash Commands` | 当前只返回占位说明 |
 | 单票客观分析、研报式摘要、“最近怎么样” | `CLI 使用技能` | 默认走 `stock_analyze.py`，不直接查原始 `report_rc` |
@@ -93,7 +93,7 @@ OpenD 未安装、未启动或 SDK 版本不满足时，转入 `install-futu-ope
 
 ## Slash Commands
 
-- `/research`：对一只 A 股 / 美股 / 港股生成深度研报 prompt。A 股 / 美股优先复用 `stock-analysis-api` 的 `stock_analyze.py --mode full`；港股当前作为后置支持，按 Futu/OpenD + HKEX / AKShare / yfinance 降级路径执行。输出模板、数据质量、Sources 和禁止事项见 `references/research.md`。
+- `/research`：对一只 A 股 / 美股 / 港股生成深度研报 prompt。A 股 / 美股优先复用 `stock-analysis-api` 的 `stock_analyze.py --mode full`；executor 会按 `STOCK_ANALYSIS_API_ROOT`、当前 skill 安装目录附近的 sibling `stock-analysis-api` 动态生成可复制的绝对 `cd ... && uv run python ...` 命令。找不到 API 仓库时必须显式标记预检失败，再按数据源不可用降级。港股当前作为后置支持，按 Futu/OpenD + HKEX / AKShare / yfinance 降级路径执行。输出模板、数据质量、Sources 和禁止事项见 `references/research.md`。
 - `/hkipo`：自动发现当前“可认购 + 已截止认购但未上市”的港股 IPO 池，并按评分卡输出简明优先级报告。
 - `/cnipo`：预留 A 股 IPO 指令位，当前只返回占位说明。
 

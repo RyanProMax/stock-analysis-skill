@@ -4,11 +4,14 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shlex
 import sys
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
+from typing import Mapping
 from zoneinfo import ZoneInfo
 
 
@@ -35,6 +38,13 @@ class ResearchTarget:
     normalized_symbol: str
     display_symbol: str
     yahoo_symbol: str | None = None
+
+
+@dataclass(frozen=True)
+class StockAnalyzeCommand:
+    command: str | None
+    api_root: Path | None
+    reason: str | None
 
 
 def emit(payload: dict) -> None:
@@ -92,6 +102,86 @@ def _extract_market_and_symbol(args: list[str]) -> tuple[str | None, list[str]]:
             continue
         symbols.append(arg)
     return market, symbols
+
+
+def resolve_skill_dir(
+    skill_dir: str | Path | None = None,
+    env: Mapping[str, str] | None = None,
+) -> Path:
+    if skill_dir:
+        return Path(skill_dir).expanduser().resolve()
+    resolved_env = os.environ if env is None else env
+    env_skill_dir = resolved_env.get("CLI_CLAW_SKILL_DIR")
+    if env_skill_dir:
+        return Path(env_skill_dir).expanduser().resolve()
+    return Path(__file__).resolve().parents[1]
+
+
+def _valid_api_root(path: Path) -> Path | None:
+    root = path.expanduser()
+    if not root.is_absolute():
+        root = Path.cwd() / root
+    root = root.resolve()
+    if (root / "scripts" / "stock_analyze.py").is_file():
+        return root
+    return None
+
+
+def candidate_api_roots(
+    skill_dir: Path,
+    env: Mapping[str, str] | None = None,
+) -> list[Path]:
+    resolved_env = os.environ if env is None else env
+    candidates: list[Path] = []
+    env_root = resolved_env.get("STOCK_ANALYSIS_API_ROOT")
+    if env_root:
+        candidates.append(Path(env_root))
+
+    candidates.extend(
+        [
+            skill_dir.parent / "stock-analysis-api",
+            skill_dir.parent.parent / "stock-analysis-api",
+        ]
+    )
+
+    seen: set[Path] = set()
+    unique: list[Path] = []
+    for candidate in candidates:
+        resolved = candidate.expanduser().resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        unique.append(resolved)
+    return unique
+
+
+def resolve_stock_analyze_command(
+    target: ResearchTarget,
+    *,
+    skill_dir: str | Path | None = None,
+    env: Mapping[str, str] | None = None,
+) -> StockAnalyzeCommand:
+    resolved_skill_dir = resolve_skill_dir(skill_dir=skill_dir, env=env)
+    for candidate in candidate_api_roots(resolved_skill_dir, env=env):
+        api_root = _valid_api_root(candidate)
+        if api_root:
+            command = (
+                f"cd {shlex.quote(str(api_root))} && "
+                "uv run python scripts/stock_analyze.py "
+                f"--market {shlex.quote(target.market)} "
+                f"--symbols {shlex.quote(target.normalized_symbol)} "
+                "--mode full --pretty"
+            )
+            return StockAnalyzeCommand(command=command, api_root=api_root, reason=None)
+
+    return StockAnalyzeCommand(
+        command=None,
+        api_root=None,
+        reason=(
+            "未找到 STOCK_ANALYSIS_API_ROOT 指向的有效仓库，"
+            "也未在当前 skill 安装目录附近找到含 scripts/stock_analyze.py 的 stock-analysis-api"
+        ),
+    )
 
 
 def _hk_symbols(raw_symbol: str) -> tuple[str, str]:
@@ -173,31 +263,42 @@ def parse_target(payload: dict) -> ResearchTarget | str:
     return "无法判断市场；请使用 `/research cn 300750`、`/research US.AAPL` 或 `/research HK.00700`。"
 
 
-def _stock_analyze_command(target: ResearchTarget) -> str:
+def _stock_analyze_instruction(command: StockAnalyzeCommand) -> str:
+    if command.command:
+        return (
+            f"`{command.command}`。这条命令由 /research executor 运行时解析，"
+            "必须直接复制执行；不要改用当前工作区相对路径。"
+        )
+
     return (
-        'cd "$STOCK_ANALYSIS_API_ROOT" && '
-        "uv run python scripts/stock_analyze.py "
-        f"--market {shlex.quote(target.market)} "
-        f"--symbols {shlex.quote(target.normalized_symbol)} "
-        "--mode full --pretty"
+        f"stock-analysis-api 预检：{command.reason}。不要在当前工作区猜测 "
+        "`$STOCK_ANALYSIS_API_ROOT` 或相对路径；此时必须把标准化 CLI 标为不可用，"
+        "再按 `references/research.md` 的降级规则继续。"
     )
 
 
-def _market_execution_requirements(target: ResearchTarget) -> str:
+def _market_execution_requirements(
+    target: ResearchTarget,
+    *,
+    skill_dir: str | Path | None = None,
+    env: Mapping[str, str] | None = None,
+) -> str:
     if target.market == "cn":
-        command = _stock_analyze_command(target)
+        command = resolve_stock_analyze_command(target, skill_dir=skill_dir, env=env)
+        instruction = _stock_analyze_instruction(command)
         return f"""市场路由：A 股
 - 必须先检查 `STOCK_ANALYSIS_API_ROOT`、`uv`、`TUSHARE_TOKEN` / `TUSHARE_HTTP_URL` 是否可用。
-- 首选执行：`{command}`。
+- 首选执行：{instruction}
 - `stock-analysis-api` JSON 是主事实底稿；只读取 `data.items[0]`、`summary.research_strategy`、`summary.*`、`meta.modules` 和原始 records 摘要。
 - 若 Tushare 权限不足、研报/公告/新闻为空或模块状态为 `partial` / `permission_denied` / `not_supported`，必须进入“数据质量与降级”章节。
 - 不直接改走原始 Tushare，除非用户明确要求原始接口或当前 CLI 无法覆盖。"""
 
     if target.market == "us":
-        command = _stock_analyze_command(target)
+        command = resolve_stock_analyze_command(target, skill_dir=skill_dir, env=env)
+        instruction = _stock_analyze_instruction(command)
         return f"""市场路由：美股
 - 必须先检查 `STOCK_ANALYSIS_API_ROOT` 与 `uv` 是否可用。
-- 首选执行：`{command}`。
+- 首选执行：{instruction}
 - `stock-analysis-api` JSON 是主事实底稿；重点消费 technical、earnings、dcf、comps、three_statement、competitive、sector_overview、summary.research_strategy。
 - 允许联网补充 SEC filings、公司 IR、earnings transcript、最新财报电话会、重大新闻和行业数据；所有联网事实必须标注来源日期。
 - 若 FMP / yfinance / SEC / 新闻源不可用，必须明确写入“数据质量与降级”，不能补编财务或估值数据。"""
@@ -210,11 +311,21 @@ def _market_execution_requirements(target: ResearchTarget) -> str:
 - 港股字段缺失、延迟行情、HKEX PDF 无法抽取或 Futu/OpenD 不可用时，必须明确标注“港股数据层降级”；港股结论只能基于已核验事实。"""
 
 
-def build_prompt(payload: dict, target: ResearchTarget) -> str:
+def build_prompt(
+    payload: dict,
+    target: ResearchTarget,
+    *,
+    skill_dir: str | Path | None = None,
+    env: Mapping[str, str] | None = None,
+) -> str:
     today = datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
     workspace = payload.get("workspace") or {}
     workspace_name = workspace.get("name") or workspace.get("folder") or "当前工作区"
-    execution_requirements = _market_execution_requirements(target)
+    execution_requirements = _market_execution_requirements(
+        target,
+        skill_dir=skill_dir,
+        env=env,
+    )
 
     return f"""今天是 {today}。这是由 stock-analysis-skill 的 /research 触发的单只股票深度研报任务，当前工作区为：{workspace_name}。
 
@@ -243,7 +354,12 @@ def build_prompt(payload: dict, target: ResearchTarget) -> str:
 - Sources 只列关键来源链接或模块名；外部链接要标明用途和发布日期/更新时间。"""
 
 
-def build_reply(payload: dict) -> dict:
+def build_reply(
+    payload: dict,
+    *,
+    skill_dir: str | Path | None = None,
+    env: Mapping[str, str] | None = None,
+) -> dict:
     target_or_error = parse_target(payload)
     if isinstance(target_or_error, str):
         return usage(target_or_error)
@@ -251,7 +367,12 @@ def build_reply(payload: dict) -> dict:
     return {
         "reply": {
             "type": "assistant_prompt",
-            "content": build_prompt(payload, target_or_error),
+            "content": build_prompt(
+                payload,
+                target_or_error,
+                skill_dir=skill_dir,
+                env=env,
+            ),
             "ack": f"已开始生成 {target_or_error.display_symbol} 的单票深度研报。",
         }
     }

@@ -32,6 +32,7 @@
 - 单票分析、单票研报摘要、A 股标准化实时行情默认先走 CLI，不先走 Futu 或 Tushare
 - 港 / 美 / 多市场行情、盘口、期权、账户、持仓、订单等只读查询默认路由到 Futu/OpenD skills
 - `/research` 与 IPO 池类命令允许通过 `commands.json` + `commands/*.py` 暴露；复杂研究型 command 优先输出结构化提示词，由宿主 Agent 继续完成联网分析
+- `/research` A 股 / 美股命令由 executor 优先按 `STOCK_ANALYSIS_API_ROOT`、再按 skill 安装目录附近的 sibling `stock-analysis-api` 解析绝对 CLI；找不到时必须在 prompt 中显式预检失败并降级
 - 本仓库不再维护对应 wrapper 脚本
 - Tushare 本地辅助能力统一收口到 `scripts/tushare_toolkit.py`
 - `references/cli.md` 是唯一 CLI 使用说明

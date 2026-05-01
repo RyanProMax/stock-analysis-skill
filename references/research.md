@@ -41,6 +41,8 @@ Choose one primary market route, then add source-specific evidence.
 | US | `stock-analysis-api` `stock_analyze.py --market us --mode full` | SEC EDGAR, company IR, 10-K / 10-Q / 8-K, earnings releases, investor presentations, Nasdaq / NYSE pages, Futu/OpenD read-only quote/K-line data when available, reputable finance data for consensus or market snapshot. |
 | HK | Futu/OpenD read-only market data | HKEXnews, company announcements, annual and interim reports, exchange filings, reputable finance portals for secondary market data. |
 
+For A-share and US reports, the `/research` executor should provide a copy-pasteable absolute command for `stock-analysis-api`. It resolves `STOCK_ANALYSIS_API_ROOT` first, then sibling `stock-analysis-api` directories near the current skill installation. Use that generated command exactly; do not replace it with the current workspace, a relative path, or an invented `$STOCK_ANALYSIS_API_ROOT` command. If the executor reports a `stock-analysis-api` preflight failure, mark the CLI module unavailable and continue only under the degradation rules below.
+
 Source priority:
 
 1. Official filings, exchange announcements, company IR, regulator records.
