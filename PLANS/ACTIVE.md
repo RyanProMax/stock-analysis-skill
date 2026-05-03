@@ -599,8 +599,44 @@ Review status:
 
 - passed
 
+
+### M22 — /research 股票名自动匹配代码
+
+Status: `done`
+
+Scope:
+
+- `/research` 支持输入股票名并自动匹配标准代码
+- 优先读取运行时解析到的 `stock-analysis-api/.cache/market_data.sqlite` 本地标的缓存，不触发刷新或联网副作用
+- 对 A 股名称、拼音缩写、代码做精确/前缀/包含匹配；唯一最佳匹配后生成标准 `stock_analyze.py` CLI 命令
+- 多候选或无候选时直接返回用户可读澄清信息，不生成错误 CLI
+- 同步 README / SKILL / research reference，并验证 slash command 行为
+
+Validation:
+
+- `python3 -m unittest tests/test_research_command.py -v`
+- `python3 -m unittest discover -s tests -v`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+- `STOCK_ANALYSIS_API_ROOT=/Users/ryan/projects/stock-analysis-api python3 commands/research.py <<< '{"argsText":"宁德时代","args":["宁德时代"]}'`
+
+Progress:
+
+- 2026-05-03 北京时间：已补 `/research 宁德时代`、`/research cn 宁德时代`、多候选和无候选四类单测。
+- 2026-05-03 北京时间：已实现基于本地 SQLite 标的缓存的 A 股股票名解析，唯一匹配后生成 `--market cn --symbols <code>` 标准 CLI。
+- 2026-05-03 北京时间：已同步 README / SKILL / research reference，明确本地缓存匹配、不联网刷新、多候选先澄清。
+
+Validation status:
+
+- passed
+
+Review status:
+
+- passed
+
 ## Progress
 
+- 2026-05-03：`/research` 已支持 A 股股票名自动匹配代码，使用本地 `stock-analysis-api` 标的缓存，唯一匹配后再生成标准 CLI；多候选或无候选时先澄清。
 - 2026-04-27：移除旧 `docs/plan.md`，统一使用 `PLANS/`。
 - 2026-04-27：确认用户要求后续任务时间改用北京时间展示。
 - 2026-04-27：开始创建 `PLANS/ROADMAP.md` 与 `PLANS/ACTIVE.md`，并把富途整合纳入长期 roadmap。
@@ -610,6 +646,11 @@ Review status:
 
 ## Validation
 
+- 已通过：`python3 -m unittest tests/test_research_command.py -v`
+- 已通过：`python3 -m unittest discover -s tests -v`
+- 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
+- 已通过：`git diff --check`
+- 已通过：`STOCK_ANALYSIS_API_ROOT=/Users/ryan/projects/stock-analysis-api python3 commands/research.py` 抽样验证 `/research 宁德时代` 解析为 `300750` 并生成绝对 CLI
 - 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
 - 已通过：`python3 commands/hkipo.py <<< '{}'`
 - 已通过：`python3 scripts/hkipo_backtest.py --limit 20 --source aastocks --format markdown`

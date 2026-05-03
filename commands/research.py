@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sqlite3
 import shlex
 import sys
 from dataclasses import dataclass
@@ -38,6 +39,8 @@ class ResearchTarget:
     normalized_symbol: str
     display_symbol: str
     yahoo_symbol: str | None = None
+    resolved_name: str | None = None
+    resolution_note: str | None = None
 
 
 @dataclass(frozen=True)
@@ -45,6 +48,16 @@ class StockAnalyzeCommand:
     command: str | None
     api_root: Path | None
     reason: str | None
+
+
+@dataclass(frozen=True)
+class SymbolMatch:
+    market: str
+    symbol: str
+    name: str
+    ts_code: str | None = None
+    exchange: str | None = None
+    cnspell: str | None = None
 
 
 def emit(payload: dict) -> None:
@@ -60,6 +73,7 @@ def usage(content: str | None = None) -> dict:
                 f"{message}\n\n"
                 "用法：`/research <symbol>`\n\n"
                 "示例：\n"
+                "- `/research 宁德时代`\n"
                 "- `/research 300750`\n"
                 "- `/research cn 300750`\n"
                 "- `/research US.AAPL`\n"
@@ -155,6 +169,179 @@ def candidate_api_roots(
     return unique
 
 
+def _search_cn_symbol_cache(db_path: Path, keyword: str) -> list[SymbolMatch]:
+    if not db_path.is_file():
+        return []
+
+    term = keyword.strip()
+    if not term:
+        return []
+
+    upper_term = term.upper()
+    like_term = f"%{term}%"
+    upper_like_term = f"%{upper_term}%"
+    query = """
+        SELECT symbol, ts_code, name, exchange, cnspell
+        FROM cn_symbols
+        WHERE UPPER(COALESCE(symbol, '')) = ?
+           OR UPPER(COALESCE(ts_code, '')) = ?
+           OR COALESCE(name, '') = ?
+           OR UPPER(COALESCE(cnspell, '')) = ?
+           OR COALESCE(name, '') LIKE ?
+           OR UPPER(COALESCE(cnspell, '')) LIKE ?
+        ORDER BY
+            CASE
+                WHEN COALESCE(name, '') = ? THEN 0
+                WHEN UPPER(COALESCE(symbol, '')) = ? THEN 0
+                WHEN UPPER(COALESCE(ts_code, '')) = ? THEN 0
+                WHEN UPPER(COALESCE(cnspell, '')) = ? THEN 0
+                WHEN COALESCE(name, '') LIKE ? THEN 1
+                ELSE 2
+            END,
+            LENGTH(COALESCE(name, '')),
+            symbol
+        LIMIT 10
+    """
+    params = (
+        upper_term,
+        upper_term,
+        term,
+        upper_term,
+        like_term,
+        upper_like_term,
+        term,
+        upper_term,
+        upper_term,
+        upper_term,
+        like_term,
+    )
+
+    try:
+        with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as connection:
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute(query, params).fetchall()
+    except sqlite3.Error:
+        return []
+
+    matches: list[SymbolMatch] = []
+    seen: set[tuple[str, str]] = set()
+    for row in rows:
+        symbol = str(row["symbol"] or "").strip()
+        name = str(row["name"] or "").strip()
+        if not symbol or not name:
+            continue
+        key = ("cn", symbol)
+        if key in seen:
+            continue
+        seen.add(key)
+        matches.append(
+            SymbolMatch(
+                market="cn",
+                symbol=symbol,
+                name=name,
+                ts_code=str(row["ts_code"] or "").strip() or None,
+                exchange=str(row["exchange"] or "").strip() or None,
+                cnspell=str(row["cnspell"] or "").strip() or None,
+            )
+        )
+    return matches
+
+
+def _search_symbol_cache(
+    keyword: str,
+    *,
+    market_hint: str | None,
+    skill_dir: str | Path | None = None,
+    env: Mapping[str, str] | None = None,
+) -> list[SymbolMatch]:
+    if market_hint not in {None, "cn"}:
+        return []
+
+    resolved_skill_dir = resolve_skill_dir(skill_dir=skill_dir, env=env)
+    matches: list[SymbolMatch] = []
+    seen: set[tuple[str, str]] = set()
+    for candidate in candidate_api_roots(resolved_skill_dir, env=env):
+        for match in _search_cn_symbol_cache(
+            candidate / ".cache" / "market_data.sqlite",
+            keyword,
+        ):
+            key = (match.market, match.symbol)
+            if key in seen:
+                continue
+            seen.add(key)
+            matches.append(match)
+    return matches
+
+
+def _is_exact_symbol_match(keyword: str, match: SymbolMatch) -> bool:
+    upper_keyword = keyword.strip().upper()
+    return any(
+        value == upper_keyword
+        for value in (
+            match.symbol.upper(),
+            (match.ts_code or "").upper(),
+            match.name.upper(),
+            (match.cnspell or "").upper(),
+        )
+    )
+
+
+def _target_from_symbol_match(keyword: str, match: SymbolMatch) -> ResearchTarget:
+    note = f"股票名匹配：`{keyword}` → `{match.symbol}`（A 股，{match.name}）"
+    return ResearchTarget(
+        match.market,
+        keyword,
+        match.symbol,
+        match.symbol,
+        resolved_name=match.name,
+        resolution_note=note,
+    )
+
+
+def _format_symbol_candidates(matches: list[SymbolMatch]) -> str:
+    lines = []
+    for match in matches[:8]:
+        suffix = f"，{match.exchange}" if match.exchange else ""
+        lines.append(f"- `{match.symbol}`：{match.name}（A 股{suffix}）")
+    return "\n".join(lines)
+
+
+def _resolve_name_target(
+    keyword: str,
+    *,
+    market_hint: str | None,
+    skill_dir: str | Path | None = None,
+    env: Mapping[str, str] | None = None,
+) -> ResearchTarget | str:
+    matches = _search_symbol_cache(
+        keyword,
+        market_hint=market_hint,
+        skill_dir=skill_dir,
+        env=env,
+    )
+    if not matches:
+        return (
+            f"未找到匹配股票代码：`{keyword}`。请改用明确代码，例如 `/research 300750`；"
+            "或先同步 stock-analysis-api 的本地标的缓存后再试。"
+        )
+
+    exact_matches = [match for match in matches if _is_exact_symbol_match(keyword, match)]
+    if len(exact_matches) == 1:
+        return _target_from_symbol_match(keyword, exact_matches[0])
+    if len(matches) == 1:
+        return _target_from_symbol_match(keyword, matches[0])
+
+    return (
+        f"匹配到多个标的：`{keyword}`，请使用更明确的代码重新发起 `/research`。\n\n"
+        f"{_format_symbol_candidates(matches)}\n\n"
+        "例如：`/research 300750`。"
+    )
+
+
+def _looks_like_stock_name(raw_symbol: str) -> bool:
+    return bool(re.search(r"[\u4e00-\u9fff]", raw_symbol))
+
+
 def resolve_stock_analyze_command(
     target: ResearchTarget,
     *,
@@ -199,22 +386,33 @@ def _hk_symbols(raw_symbol: str) -> tuple[str, str]:
     return futu_symbol, yahoo_symbol
 
 
-def parse_target(payload: dict) -> ResearchTarget | str:
+def parse_target(
+    payload: dict,
+    *,
+    skill_dir: str | Path | None = None,
+    env: Mapping[str, str] | None = None,
+) -> ResearchTarget | str:
     market_hint, symbols = _extract_market_and_symbol(_args_from_payload(payload))
     if not symbols:
         return "请提供一只股票代码。"
     if len(symbols) != 1:
         return "一次只支持一只股票；请拆成多次 `/research` 请求。"
 
-    raw_symbol = symbols[0].strip().upper()
+    raw_input = symbols[0].strip()
+    raw_symbol = raw_input.upper()
     if not raw_symbol:
         return "请提供一只股票代码。"
 
     if market_hint == "cn":
         digits = re.sub(r"\D", "", raw_symbol)
-        if len(digits) != 6:
-            return "A 股代码需要是 6 位数字，例如 `/research 300750`。"
-        return ResearchTarget("cn", raw_symbol, digits, digits)
+        if len(digits) == 6:
+            return ResearchTarget("cn", raw_symbol, digits, digits)
+        return _resolve_name_target(
+            raw_input,
+            market_hint="cn",
+            skill_dir=skill_dir,
+            env=env,
+        )
 
     if market_hint == "us":
         symbol = raw_symbol[3:] if raw_symbol.startswith("US.") else raw_symbol
@@ -259,8 +457,15 @@ def parse_target(payload: dict) -> ResearchTarget | str:
         return ResearchTarget("hk", raw_symbol, futu_symbol, futu_symbol, yahoo_symbol)
     if US_SYMBOL_PATTERN.fullmatch(raw_symbol):
         return ResearchTarget("us", raw_symbol, raw_symbol, f"US.{raw_symbol}")
+    if _looks_like_stock_name(raw_input):
+        return _resolve_name_target(
+            raw_input,
+            market_hint=None,
+            skill_dir=skill_dir,
+            env=env,
+        )
 
-    return "无法判断市场；请使用 `/research cn 300750`、`/research US.AAPL` 或 `/research HK.00700`。"
+    return "无法判断市场；请使用 `/research 宁德时代`、`/research cn 300750`、`/research US.AAPL` 或 `/research HK.00700`。"
 
 
 def _stock_analyze_instruction(command: StockAnalyzeCommand) -> str:
@@ -327,11 +532,13 @@ def build_prompt(
         env=env,
     )
 
+    resolution_line = f"- {target.resolution_note}\n" if target.resolution_note else ""
+
     return f"""今天是 {today}。这是由 stock-analysis-skill 的 /research 触发的单只股票深度研报任务，当前工作区为：{workspace_name}。
 
 请求标的
 - 用户输入：`{target.input_symbol}`
-- 识别市场：`{target.market}`
+{resolution_line}- 识别市场：`{target.market}`
 - 标准代码：`{target.display_symbol}`
 
 任务目标
@@ -366,7 +573,7 @@ def build_reply(
     skill_dir: str | Path | None = None,
     env: Mapping[str, str] | None = None,
 ) -> dict:
-    target_or_error = parse_target(payload)
+    target_or_error = parse_target(payload, skill_dir=skill_dir, env=env)
     if isinstance(target_or_error, str):
         return usage(target_or_error)
 
