@@ -126,7 +126,7 @@ Tushare 接口总表见 [references/api_reference.md](./references/api_reference
 - `/research`: 对一只 A 股 / 美股 / 港股生成深度研报 prompt；A 股 / 美股优先复用运行时解析出的 `stock-analysis-api` full mode 绝对命令，港股按 Futu/OpenD + HKEX / AKShare / yfinance 降级路径执行
 - `/cnipo`: 预留 A 股 IPO 指令位，当前只返回占位说明
 
-`/research` 只支持单只股票。常用输入包括 `/research 300750`、`/research cn 300750`、`/research US.AAPL`、`/research AAPL`、`/research HK.00700` 和 `/research 0700.HK`。命令本身只做参数解析、`stock-analysis-api` 预检和 prompt 生成；A 股 / 美股 prompt 中的 CLI 命令由 executor 按 `STOCK_ANALYSIS_API_ROOT` 或 sibling `stock-analysis-api` 动态解析为绝对 `cd ... && uv run python ...`，找不到时必须显式进入降级。研报必须按 [references/research.md](./references/research.md) 输出，明确数据源、模块状态、降级原因和 Sources，不输出买卖建议、目标价或确定性承诺。
+`/research` 只支持单只股票。常用输入包括 `/research 300750`、`/research cn 300750`、`/research US.AAPL`、`/research AAPL`、`/research HK.00700` 和 `/research 0700.HK`。命令本身只做参数解析、`stock-analysis-api` 预检和 prompt 生成；A 股 / 美股 prompt 中的 CLI 命令由 executor 按 `STOCK_ANALYSIS_API_ROOT` 或 sibling `stock-analysis-api` 动态解析为绝对 `cd ... && uv run python ...`，找不到时必须显式进入降级。研报必须按 [references/research.md](./references/research.md) 输出，明确 `module_status`、`source_freshness`、`data_gaps`、风险与反证、历史验证、Sources 和降级原因，不输出买卖建议、目标价或确定性承诺。
 
 `/hkipo` 必须按当前日期重新取数。当前 IPO 池、招股状态、上市日、招股截止日、发售价、一手股数和入场费优先使用 Futu/OpenD 只读 `get_ipo_list(HK)`；命令由 executor 按当前 skill 安装目录动态生成，不能依赖用户工作区相对 `.venv`。Futu/OpenD 不可用或字段缺失时，才用 HKEX / 公司公告 / 财经站补齐并标注降级。财经站只补充孖展/认购热度、中签率、灰市、首日涨幅等二级数据，且不得把过期数据当作当前热度评分依据。输出保持极简：不用 `#` / `##` 大标题和宽 Markdown 表格；结论最多 3 条，核心内容全部整合进飞书友好的窄卡片列表，用少量固定 emoji 强化优先级、热度、结构、回测、风险和来源。评分、融资倍数热度、绿鞋/基石检查、回测映射和卡片输出规则见 [references/hkipo.md](./references/hkipo.md)。
 

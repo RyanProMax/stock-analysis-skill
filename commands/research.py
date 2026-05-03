@@ -343,6 +343,9 @@ def build_prompt(
 {execution_requirements}
 - 需要联网核验最新公开事实时，必须使用绝对日期；不要把旧新闻、旧公告或旧财报当成当前事实。
 - 报告只能基于结构化 JSON、公告/财报/交易所/公司 IR 等可核验来源；所有关键判断必须能追溯到模块或链接。
+- 必须输出数据可信度层：`module_status`（各模块 ok/partial/degraded/failed）、`source_freshness`（行情/财报/公告/研报等截至时间）、`data_gaps`（缺失、过期、冲突或无权限数据）。
+- 风险评估必须整合在 `/research` 内，不新增独立 /risk；单票报告输出“风险与反证”，组合/持仓问题也按 `/research` 的只读风险约束处理。
+- 历史验证只作为 `/research` 的可选模块：仅在有可复现条件和足够数据时输出历史统计，必须写清样本数、时间窗口、筛选条件、指标和限制，不得转成交易指令。
 - 不输出买卖建议、目标价、确定性承诺、主观 conviction、`recommendation`、`confidence`、`price_target`、`thesis`。
 - 可以输出“重点跟踪 / 证据较强 / 风险偏高 / 数据不足”，但必须把它们解释为研究优先级或证据强度，不是交易建议。
 - 缺失数据直接写“未披露 / 未找到可靠来源 / 当前接口无权限”，不要伪造。
@@ -350,7 +353,7 @@ def build_prompt(
 输出格式
 - 以 `references/research.md` 的 Required Output Structure 为唯一准绳。
 - 标题使用：`**/research｜{target.display_symbol}｜{target.market}｜{today}**`。
-- 必须包含：结论摘要、标的识别、市场快照、业务与行业、财务质量、估值上下文、催化剂与验证路径、风险清单、降级说明、Sources。
+- 必须包含：结论摘要、数据可信度、标的识别、市场快照、业务与行业、财务质量、估值上下文、催化剂与验证路径、风险与反证、历史验证、降级说明、Sources。
 - Sources 只列关键来源链接或模块名；外部链接要标明用途和发布日期/更新时间。"""
 
 

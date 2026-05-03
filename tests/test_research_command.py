@@ -35,6 +35,33 @@ class ResearchCommandTest(unittest.TestCase):
         self.assertIn("A 股", content)
         self.assertIn("不输出买卖建议、目标价", content)
 
+    def test_research_prompt_requires_quality_risk_and_validation_modules(self) -> None:
+        result = research.build_reply(
+            {"argsText": "US.AAPL", "args": ["US.AAPL"]}
+        )
+
+        content = result["reply"]["content"]
+
+        self.assertIn("module_status", content)
+        self.assertIn("source_freshness", content)
+        self.assertIn("data_gaps", content)
+        self.assertIn("风险与反证", content)
+        self.assertIn("组合/持仓", content)
+        self.assertIn("历史验证", content)
+        self.assertIn("样本数", content)
+        self.assertIn("不新增独立 /risk", content)
+
+    def test_research_reference_defines_quality_risk_and_validation_contract(self) -> None:
+        content = (ROOT / "references" / "research.md").read_text(encoding="utf-8")
+
+        self.assertIn("module_status", content)
+        self.assertIn("source_freshness", content)
+        self.assertIn("data_gaps", content)
+        self.assertIn("风险与反证", content)
+        self.assertIn("组合/持仓风险", content)
+        self.assertIn("历史验证", content)
+        self.assertIn("只做历史统计", content)
+
     def test_cn_prompt_uses_runtime_resolved_absolute_api_command(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
             root = pathlib.Path(raw_root).resolve()

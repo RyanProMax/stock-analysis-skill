@@ -56,8 +56,9 @@ Source priority:
 2. **Collect market snapshot**: latest price, change, market cap if available, volume / turnover, 52-week context or recent trend. Label market status and source time.
 3. **Collect primary evidence**: latest annual / quarterly filings, earnings release, guidance, major announcements, risk factors, and segment data.
 4. **Cross-check secondary data**: peer valuation, consensus, news, sector indicators, ownership or capital flows if relevant.
-5. **Write the memo**: separate facts, interpretation, uncertainty, and risks. Keep every material claim traceable to a source.
-6. **Declare degradation**: if any required source is missing, stale, permission-limited, or unavailable, state it in the memo instead of filling gaps.
+5. **Build data reliability layer**: fill `module_status`, `source_freshness`, and `data_gaps` before writing conclusions.
+6. **Write the memo**: separate facts, interpretation, uncertainty, risks, and historical validation. Keep every material claim traceable to a source.
+7. **Declare degradation**: if any required source is missing, stale, permission-limited, or unavailable, state it in the memo instead of filling gaps.
 
 ## Required Output Structure
 
@@ -70,6 +71,11 @@ Use this shape by default. Keep headings compact and conclusion-first.
 - 数据状态：ok / partial / degraded / failed；关键来源截至时间。
 - 核心观察：1-3 条，只写可被证据支持的事实判断。
 - 最大不确定性：1-2 条。
+
+**数据可信度**
+- `module_status`：逐项列出 quote / financials / filings / research_report / news / valuation / risk / validation 等模块状态。
+- `source_freshness`：逐项列出行情、财报、公告、研报、新闻、历史验证数据的源端时间或截至日期。
+- `data_gaps`：列出缺失、过期、冲突、权限不足或只读数据源不可用的字段；不得用推测补齐。
 
 **标的识别**
 - 代码 / 交易所 / 公司名 / 币种 / 行业。
@@ -95,9 +101,15 @@ Use this shape by default. Keep headings compact and conclusion-first.
 - 未来 1-4 个可验证事件：财报、产品、订单、政策、监管、指数、资本动作。
 - 每个催化剂写清验证信号和反证信号。
 
-**风险清单**
-- 基本面、估值、流动性、监管、财务、治理、地缘或执行风险。
-- 区分已经发生的风险和需要跟踪的风险。
+**风险与反证**
+- 单票风险：基本面、估值、流动性、监管、财务、治理、地缘或执行风险。
+- 组合/持仓风险：仅当用户明确给出组合、watchlist 或只读持仓上下文时，补充集中度、相关性、行业/市场暴露和流动性风险；不新增独立 /risk 指令。
+- 反证信号：列出 2-4 个会推翻当前观察的可验证事实，不写交易动作。
+
+**历史验证**
+- 只做历史统计：仅当条件、窗口和数据源可复现时输出；否则写“未做历史验证”。
+- 必须写清样本数、起止日期、筛选/事件条件、核心指标、基准和限制，例如幸存者偏差、交易成本缺失或样本过小。
+- 历史验证不得生成买卖建议、仓位、止盈止损、交易时点或确定性收益判断。
 
 **降级说明**
 - 列出缺失模块、不可用来源、过期数据或权限限制。
@@ -105,6 +117,14 @@ Use this shape by default. Keep headings compact and conclusion-first.
 **Sources**
 - 按本文件 Sources 规范列出。
 ```
+
+## Data Reliability Contract
+
+- `module_status`: module-level execution state. Use `ok`, `partial`, `degraded`, `failed`, `permission_denied`, `not_supported`, or `not_run`; include a short reason for non-ok modules.
+- `source_freshness`: source timestamp or cutoff date for each material data class, including market quote, financial statements, filings, announcements, research reports, news, and historical validation inputs.
+- `data_gaps`: explicit missing, stale, conflicting, permission-limited, or unavailable fields. Put unresolved gaps here even if the narrative can continue.
+- These fields are mandatory for `/research`; they are credibility metadata, not analysis conclusions.
+
 
 ## Analysis Rules
 
@@ -115,6 +135,15 @@ Use this shape by default. Keep headings compact and conclusion-first.
 - For HK reports, do not reuse IPO first-day scoring. Treat listed HK stocks as normal single-stock research.
 - If valuation is requested, use ranges, peer context, historical multiples, and explicit assumptions. Do not convert the result into a target price or trade instruction.
 - If the user asks "能不能买", answer with factual pros / cons, suitability caveats, and follow-up checks; do not provide a buy/sell/hold call.
+
+## Risk and Historical Validation Contract
+
+- Risk assessment belongs inside `/research`; do not create or ask for an independent `/risk` command.
+- For a single stock, write risk as “风险与反证”: risks already visible in evidence, forward-looking risks to monitor, and facts that would invalidate the current observation.
+- For portfolio/watchlist/holding questions, use the same `/research` constraints and only read allowed data. Mention concentration, correlation, sector/market exposure, volatility, drawdown, liquidity, and data gaps; do not advise rebalancing or orders.
+- Historical validation is optional and evidence-only. It must include sample size, time window, reproducible condition, metric definitions, benchmark when applicable, and limitations.
+- If reproducible data is unavailable, write “未做历史验证” and explain the missing data instead of inventing a backtest.
+
 
 ## Degradation Contract
 

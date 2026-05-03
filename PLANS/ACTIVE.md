@@ -533,6 +533,39 @@ Review status:
 
 - passed
 
+### M20 — /research 可信度、风险与历史验证模块
+
+Status: `done`
+
+Scope:
+
+- 在 `/research` prompt 和 `references/research.md` 中固定可信度层：`module_status`、`source_freshness`、`data_gaps`。
+- 将风险评估整合进 `/research`，覆盖单票风险、组合/持仓只读风险和反证信号，不新增独立 `/risk` 指令。
+- 增加“历史验证”模块边界：只做可复现历史统计、样本数、窗口、假设和限制，不输出买卖建议或策略执行指令。
+- 补充回归测试，确保 `/research` executor prompt 强制包含以上模块。
+
+Validation:
+
+- `python3 -m unittest tests/test_research_command.py`
+- `python3 -m unittest discover -s tests`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+
+Progress:
+
+- 2026-05-03 北京时间：用户确认按 Vibe-Trading 对比后的方向优化，但要求风险不新增指令，统一整合到 `/research`；历史验证也作为 `/research` 模块而不是独立 `/backtest`。
+- 2026-05-03 北京时间：已在 `/research` prompt 和 `references/research.md` 固定 `module_status`、`source_freshness`、`data_gaps` 可信度层。
+- 2026-05-03 北京时间：已把风险评估收敛为 `/research` 内的“风险与反证”，并把组合/持仓风险定义为同入口只读约束，不新增 `/risk`。
+- 2026-05-03 北京时间：已新增“历史验证”模块边界：只做可复现历史统计，必须说明样本数、窗口、条件、指标和限制，不给交易指令。
+
+Validation status:
+
+- passed
+
+Review status:
+
+- passed
+
 ## Progress
 
 - 2026-04-27：移除旧 `docs/plan.md`，统一使用 `PLANS/`。
@@ -610,3 +643,4 @@ Review status:
 - M15 已完成：`/hkipo` 输出改为飞书友好的窄卡片列表，避免宽 Markdown 表格横向滚动和裁切；Sources 要求短链接和用途/日期标签。
 - M16 已完成：`/hkipo` 去除 `#` / `##` 大标题，改用普通加粗标签、短分隔和 🟢/🟡/⚪/💰/🛡/📈/⚠️/🔗 固定信号。
 - M19 已完成：`/research` A 股 / 美股 prompt 已改为运行时解析 `stock-analysis-api` 绝对命令；找不到 API 仓库时显式预检失败并按研报降级规则继续。
+- M20 已完成：`/research` 已增加可信度层、风险与反证、历史验证模块；风险不新增独立指令，组合/持仓风险纳入同入口只读约束。
