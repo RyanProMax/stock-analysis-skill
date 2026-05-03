@@ -1,7 +1,6 @@
 import json
 import os
 import pathlib
-import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -12,27 +11,6 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "commands"))
 
 import research
-
-
-def _write_minimal_symbol_cache(api_root: pathlib.Path, rows: list[tuple[str, str, str, str]]) -> None:
-    db_path = api_root / ".cache" / "market_data.sqlite"
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(db_path) as connection:
-        connection.execute(
-            """
-            CREATE TABLE cn_symbols (
-                symbol TEXT,
-                ts_code TEXT,
-                name TEXT,
-                exchange TEXT,
-                cnspell TEXT
-            )
-            """
-        )
-        connection.executemany(
-            "INSERT INTO cn_symbols(symbol, ts_code, name, exchange, cnspell) VALUES (?, ?, ?, ?, ?)",
-            rows,
-        )
 
 
 class ResearchCommandTest(unittest.TestCase):
@@ -107,7 +85,7 @@ class ResearchCommandTest(unittest.TestCase):
         self.assertIn("2500-3500 字", content)
         self.assertIn("Debug details", content)
 
-    def test_cn_stock_name_resolves_to_symbol_before_cli_prompt(self) -> None:
+    def test_cn_stock_name_delegates_identity_resolution_to_agent(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
             root = pathlib.Path(raw_root).resolve()
             skill_dir = root / "stock-analysis-skill"
@@ -116,10 +94,6 @@ class ResearchCommandTest(unittest.TestCase):
             skill_dir.mkdir()
             script_path.parent.mkdir(parents=True)
             script_path.write_text("#!/usr/bin/env python\n", encoding="utf-8")
-            _write_minimal_symbol_cache(
-                api_root,
-                [("300750", "300750.SZ", "宁德时代", "SZSE", "NDSD")],
-            )
 
             result = research.build_reply(
                 {"argsText": "宁德时代", "args": ["宁德时代"]},
@@ -131,54 +105,36 @@ class ResearchCommandTest(unittest.TestCase):
         content = reply["content"]
 
         self.assertEqual(reply["type"], "assistant_prompt")
-        self.assertIn("股票名匹配：`宁德时代` → `300750`", content)
-        self.assertIn("--market cn --symbols 300750 --mode full --pretty", content)
-        self.assertIn("300750", reply["ack"])
+        self.assertIn("标的识别阶段", content)
+        self.assertIn("由 agent 先识别唯一上市代码", content)
+        self.assertIn("宁德时代", content)
+        self.assertIn("--symbols <resolved_symbol>", content)
+        self.assertNotIn("股票名匹配：`宁德时代` → `300750`", content)
+        self.assertNotIn("--symbols 300750 --mode full --pretty", content)
 
-    def test_cn_stock_name_with_market_hint_resolves_to_symbol(self) -> None:
-        with tempfile.TemporaryDirectory() as raw_root:
-            root = pathlib.Path(raw_root).resolve()
-            skill_dir = root / "stock-analysis-skill"
-            api_root = root / "stock-analysis-api"
-            script_path = api_root / "scripts" / "stock_analyze.py"
-            skill_dir.mkdir()
-            script_path.parent.mkdir(parents=True)
-            script_path.write_text("#!/usr/bin/env python\n", encoding="utf-8")
-            _write_minimal_symbol_cache(
-                api_root,
-                [("300750", "300750.SZ", "宁德时代", "SZSE", "NDSD")],
-            )
-
-            result = research.build_reply(
-                {"argsText": "cn 宁德时代", "args": ["cn", "宁德时代"]},
-                skill_dir=skill_dir,
-                env={},
-            )
-
-        self.assertIn(
-            "--market cn --symbols 300750 --mode full --pretty",
-            result["reply"]["content"],
+    def test_cn_stock_name_with_market_hint_still_requires_agent_resolution(self) -> None:
+        result = research.build_reply(
+            {"argsText": "cn 宁德时代", "args": ["cn", "宁德时代"]},
+            skill_dir=ROOT,
+            env={},
         )
 
-    def test_cn_stock_name_ambiguous_returns_clarification(self) -> None:
+        reply = result["reply"]
+        content = reply["content"]
+
+        self.assertEqual(reply["type"], "assistant_prompt")
+        self.assertIn("市场倾向：`cn`", content)
+        self.assertIn("先识别唯一上市代码", content)
+        self.assertNotIn("A 股代码需要是 6 位数字", content)
+
+    def test_stock_name_without_api_root_still_delegates_resolution_to_agent(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
             root = pathlib.Path(raw_root).resolve()
             skill_dir = root / "stock-analysis-skill"
-            api_root = root / "stock-analysis-api"
-            script_path = api_root / "scripts" / "stock_analyze.py"
             skill_dir.mkdir()
-            script_path.parent.mkdir(parents=True)
-            script_path.write_text("#!/usr/bin/env python\n", encoding="utf-8")
-            _write_minimal_symbol_cache(
-                api_root,
-                [
-                    ("300750", "300750.SZ", "宁德时代", "SZSE", "NDSD"),
-                    ("300751", "300751.SZ", "宁德科技", "SZSE", "NDKJ"),
-                ],
-            )
 
             result = research.build_reply(
-                {"argsText": "宁德", "args": ["宁德"]},
+                {"argsText": "宁德时代", "args": ["宁德时代"]},
                 skill_dir=skill_dir,
                 env={},
             )
@@ -186,38 +142,10 @@ class ResearchCommandTest(unittest.TestCase):
         reply = result["reply"]
         content = reply["content"]
 
-        self.assertEqual(reply["type"], "final_markdown")
-        self.assertIn("匹配到多个标的", content)
-        self.assertIn("300750", content)
-        self.assertIn("300751", content)
-        self.assertIn("/research 300750", content)
-
-    def test_cn_stock_name_without_match_returns_clear_message(self) -> None:
-        with tempfile.TemporaryDirectory() as raw_root:
-            root = pathlib.Path(raw_root).resolve()
-            skill_dir = root / "stock-analysis-skill"
-            api_root = root / "stock-analysis-api"
-            script_path = api_root / "scripts" / "stock_analyze.py"
-            skill_dir.mkdir()
-            script_path.parent.mkdir(parents=True)
-            script_path.write_text("#!/usr/bin/env python\n", encoding="utf-8")
-            _write_minimal_symbol_cache(
-                api_root,
-                [("300750", "300750.SZ", "宁德时代", "SZSE", "NDSD")],
-            )
-
-            result = research.build_reply(
-                {"argsText": "不存在公司", "args": ["不存在公司"]},
-                skill_dir=skill_dir,
-                env={},
-            )
-
-        reply = result["reply"]
-        content = reply["content"]
-
-        self.assertEqual(reply["type"], "final_markdown")
-        self.assertIn("未找到匹配股票代码", content)
-        self.assertIn("/research 300750", content)
+        self.assertEqual(reply["type"], "assistant_prompt")
+        self.assertIn("标的识别阶段", content)
+        self.assertIn("stock-analysis-api 预检：未找到", content)
+        self.assertNotIn("未找到匹配股票代码", content)
 
     def test_cn_prompt_uses_runtime_resolved_absolute_api_command(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:

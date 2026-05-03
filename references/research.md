@@ -18,7 +18,7 @@ Resolve the target before collecting data. A-share and US routes have priority; 
 
 | Input pattern | Default market | Notes |
 | --- | --- | --- |
-| Chinese A-share name such as `宁德时代` | A-share | Executor searches local `stock-analysis-api/.cache/market_data.sqlite` symbol cache first; unique match is normalized to code before CLI generation. |
+| Chinese company / stock name such as `宁德时代` | Agent resolves first | Executor emits an identity-resolution workflow; the agent must verify the unique market and ticker from reliable sources before replacing the CLI template and running it. |
 | 6-digit code such as `300827`, `600000` | A-share | Prefer `stock-analysis-api` CLI contracts. |
 | `SH.600000`, `SZ.300827`, `BJ.8xxxxx` | A-share | Preserve explicit exchange if provided. |
 | US ticker such as `AAPL`, `MSFT`, `TSLA`, `NVDA` | US | Prefer US route unless user mentions HK/A-share listing. |
@@ -30,8 +30,8 @@ Rules:
 
 - Do not route to HK only because a company has an HK listing. Use HK only for explicit HK symbols, explicit user intent, or no credible A-share / US match.
 - If the same business has multiple listings, keep the selected listing clear in the report and mention other listings only as context.
-- For A-share names, use the executor-resolved mapping note in the prompt, e.g. `股票名匹配：宁德时代 → 300750`; do not silently swap to a different listing.
-- If local symbol-cache search returns multiple candidates, stop and ask for the exact code; do not guess from popularity alone.
+- For stock-name inputs, the executor must not hardcode or locally cache-match the ticker. The agent resolves identity from reliable sources, then records `原始输入 → 市场 / 代码 / 公司名` and evidence in the report.
+- If agent identity resolution returns multiple candidates, stop and ask for the exact code or listing venue; do not guess from popularity alone.
 - If symbol identity remains uncertain after a quick lookup, stop and ask for the exchange or full ticker.
 
 ## Data Source Routing
@@ -44,7 +44,7 @@ Choose one primary market route, then add source-specific evidence.
 | US | `stock-analysis-api` `stock_analyze.py --market us --mode full` | SEC EDGAR, company IR, 10-K / 10-Q / 8-K, earnings releases, investor presentations, Nasdaq / NYSE pages, Futu/OpenD read-only quote/K-line data when available, reputable finance data for consensus or market snapshot. |
 | HK | Futu/OpenD read-only market data | HKEXnews, company announcements, annual and interim reports, exchange filings, reputable finance portals for secondary market data. |
 
-For A-share and US reports, the `/research` executor should provide a copy-pasteable absolute command for `stock-analysis-api`. It resolves `STOCK_ANALYSIS_API_ROOT` first, then sibling `stock-analysis-api` directories near the current skill installation. When the user enters an A-share company name, the executor first reads the local `stock-analysis-api/.cache/market_data.sqlite` symbol cache and normalizes a unique match into the generated CLI command; this local lookup must not refresh external data. Use that generated command exactly; do not replace it with the current workspace, a relative path, or an invented `$STOCK_ANALYSIS_API_ROOT` command. If the executor reports a `stock-analysis-api` preflight failure, mark the CLI module unavailable and continue only under the degradation rules below.
+For A-share and US reports with an explicit ticker, the `/research` executor should provide a copy-pasteable absolute command for `stock-analysis-api`. It resolves `STOCK_ANALYSIS_API_ROOT` first, then sibling `stock-analysis-api` directories near the current skill installation. For stock-name inputs, the executor provides an identity-resolution workflow plus a CLI template with `<resolved_market>` / `<resolved_symbol>` placeholders; the agent must resolve a unique listing before replacing those placeholders and running the CLI. Use the generated command or template exactly; do not replace it with the current workspace, a relative path, or an invented `$STOCK_ANALYSIS_API_ROOT` command. If the executor reports a `stock-analysis-api` preflight failure, mark the CLI module unavailable and continue only under the degradation rules below.
 
 Source priority:
 

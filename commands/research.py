@@ -6,7 +6,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import sqlite3
 import shlex
 import sys
 from dataclasses import dataclass
@@ -39,8 +38,8 @@ class ResearchTarget:
     normalized_symbol: str
     display_symbol: str
     yahoo_symbol: str | None = None
-    resolved_name: str | None = None
-    resolution_note: str | None = None
+    requires_agent_resolution: bool = False
+    market_hint: str | None = None
 
 
 @dataclass(frozen=True)
@@ -48,16 +47,6 @@ class StockAnalyzeCommand:
     command: str | None
     api_root: Path | None
     reason: str | None
-
-
-@dataclass(frozen=True)
-class SymbolMatch:
-    market: str
-    symbol: str
-    name: str
-    ts_code: str | None = None
-    exchange: str | None = None
-    cnspell: str | None = None
 
 
 def emit(payload: dict) -> None:
@@ -169,178 +158,6 @@ def candidate_api_roots(
     return unique
 
 
-def _search_cn_symbol_cache(db_path: Path, keyword: str) -> list[SymbolMatch]:
-    if not db_path.is_file():
-        return []
-
-    term = keyword.strip()
-    if not term:
-        return []
-
-    upper_term = term.upper()
-    like_term = f"%{term}%"
-    upper_like_term = f"%{upper_term}%"
-    query = """
-        SELECT symbol, ts_code, name, exchange, cnspell
-        FROM cn_symbols
-        WHERE UPPER(COALESCE(symbol, '')) = ?
-           OR UPPER(COALESCE(ts_code, '')) = ?
-           OR COALESCE(name, '') = ?
-           OR UPPER(COALESCE(cnspell, '')) = ?
-           OR COALESCE(name, '') LIKE ?
-           OR UPPER(COALESCE(cnspell, '')) LIKE ?
-        ORDER BY
-            CASE
-                WHEN COALESCE(name, '') = ? THEN 0
-                WHEN UPPER(COALESCE(symbol, '')) = ? THEN 0
-                WHEN UPPER(COALESCE(ts_code, '')) = ? THEN 0
-                WHEN UPPER(COALESCE(cnspell, '')) = ? THEN 0
-                WHEN COALESCE(name, '') LIKE ? THEN 1
-                ELSE 2
-            END,
-            LENGTH(COALESCE(name, '')),
-            symbol
-        LIMIT 10
-    """
-    params = (
-        upper_term,
-        upper_term,
-        term,
-        upper_term,
-        like_term,
-        upper_like_term,
-        term,
-        upper_term,
-        upper_term,
-        upper_term,
-        like_term,
-    )
-
-    try:
-        with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as connection:
-            connection.row_factory = sqlite3.Row
-            rows = connection.execute(query, params).fetchall()
-    except sqlite3.Error:
-        return []
-
-    matches: list[SymbolMatch] = []
-    seen: set[tuple[str, str]] = set()
-    for row in rows:
-        symbol = str(row["symbol"] or "").strip()
-        name = str(row["name"] or "").strip()
-        if not symbol or not name:
-            continue
-        key = ("cn", symbol)
-        if key in seen:
-            continue
-        seen.add(key)
-        matches.append(
-            SymbolMatch(
-                market="cn",
-                symbol=symbol,
-                name=name,
-                ts_code=str(row["ts_code"] or "").strip() or None,
-                exchange=str(row["exchange"] or "").strip() or None,
-                cnspell=str(row["cnspell"] or "").strip() or None,
-            )
-        )
-    return matches
-
-
-def _search_symbol_cache(
-    keyword: str,
-    *,
-    market_hint: str | None,
-    skill_dir: str | Path | None = None,
-    env: Mapping[str, str] | None = None,
-) -> list[SymbolMatch]:
-    if market_hint not in {None, "cn"}:
-        return []
-
-    resolved_skill_dir = resolve_skill_dir(skill_dir=skill_dir, env=env)
-    matches: list[SymbolMatch] = []
-    seen: set[tuple[str, str]] = set()
-    for candidate in candidate_api_roots(resolved_skill_dir, env=env):
-        for match in _search_cn_symbol_cache(
-            candidate / ".cache" / "market_data.sqlite",
-            keyword,
-        ):
-            key = (match.market, match.symbol)
-            if key in seen:
-                continue
-            seen.add(key)
-            matches.append(match)
-    return matches
-
-
-def _is_exact_symbol_match(keyword: str, match: SymbolMatch) -> bool:
-    upper_keyword = keyword.strip().upper()
-    return any(
-        value == upper_keyword
-        for value in (
-            match.symbol.upper(),
-            (match.ts_code or "").upper(),
-            match.name.upper(),
-            (match.cnspell or "").upper(),
-        )
-    )
-
-
-def _target_from_symbol_match(keyword: str, match: SymbolMatch) -> ResearchTarget:
-    note = f"股票名匹配：`{keyword}` → `{match.symbol}`（A 股，{match.name}）"
-    return ResearchTarget(
-        match.market,
-        keyword,
-        match.symbol,
-        match.symbol,
-        resolved_name=match.name,
-        resolution_note=note,
-    )
-
-
-def _format_symbol_candidates(matches: list[SymbolMatch]) -> str:
-    lines = []
-    for match in matches[:8]:
-        suffix = f"，{match.exchange}" if match.exchange else ""
-        lines.append(f"- `{match.symbol}`：{match.name}（A 股{suffix}）")
-    return "\n".join(lines)
-
-
-def _resolve_name_target(
-    keyword: str,
-    *,
-    market_hint: str | None,
-    skill_dir: str | Path | None = None,
-    env: Mapping[str, str] | None = None,
-) -> ResearchTarget | str:
-    matches = _search_symbol_cache(
-        keyword,
-        market_hint=market_hint,
-        skill_dir=skill_dir,
-        env=env,
-    )
-    if not matches:
-        return (
-            f"未找到匹配股票代码：`{keyword}`。请改用明确代码，例如 `/research 300750`；"
-            "或先同步 stock-analysis-api 的本地标的缓存后再试。"
-        )
-
-    exact_matches = [match for match in matches if _is_exact_symbol_match(keyword, match)]
-    if len(exact_matches) == 1:
-        return _target_from_symbol_match(keyword, exact_matches[0])
-    if len(matches) == 1:
-        return _target_from_symbol_match(keyword, matches[0])
-
-    return (
-        f"匹配到多个标的：`{keyword}`，请使用更明确的代码重新发起 `/research`。\n\n"
-        f"{_format_symbol_candidates(matches)}\n\n"
-        "例如：`/research 300750`。"
-    )
-
-
-def _looks_like_stock_name(raw_symbol: str) -> bool:
-    return bool(re.search(r"[\u4e00-\u9fff]", raw_symbol))
-
 
 def resolve_stock_analyze_command(
     target: ResearchTarget,
@@ -386,12 +203,28 @@ def _hk_symbols(raw_symbol: str) -> tuple[str, str]:
     return futu_symbol, yahoo_symbol
 
 
+def _looks_like_stock_name(raw_symbol: str) -> bool:
+    return bool(re.search(r"[\u4e00-\u9fff]", raw_symbol))
+
+def _agent_resolution_target(raw_input: str, market_hint: str | None) -> ResearchTarget:
+    market = market_hint or "auto"
+    return ResearchTarget(
+        market=market,
+        input_symbol=raw_input,
+        normalized_symbol="<resolved_symbol>",
+        display_symbol=raw_input,
+        requires_agent_resolution=True,
+        market_hint=market_hint,
+    )
+
+
 def parse_target(
     payload: dict,
     *,
     skill_dir: str | Path | None = None,
     env: Mapping[str, str] | None = None,
 ) -> ResearchTarget | str:
+    del skill_dir, env
     market_hint, symbols = _extract_market_and_symbol(_args_from_payload(payload))
     if not symbols:
         return "请提供一只股票代码。"
@@ -407,16 +240,15 @@ def parse_target(
         digits = re.sub(r"\D", "", raw_symbol)
         if len(digits) == 6:
             return ResearchTarget("cn", raw_symbol, digits, digits)
-        return _resolve_name_target(
-            raw_input,
-            market_hint="cn",
-            skill_dir=skill_dir,
-            env=env,
-        )
+        if _looks_like_stock_name(raw_input):
+            return _agent_resolution_target(raw_input, market_hint)
+        return "A 股代码需要是 6 位数字，例如 `/research 300750`。"
 
     if market_hint == "us":
         symbol = raw_symbol[3:] if raw_symbol.startswith("US.") else raw_symbol
         if not US_SYMBOL_PATTERN.fullmatch(symbol):
+            if _looks_like_stock_name(raw_input):
+                return _agent_resolution_target(raw_input, market_hint)
             return "美股代码格式无法识别，例如 `/research US.AAPL`。"
         return ResearchTarget("us", raw_symbol, symbol, f"US.{symbol}")
 
@@ -424,6 +256,8 @@ def parse_target(
         try:
             futu_symbol, yahoo_symbol = _hk_symbols(raw_symbol)
         except ValueError as exc:
+            if _looks_like_stock_name(raw_input):
+                return _agent_resolution_target(raw_input, market_hint)
             return str(exc)
         return ResearchTarget("hk", raw_symbol, futu_symbol, futu_symbol, yahoo_symbol)
 
@@ -458,12 +292,7 @@ def parse_target(
     if US_SYMBOL_PATTERN.fullmatch(raw_symbol):
         return ResearchTarget("us", raw_symbol, raw_symbol, f"US.{raw_symbol}")
     if _looks_like_stock_name(raw_input):
-        return _resolve_name_target(
-            raw_input,
-            market_hint=None,
-            skill_dir=skill_dir,
-            env=env,
-        )
+        return _agent_resolution_target(raw_input, market_hint)
 
     return "无法判断市场；请使用 `/research 宁德时代`、`/research cn 300750`、`/research US.AAPL` 或 `/research HK.00700`。"
 
@@ -482,12 +311,72 @@ def _stock_analyze_instruction(command: StockAnalyzeCommand) -> str:
     )
 
 
+def _stock_analyze_template_instruction(
+    market_hint: str | None,
+    *,
+    skill_dir: str | Path | None = None,
+    env: Mapping[str, str] | None = None,
+) -> str:
+    resolved_skill_dir = resolve_skill_dir(skill_dir=skill_dir, env=env)
+    market_placeholder = market_hint if market_hint in {"cn", "us"} else "<resolved_market>"
+    for candidate in candidate_api_roots(resolved_skill_dir, env=env):
+        api_root = _valid_api_root(candidate)
+        if api_root:
+            command = (
+                f"cd {shlex.quote(str(api_root))} && "
+                "uv run python scripts/stock_analyze.py "
+                f"--market {market_placeholder} "
+                "--symbols <resolved_symbol> "
+                "--mode full --pretty"
+            )
+            return (
+                f"`{command}`。这里的 `<resolved_symbol>` 必须由 agent 完成标的识别后替换；"
+                "不要在 executor 阶段用本地缓存硬匹配。"
+            )
+
+    return (
+        "stock-analysis-api 预检：未找到 STOCK_ANALYSIS_API_ROOT 指向的有效仓库，"
+        "也未在当前 skill 安装目录附近找到含 scripts/stock_analyze.py 的 stock-analysis-api。"
+        "agent 仍需先识别唯一上市代码；若标准化 CLI 不可用，再按降级规则继续。"
+    )
+
+
+def _agent_resolution_execution_requirements(
+    target: ResearchTarget,
+    *,
+    skill_dir: str | Path | None = None,
+    env: Mapping[str, str] | None = None,
+) -> str:
+    market_hint = target.market_hint
+    market_hint_text = market_hint or "未指定；默认按 A 股 → 美股 → 港股的顺序验证，但不能只凭知名度猜测"
+    template_instruction = _stock_analyze_template_instruction(
+        market_hint,
+        skill_dir=skill_dir,
+        env=env,
+    )
+    return f"""标的识别阶段
+- 用户输入是股票名或公司名：`{target.input_symbol}`；由 agent 先识别唯一上市代码，再调用 CLI，不在 /research executor 里使用 SQLite、本地缓存或硬编码规则直接匹配。
+- 市场倾向：`{market_hint_text}`。
+- 识别优先级：先查交易所 / 公司 IR / 官方公告 / 权威财经资料确认公司名、上市地、代码、交易所和币种；中文公司名无市场倾向时优先验证 A 股，其次美股 ADR，最后港股。
+- 若存在多个可能标的、同名公司、多地上市或代码不确定，必须先用最终回复向用户询问澄清；不得调用 CLI，不得输出研报。
+- 唯一识别后，在研报“请求标的/数据可信度”中写清 `原始输入 → 市场 / 代码 / 公司名` 以及至少一个识别依据来源。
+- 若识别为 A 股或美股，首选执行：{template_instruction}
+- 若识别为港股，按港股后置支持路径走 Futu/OpenD + HKEX / AKShare / yfinance，不要虚构 `stock_analyze.py --market hk`。"""
+
+
 def _market_execution_requirements(
     target: ResearchTarget,
     *,
     skill_dir: str | Path | None = None,
     env: Mapping[str, str] | None = None,
 ) -> str:
+    if target.requires_agent_resolution:
+        return _agent_resolution_execution_requirements(
+            target,
+            skill_dir=skill_dir,
+            env=env,
+        )
+
     if target.market == "cn":
         command = resolve_stock_analyze_command(target, skill_dir=skill_dir, env=env)
         instruction = _stock_analyze_instruction(command)
@@ -532,14 +421,28 @@ def build_prompt(
         env=env,
     )
 
-    resolution_line = f"- {target.resolution_note}\n" if target.resolution_note else ""
+    if target.requires_agent_resolution:
+        target_block = (
+            f"- 用户输入：`{target.input_symbol}`\n"
+            "- 识别状态：待 agent 识别唯一上市标的\n"
+            f"- 市场倾向：`{target.market_hint or 'auto'}`\n"
+            "- 标准代码：待识别，识别后再调用 CLI"
+        )
+        title_symbol = "{识别后代码}"
+        title_market = "{识别后市场}"
+    else:
+        target_block = (
+            f"- 用户输入：`{target.input_symbol}`\n"
+            f"- 识别市场：`{target.market}`\n"
+            f"- 标准代码：`{target.display_symbol}`"
+        )
+        title_symbol = target.display_symbol
+        title_market = target.market
 
     return f"""今天是 {today}。这是由 stock-analysis-skill 的 /research 触发的单只股票深度研报任务，当前工作区为：{workspace_name}。
 
 请求标的
-- 用户输入：`{target.input_symbol}`
-{resolution_line}- 识别市场：`{target.market}`
-- 标准代码：`{target.display_symbol}`
+{target_block}
 
 任务目标
 - 只分析这一只股票，输出中文深度研报。
@@ -561,7 +464,7 @@ def build_prompt(
 
 输出格式
 - 以 `references/research.md` 的 Required Output Structure 为完整结构；默认输出飞书短版，控制在 2500-3500 字。
-- 标题使用：`**/research｜{target.display_symbol}｜{target.market}｜{today}**`。
+- 标题使用：`**/research｜{title_symbol}｜{title_market}｜{today}**`。
 - 飞书短版必须包含：结论摘要、数据可信度、关键风险与反证、降级说明、Sources。
 - 业务与行业、财务质量、估值上下文、催化剂与验证路径、历史验证默认压缩进结论/风险；只有用户明确要求“详细 / 完整 / 深度 / 展开”时才展开为独立长章节。
 - Sources 只列关键来源链接或模块名；外部链接要标明用途和发布日期/更新时间。"""
@@ -586,7 +489,11 @@ def build_reply(
                 skill_dir=skill_dir,
                 env=env,
             ),
-            "ack": f"已开始生成 {target_or_error.display_symbol} 的单票深度研报。",
+            "ack": (
+                f"已开始识别 {target_or_error.input_symbol} 并生成单票深度研报。"
+                if target_or_error.requires_agent_resolution
+                else f"已开始生成 {target_or_error.display_symbol} 的单票深度研报。"
+            ),
         }
     }
 
