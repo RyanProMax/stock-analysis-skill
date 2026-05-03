@@ -60,6 +60,13 @@ Source priority:
 6. **Write the memo**: separate facts, interpretation, uncertainty, risks, and historical validation. Keep every material claim traceable to a source.
 7. **Declare degradation**: if any required source is missing, stale, permission-limited, or unavailable, state it in the memo instead of filling gaps.
 
+## Final Reply Hygiene
+
+- 最终回复必须直接从标题开始：第一行必须是 `**/research｜...**`。
+- 不得包含执行过程日志、工具调用尝试、思考过程、状态流水、调试细节、异常堆栈，或“我先检查 / 我找到 / 接下来”这类过程性文字。
+- Debug details such as internal function names, stack traces, local absolute paths, raw environment probes, and token diagnostics belong only to debugging conversations. In user-facing reports, compress them into understandable degradation reasons.
+- If the agent has accumulated process notes before drafting the report, discard those notes from the final answer and keep only the memo body.
+
 ## Required Output Structure
 
 Use this shape by default. Keep headings compact and conclusion-first.
@@ -118,12 +125,26 @@ Use this shape by default. Keep headings compact and conclusion-first.
 - 按本文件 Sources 规范列出。
 ```
 
+## Default Feishu Short Form
+
+For IM / Feishu replies, default to a compact report of 2500-3500 字 unless the user explicitly asks for “详细 / 完整 / 深度 / 展开”.
+
+Required short-form sections:
+
+1. `结论摘要`: 3-5 bullets, including data status, key facts, and largest uncertainty.
+2. `数据可信度`: user-readable summary of `module_status`, `source_freshness`, and `data_gaps`; keep it to 3 bullets when possible.
+3. `关键风险与反证`: 3-5 concrete risks and invalidation signals.
+4. `降级说明`: concise user-facing degradation reasons; no stack traces or internal function names.
+5. `Sources`: 3-8 authoritative sources.
+
+Compress business, financials, valuation, catalysts, and historical validation into the sections above by default. Historical validation may be one line: “未做历史验证：原因...”. Expand the full structure only when requested.
+
 ## Data Reliability Contract
 
 - `module_status`: module-level execution state. Use `ok`, `partial`, `degraded`, `failed`, `permission_denied`, `not_supported`, or `not_run`; include a short reason for non-ok modules.
 - `source_freshness`: source timestamp or cutoff date for each material data class, including market quote, financial statements, filings, announcements, research reports, news, and historical validation inputs.
 - `data_gaps`: explicit missing, stale, conflicting, permission-limited, or unavailable fields. Put unresolved gaps here even if the narrative can continue.
-- These fields are mandatory for `/research`; they are credibility metadata, not analysis conclusions.
+- These fields are mandatory for `/research`; they are credibility metadata, not analysis conclusions. In Feishu short form, render them in Chinese user-facing wording rather than raw engineering dumps.
 
 
 ## Analysis Rules
@@ -170,6 +191,7 @@ When degraded:
 - Put missing or unreliable items in `降级说明`.
 - Never fabricate current prices, financial values, filing dates, analyst views, or management statements.
 - Do not hide failed modules just because the final narrative still reads smoothly.
+- Do not expose stack traces, internal function names, or verbose local environment probes in the user-facing report; summarize them as source or module failures.
 
 ## Forbidden Output
 

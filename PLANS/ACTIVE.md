@@ -566,6 +566,39 @@ Review status:
 
 - passed
 
+### M21 — /research 飞书短版与最终回复清洗
+
+Status: `done`
+
+Scope:
+
+- 约束 `/research` 最终回复不得混入执行过程日志、工具尝试过程或调试错误堆栈。
+- 将 IM/飞书默认输出改为短版研报：结论摘要、数据可信度、关键风险与反证、降级说明、Sources。
+- 深度章节仅在用户明确要求详细/完整/深度时展开；历史验证默认压缩，无法验证时一行说明。
+- 维护 debug 细节边界：函数名、异常栈、环境排查细节只进入降级摘要，不进入用户版正文。
+
+Validation:
+
+- `python3 -m unittest tests/test_research_command.py`
+- `python3 -m unittest discover -s tests`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+
+Progress:
+
+- 2026-05-03 北京时间：用户要求优化实际研报输出；本轮聚焦可读性和最终消息清洁度，不改数据采集实现。
+- 2026-05-03 北京时间：已约束最终回复必须直接从 `**/research｜...**` 标题开始，不得混入执行过程日志、工具尝试、调试细节或异常堆栈。
+- 2026-05-03 北京时间：已将 IM/飞书默认输出改为 2500-3500 字短版，只保留结论摘要、数据可信度、关键风险与反证、降级说明和 Sources。
+- 2026-05-03 北京时间：已明确调试细节只压缩为用户可理解的降级原因，内部函数名/堆栈/本地路径不进用户版报告。
+
+Validation status:
+
+- passed
+
+Review status:
+
+- passed
+
 ## Progress
 
 - 2026-04-27：移除旧 `docs/plan.md`，统一使用 `PLANS/`。
@@ -644,3 +677,4 @@ Review status:
 - M16 已完成：`/hkipo` 去除 `#` / `##` 大标题，改用普通加粗标签、短分隔和 🟢/🟡/⚪/💰/🛡/📈/⚠️/🔗 固定信号。
 - M19 已完成：`/research` A 股 / 美股 prompt 已改为运行时解析 `stock-analysis-api` 绝对命令；找不到 API 仓库时显式预检失败并按研报降级规则继续。
 - M20 已完成：`/research` 已增加可信度层、风险与反证、历史验证模块；风险不新增独立指令，组合/持仓风险纳入同入口只读约束。
+- M21 已完成：`/research` 默认飞书短版和最终回复清洗已落地；最终正文直接从标题开始，过程日志和 debug 细节不进入用户版报告。

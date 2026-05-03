@@ -39,6 +39,7 @@
 - [x] `/research` 增加可信度层：`module_status`、`source_freshness`、`data_gaps`
 - [x] `/research` 内置风险与反证，并把组合/持仓风险收敛到同入口只读约束
 - [x] `/research` 增加历史验证模块边界：只做可复现历史统计，不输出交易建议
+- [x] `/research` 默认飞书短版和最终回复清洗：正文从标题开始，不混入过程日志
 - [ ] `/research` 港股数据层从后置 prompt 路由升级为稳定字段矩阵与验证样例
 - [ ] `/research` 美股补充 SEC filings / earnings transcript 证据层缓存与引用规范
 - [x] 港股 IPO 池工作流增加近 100 个已上市 IPO 首日表现回测 MVP
@@ -75,3 +76,4 @@
 - 2026-05-01：`/research` A 股 / 美股 prompt 已改为运行时解析 `stock-analysis-api` 绝对命令；优先 `STOCK_ANALYSIS_API_ROOT`，再查找 skill 安装目录附近 sibling，缺失时显式预检失败并降级。
 
 - 2026-05-03：`/research` 增加可信度层、风险与反证、历史验证模块；风险不新增独立 `/risk`，组合/持仓风险按同入口只读约束处理。
+- 2026-05-03：`/research` 默认飞书短版和最终回复清洗已落地；过程日志、内部函数名、异常堆栈不进入用户版报告。

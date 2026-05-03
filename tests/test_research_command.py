@@ -62,6 +62,29 @@ class ResearchCommandTest(unittest.TestCase):
         self.assertIn("历史验证", content)
         self.assertIn("只做历史统计", content)
 
+    def test_research_prompt_requires_clean_final_and_feishu_short_form(self) -> None:
+        result = research.build_reply(
+            {"argsText": "300757", "args": ["300757"], "workspace": {"name": "飞书"}}
+        )
+
+        content = result["reply"]["content"]
+
+        self.assertIn("最终回复必须直接从标题开始", content)
+        self.assertIn("不得包含执行过程日志", content)
+        self.assertIn("默认输出飞书短版", content)
+        self.assertIn("2500-3500 字", content)
+        self.assertIn("调试细节", content)
+
+    def test_research_reference_defines_final_reply_hygiene_and_short_form(self) -> None:
+        content = (ROOT / "references" / "research.md").read_text(encoding="utf-8")
+
+        self.assertIn("Final Reply Hygiene", content)
+        self.assertIn("必须直接从标题开始", content)
+        self.assertIn("不得包含执行过程日志", content)
+        self.assertIn("Default Feishu Short Form", content)
+        self.assertIn("2500-3500 字", content)
+        self.assertIn("Debug details", content)
+
     def test_cn_prompt_uses_runtime_resolved_absolute_api_command(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
             root = pathlib.Path(raw_root).resolve()
