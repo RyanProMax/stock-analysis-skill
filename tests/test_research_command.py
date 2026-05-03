@@ -51,6 +51,20 @@ class ResearchCommandTest(unittest.TestCase):
         self.assertIn("样本数", content)
         self.assertIn("不新增独立 /risk", content)
 
+    def test_research_prompt_requires_industry_heat_peer_pe_and_institution_reports(self) -> None:
+        result = research.build_reply(
+            {"argsText": "300750", "args": ["300750"]}
+        )
+
+        content = result["reply"]["content"]
+
+        self.assertIn("行业整体趋势", content)
+        self.assertIn("市场热度", content)
+        self.assertIn("同类公司平均 PE", content)
+        self.assertIn("权威机构研报汇总", content)
+        self.assertIn("研报发布日期", content)
+        self.assertIn("不得把单一机构观点当成市场共识", content)
+
     def test_research_reference_defines_quality_risk_and_validation_contract(self) -> None:
         content = (ROOT / "references" / "research.md").read_text(encoding="utf-8")
 
@@ -61,6 +75,16 @@ class ResearchCommandTest(unittest.TestCase):
         self.assertIn("组合/持仓风险", content)
         self.assertIn("历史验证", content)
         self.assertIn("只做历史统计", content)
+
+    def test_research_reference_defines_industry_heat_peer_pe_and_institution_reports(self) -> None:
+        content = (ROOT / "references" / "research.md").read_text(encoding="utf-8")
+
+        self.assertIn("Industry Trend And Market Heat", content)
+        self.assertIn("行业整体趋势", content)
+        self.assertIn("市场热度", content)
+        self.assertIn("同类公司平均 PE", content)
+        self.assertIn("权威机构研报汇总", content)
+        self.assertIn("研报发布日期", content)
 
     def test_research_prompt_requires_clean_final_and_feishu_short_form(self) -> None:
         result = research.build_reply(

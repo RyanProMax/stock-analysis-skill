@@ -58,7 +58,7 @@ Source priority:
 1. **Resolve identity**: confirm ticker, exchange, company name, currency, report date, and source timezone. User-facing time defaults to Beijing time.
 2. **Collect market snapshot**: latest price, change, market cap if available, volume / turnover, 52-week context or recent trend. Label market status and source time.
 3. **Collect primary evidence**: latest annual / quarterly filings, earnings release, guidance, major announcements, risk factors, and segment data.
-4. **Cross-check secondary data**: peer valuation, consensus, news, sector indicators, ownership or capital flows if relevant.
+4. **Cross-check secondary data**: peer valuation, consensus, news, sector indicators, ownership or capital flows if relevant. Always collect industry trend, market heat, peer-average PE, and authoritative research-report summaries when sources are available.
 5. **Build data reliability layer**: fill `module_status`, `source_freshness`, and `data_gaps` before writing conclusions.
 6. **Write the memo**: separate facts, interpretation, uncertainty, risks, and historical validation. Keep every material claim traceable to a source.
 7. **Declare degradation**: if any required source is missing, stale, permission-limited, or unavailable, state it in the memo instead of filling gaps.
@@ -98,6 +98,12 @@ Use this shape by default. Keep headings compact and conclusion-first.
 **业务与行业**
 - 主营业务、收入结构、行业位置、竞争格局。
 - 行业周期、政策、需求或技术变化的证据。
+
+**行业趋势与市场热度**
+- 行业整体趋势：景气度、供需、政策、技术周期、竞争格局或价格链变化，必须标注来源和截至日期。
+- 市场热度：板块表现、成交/资金、新闻/搜索/社媒热度、机构关注度等可得 proxy；区分短期交易热度与中长期基本面趋势。
+- 同类公司平均 PE：列出可比公司样本、PE 口径（TTM / forward / 静态）、均值/中位数、是否剔除负 PE 或异常值、数据日期。
+- 权威机构研报汇总：汇总券商、评级机构、行业协会、交易所、咨询机构或公司/行业权威报告；列机构名、研报发布日期、核心观点、共识与分歧。不得把单一机构观点当成市场共识，不把评级/目标价写成建议。
 
 **财务质量**
 - 收入、利润、现金流、毛利率 / 费用率、资产负债、资本开支。
@@ -140,7 +146,7 @@ Required short-form sections:
 4. `降级说明`: concise user-facing degradation reasons; no stack traces or internal function names.
 5. `Sources`: 3-8 authoritative sources.
 
-Compress business, financials, valuation, catalysts, and historical validation into the sections above by default. Historical validation may be one line: “未做历史验证：原因...”. Expand the full structure only when requested.
+Compress business, financials, valuation, catalysts, and historical validation into the sections above by default, but still include concise bullets for 行业整体趋势、市场热度、同类公司平均 PE、权威机构研报汇总. If any of the four modules is unavailable, explicitly state the missing source or limitation. Historical validation may be one line: “未做历史验证：原因...”. Expand the full structure only when requested.
 
 ## Data Reliability Contract
 
@@ -148,6 +154,16 @@ Compress business, financials, valuation, catalysts, and historical validation i
 - `source_freshness`: source timestamp or cutoff date for each material data class, including market quote, financial statements, filings, announcements, research reports, news, and historical validation inputs.
 - `data_gaps`: explicit missing, stale, conflicting, permission-limited, or unavailable fields. Put unresolved gaps here even if the narrative can continue.
 - These fields are mandatory for `/research`; they are credibility metadata, not analysis conclusions. In Feishu short form, render them in Chinese user-facing wording rather than raw engineering dumps.
+
+
+## Industry Trend And Market Heat
+
+These modules are required unless reliable sources are unavailable; if unavailable, record the gap in `data_gaps` and `降级说明`.
+
+- 行业整体趋势: describe current industry direction with dated evidence, including demand/supply, policy, technology cycle, pricing, inventory, competitive structure, or regulatory changes when relevant.
+- 市场热度: use available proxies such as sector/index performance, turnover, fund flows, news volume, search/social attention, broker coverage, and announcement intensity. Distinguish short-term heat from fundamental trend.
+- 同类公司平均 PE: define peer selection, PE basis (TTM / forward / static), mean and median when possible, exclusions for negative or extreme PE, and data date. If peers are not comparable, explain why instead of forcing an average.
+- 权威机构研报汇总: summarize authoritative reports from brokers, rating agencies, industry associations, exchanges, consulting firms, or recognized research providers. Include institution, report date, core points, consensus, disagreement, and limitations. Do not treat one report as consensus, and do not present ratings or target prices as investment advice.
 
 
 ## Analysis Rules

@@ -634,8 +634,42 @@ Review status:
 
 - passed
 
+
+### M23 — /research 增加行业与研报维度
+
+Status: `done`
+
+Scope:
+
+- `/research` prompt 强制补充行业整体趋势和市场热度
+- 强制给出同类公司平均 PE，并说明可比公司样本、PE 口径、异常值处理和数据日期
+- 强制汇总权威机构研报，列机构、研报发布日期、核心观点、共识与分歧
+- 数据不可得时写入 `data_gaps` / 降级说明，不伪造，不把评级或目标价作为建议
+
+Validation:
+
+- `python3 -m unittest tests/test_research_command.py -v`
+- `python3 -m unittest discover -s tests -v`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+
+Progress:
+
+- 2026-05-04 北京时间：已补 prompt/reference 单测，锁定行业整体趋势、市场热度、同类公司平均 PE、权威机构研报汇总四个必备模块。
+- 2026-05-04 北京时间：已更新 `/research` prompt 和 `references/research.md`，要求写清来源日期、样本口径、异常 PE 处理、机构观点共识与分歧。
+- 2026-05-04 北京时间：已同步 README / SKILL，飞书短版也必须压缩纳入四个模块；不可得时写入可信度或降级说明。
+
+Validation status:
+
+- passed
+
+Review status:
+
+- passed
+
 ## Progress
 
+- 2026-05-04：`/research` 已新增行业整体趋势、市场热度、同类公司平均 PE、权威机构研报汇总四个强制模块；数据不可得时进入可信度/降级说明。
 - 2026-05-03：`/research` 股票名输入已改为 agent 标的识别流程；executor 不查本地缓存、不硬编码匹配，唯一识别后再调用 CLI 模板。
 - 2026-04-27：移除旧 `docs/plan.md`，统一使用 `PLANS/`。
 - 2026-04-27：确认用户要求后续任务时间改用北京时间展示。
@@ -646,6 +680,7 @@ Review status:
 
 ## Validation
 
+- 已通过：M23 `python3 -m unittest discover -s tests -v`、`python3 -m py_compile scripts/*.py commands/*.py`、`git diff --check`
 - 已通过：`python3 -m unittest tests/test_research_command.py -v`
 - 已通过：`python3 -m unittest discover -s tests -v`
 - 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
