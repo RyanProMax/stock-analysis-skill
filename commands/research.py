@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import sys
 from dataclasses import dataclass
 from datetime import datetime
@@ -47,6 +48,7 @@ class StockAnalyzeCommand:
     command: str | None
     api_root: Path | None
     reason: str | None
+    uv_path: Path | None = None
 
 
 def emit(payload: dict) -> None:
@@ -130,6 +132,60 @@ def _valid_api_root(path: Path) -> Path | None:
     return None
 
 
+def _path_from_env_executable(value: str, env: Mapping[str, str] | None) -> Path | None:
+    raw_value = str(value or "").strip()
+    if not raw_value:
+        return None
+
+    path_env = None if env is None else env.get("PATH", "")
+    if os.sep not in raw_value and not (os.altsep and os.altsep in raw_value):
+        resolved = shutil.which(raw_value, path=path_env)
+        if resolved:
+            return Path(resolved).expanduser().resolve()
+
+    candidate = Path(raw_value).expanduser()
+    if not candidate.is_absolute():
+        candidate = Path.cwd() / candidate
+    candidate = candidate.resolve()
+    if candidate.is_file():
+        return candidate
+    return None
+
+
+def candidate_uv_paths(env: Mapping[str, str] | None = None) -> list[Path]:
+    resolved_env = os.environ if env is None else env
+    candidates: list[Path] = []
+
+    for env_name in ("STOCK_ANALYSIS_UV", "UV_BIN", "UV"):
+        uv_path = _path_from_env_executable(resolved_env.get(env_name, ""), env)
+        if uv_path:
+            candidates.append(uv_path)
+
+    path_uv = shutil.which("uv", path=None if env is None else resolved_env.get("PATH", ""))
+    if path_uv:
+        candidates.append(Path(path_uv).expanduser().resolve())
+
+    home_value = resolved_env.get("HOME") or str(Path.home())
+    if home_value:
+        home = Path(home_value).expanduser()
+        candidates.extend([home / ".local" / "bin" / "uv", home / ".cargo" / "bin" / "uv"])
+
+    seen: set[Path] = set()
+    unique: list[Path] = []
+    for candidate in candidates:
+        resolved = candidate.expanduser().resolve()
+        if resolved in seen or not resolved.is_file():
+            continue
+        seen.add(resolved)
+        unique.append(resolved)
+    return unique
+
+
+def resolve_uv_path(env: Mapping[str, str] | None = None) -> Path | None:
+    candidates = candidate_uv_paths(env=env)
+    return candidates[0] if candidates else None
+
+
 def candidate_api_roots(
     skill_dir: Path,
     env: Mapping[str, str] | None = None,
@@ -166,21 +222,41 @@ def resolve_stock_analyze_command(
     env: Mapping[str, str] | None = None,
 ) -> StockAnalyzeCommand:
     resolved_skill_dir = resolve_skill_dir(skill_dir=skill_dir, env=env)
+    uv_path = resolve_uv_path(env=env)
     for candidate in candidate_api_roots(resolved_skill_dir, env=env):
         api_root = _valid_api_root(candidate)
-        if api_root:
-            command = (
-                f"cd {shlex.quote(str(api_root))} && "
-                "uv run python scripts/stock_analyze.py "
-                f"--market {shlex.quote(target.market)} "
-                f"--symbols {shlex.quote(target.normalized_symbol)} "
-                "--mode full --pretty"
+        if not api_root:
+            continue
+        if not uv_path:
+            return StockAnalyzeCommand(
+                command=None,
+                api_root=api_root,
+                uv_path=None,
+                reason=(
+                    "找到 stock-analysis-api，但未找到 uv 可执行文件；"
+                    "请设置 STOCK_ANALYSIS_UV 或 UV_BIN 为绝对路径，"
+                    "或确保 skill 运行环境 HOME 下存在 .local/bin/uv / .cargo/bin/uv"
+                ),
             )
-            return StockAnalyzeCommand(command=command, api_root=api_root, reason=None)
+
+        command = (
+            f"cd {shlex.quote(str(api_root))} && "
+            f"{shlex.quote(str(uv_path))} run python scripts/stock_analyze.py "
+            f"--market {shlex.quote(target.market)} "
+            f"--symbols {shlex.quote(target.normalized_symbol)} "
+            "--mode full --pretty"
+        )
+        return StockAnalyzeCommand(
+            command=command,
+            api_root=api_root,
+            reason=None,
+            uv_path=uv_path,
+        )
 
     return StockAnalyzeCommand(
         command=None,
         api_root=None,
+        uv_path=uv_path,
         reason=(
             "未找到 STOCK_ANALYSIS_API_ROOT 指向的有效仓库，"
             "也未在当前 skill 安装目录附近找到含 scripts/stock_analyze.py 的 stock-analysis-api"

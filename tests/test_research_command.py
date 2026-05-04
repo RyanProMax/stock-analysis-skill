@@ -178,6 +178,52 @@ class ResearchCommandTest(unittest.TestCase):
         self.assertIn("--market cn --symbols 300750 --mode full --pretty", content)
         self.assertNotIn('cd "$STOCK_ANALYSIS_API_ROOT"', content)
 
+    def test_cn_prompt_uses_runtime_resolved_absolute_uv_command(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = pathlib.Path(raw_root).resolve()
+            skill_dir = root / "stock-analysis-skill"
+            api_root = root / "stock-analysis-api"
+            script_path = api_root / "scripts" / "stock_analyze.py"
+            uv_path = root / "tooling" / "uv"
+            skill_dir.mkdir()
+            script_path.parent.mkdir(parents=True)
+            script_path.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+            uv_path.parent.mkdir(parents=True)
+            uv_path.write_text("#!/bin/sh\n", encoding="utf-8")
+
+            result = research.build_reply(
+                {"argsText": "300750", "args": ["300750"]},
+                skill_dir=skill_dir,
+                env={"STOCK_ANALYSIS_UV": str(uv_path)},
+            )
+
+        content = result["reply"]["content"]
+
+        self.assertIn(f"{research.shlex.quote(str(uv_path))} run python", content)
+        self.assertIn("scripts/stock_analyze.py", content)
+        self.assertNotIn("&& uv run python", content)
+
+    def test_api_root_without_uv_reports_preflight_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = pathlib.Path(raw_root).resolve()
+            skill_dir = root / "stock-analysis-skill"
+            api_root = root / "stock-analysis-api"
+            script_path = api_root / "scripts" / "stock_analyze.py"
+            skill_dir.mkdir()
+            script_path.parent.mkdir(parents=True)
+            script_path.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+
+            result = research.build_reply(
+                {"argsText": "300750", "args": ["300750"]},
+                skill_dir=skill_dir,
+                env={"PATH": "", "HOME": str(root / "empty-home")},
+            )
+
+        content = result["reply"]["content"]
+
+        self.assertIn("未找到 uv 可执行文件", content)
+        self.assertNotIn("scripts/stock_analyze.py --market cn", content)
+
     def test_env_api_root_takes_precedence_over_sibling_root(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
             root = pathlib.Path(raw_root).resolve()

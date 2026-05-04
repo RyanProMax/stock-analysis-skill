@@ -16,6 +16,46 @@
 
 ## Milestones
 
+### M22 — 固定 skill Python / uv 环境
+
+Status: `done`
+
+Scope:
+
+- `commands/research.py`
+- `tests/test_research_command.py`
+- `README.md`
+- `SKILL.md`
+- `AGENTS.md`
+- `references/cli.md`
+- `references/research.md`
+- `PLANS/ACTIVE.md`
+- `PLANS/ROADMAP.md`
+
+Validation:
+
+- `python3 -m unittest tests/test_research_command.py -v`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+
+Progress:
+
+- 2026-05-04 北京时间：确认 `/research` 生成 `uv run python` 裸命令，依赖重启后服务进程 PATH；这是“修完重启后环境又乱”的根因。
+- 2026-05-04 北京时间：已新增 `STOCK_ANALYSIS_UV` / `UV_BIN` / `UV` / PATH / `$HOME/.local/bin/uv` / `$HOME/.cargo/bin/uv` 的固定解析顺序，生成命令时输出绝对 `uv` 路径。
+- 2026-05-04 北京时间：找到 API 仓库但找不到 `uv` 时，prompt 显式预检失败，不再让 agent 自行猜裸 `uv` 或当前工作区环境。
+
+Validation results:
+
+- passed 2026-05-04 北京时间：`python3 -m unittest tests/test_research_command.py -v`
+- passed 2026-05-04 北京时间：`python3 -m unittest discover -s tests -v`
+- passed 2026-05-04 北京时间：`python3 -m py_compile scripts/*.py commands/*.py`
+- passed 2026-05-04 北京时间：`git diff --check`
+
+Handoff:
+
+- 宿主层也已确保 skill command executor 自身优先使用 skill `.venv` Python；对应改动在 `cli-claw` 的 skill command dispatch 中完成。
+- `/research` 现在生成绝对 `uv` 命令；找不到 `uv` 时显式预检失败，不再让 agent 依赖重启后的 PATH。
+
 ### M21 — /research 英文公司名纠偏与 MiniMax 路由
 
 Status: `done`

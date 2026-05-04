@@ -50,6 +50,7 @@ cp .env.example .env
 
 ```bash
 STOCK_ANALYSIS_API_ROOT="/absolute/path/to/stock-analysis-api"
+STOCK_ANALYSIS_UV="/absolute/path/to/uv"
 TUSHARE_TOKEN="your_token_here"
 TUSHARE_HTTP_URL=""
 ```
@@ -57,6 +58,7 @@ TUSHARE_HTTP_URL=""
 说明：
 
 - `STOCK_ANALYSIS_API_ROOT`: 指向 `stock-analysis-api` 仓库根目录，供 CLI 使用技能直接调用其脚本；`/research` 会优先使用该变量，未设置时再尝试当前 skill 安装目录附近的 sibling `stock-analysis-api`
+- `STOCK_ANALYSIS_UV`: 可选但推荐，指向固定 `uv` 可执行文件；未设置时 `/research` 依次查 `UV_BIN` / `UV` / 当前 PATH / `$HOME/.local/bin/uv` / `$HOME/.cargo/bin/uv`，生成命令时使用解析后的绝对 `uv` 路径，避免服务重启后 PATH 漂移
 - `TUSHARE_TOKEN`: 供 Tushare 使用技能和 `scripts/tushare_toolkit.py` 使用
 - `TUSHARE_HTTP_URL`: 可选，用于覆盖默认 Tushare 接口地址
 
@@ -65,8 +67,8 @@ TUSHARE_HTTP_URL=""
 标准命令统一直接调用 API 仓库：
 
 ```bash
-cd "$STOCK_ANALYSIS_API_ROOT" && uv run python scripts/poll_realtime_quotes.py --symbols 600000,510300 --pretty
-cd "$STOCK_ANALYSIS_API_ROOT" && uv run python scripts/stock_analyze.py --market cn --symbols 300827 --mode base --pretty
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/poll_realtime_quotes.py --symbols 600000,510300 --pretty
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/stock_analyze.py --market cn --symbols 300827 --mode base --pretty
 ```
 
 对应的：
@@ -126,7 +128,7 @@ Tushare 接口总表见 [references/api_reference.md](./references/api_reference
 - `/research`: 对一只 A 股 / 美股 / 港股生成深度研报 prompt；支持股票名输入，由上游 `stock-analysis-api` CLI 解析唯一上市代码后再分析；A 股 / 美股优先复用运行时解析出的 `stock-analysis-api` full mode 绝对命令，港股按 Futu/OpenD + HKEX / AKShare / yfinance 降级路径执行
 - `/cnipo`: 预留 A 股 IPO 指令位，当前只返回占位说明
 
-`/research` 只支持单只股票。常用输入包括 `/research 宁德时代`、`/research 300750`、`/research cn 300750`、`/research US.AAPL`、`/research AAPL`、`/research HK.00700` 和 `/research 0700.HK`。命令本身只做参数解析、`stock-analysis-api` 预检和 prompt 生成；股票名 / 公司名会原样传给上游 CLI 的 `--symbols`，由 `stock-analysis-api` 在调用分析链路前解析唯一代码；executor 不查本地库、不硬编码匹配、不生成下游标的识别阶段。A 股 / 美股 prompt 中的 CLI 命令由 executor 按 `STOCK_ANALYSIS_API_ROOT` 或 sibling `stock-analysis-api` 动态解析为绝对 `cd ... && uv run python ...`；代码输入和股票名输入都会生成完整命令，找不到 API 仓库时必须显式进入降级；若上游返回 `identity_conflict` / `identity_not_found`，agent 必须先向用户澄清。研报必须按 [references/research.md](./references/research.md) 输出，明确 `module_status`、`source_freshness`、`data_gaps`、行业整体趋势、市场热度、同类公司平均 PE、权威机构研报汇总、风险与反证、历史验证、Sources 和降级原因；飞书默认短版且最终回复必须直接从标题开始，不混入执行过程日志；不输出买卖建议、目标价或确定性承诺。
+`/research` 只支持单只股票。常用输入包括 `/research 宁德时代`、`/research 300750`、`/research cn 300750`、`/research US.AAPL`、`/research AAPL`、`/research HK.00700` 和 `/research 0700.HK`。命令本身只做参数解析、`stock-analysis-api` 预检和 prompt 生成；股票名 / 公司名会原样传给上游 CLI 的 `--symbols`，由 `stock-analysis-api` 在调用分析链路前解析唯一代码；executor 不查本地库、不硬编码匹配、不生成下游标的识别阶段。A 股 / 美股 prompt 中的 CLI 命令由 executor 按 `STOCK_ANALYSIS_API_ROOT` 或 sibling `stock-analysis-api` 动态解析 API 根目录，并按 `STOCK_ANALYSIS_UV` / `UV_BIN` / `UV` / PATH / `$HOME/.local/bin/uv` / `$HOME/.cargo/bin/uv` 解析绝对 `uv`；代码输入和股票名输入都会生成完整命令，找不到 API 仓库时必须显式进入降级；若上游返回 `identity_conflict` / `identity_not_found`，agent 必须先向用户澄清。研报必须按 [references/research.md](./references/research.md) 输出，明确 `module_status`、`source_freshness`、`data_gaps`、行业整体趋势、市场热度、同类公司平均 PE、权威机构研报汇总、风险与反证、历史验证、Sources 和降级原因；飞书默认短版且最终回复必须直接从标题开始，不混入执行过程日志；不输出买卖建议、目标价或确定性承诺。
 
 `/hkipo` 必须按当前日期重新取数。当前 IPO 池、招股状态、上市日、招股截止日、发售价、一手股数和入场费优先使用 Futu/OpenD 只读 `get_ipo_list(HK)`；命令由 executor 按当前 skill 安装目录动态生成，不能依赖用户工作区相对 `.venv`。Futu/OpenD 不可用或字段缺失时，才用 HKEX / 公司公告 / 财经站补齐并标注降级。财经站只补充孖展/认购热度、中签率、灰市、首日涨幅等二级数据，且不得把过期数据当作当前热度评分依据。输出保持极简：不用 `#` / `##` 大标题和宽 Markdown 表格；结论最多 3 条，核心内容全部整合进飞书友好的窄卡片列表，用少量固定 emoji 强化优先级、热度、结构、回测、风险和来源。评分、融资倍数热度、绿鞋/基石检查、回测映射和卡片输出规则见 [references/hkipo.md](./references/hkipo.md)。
 

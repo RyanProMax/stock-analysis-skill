@@ -23,6 +23,7 @@
 
 ```bash
 STOCK_ANALYSIS_API_ROOT="/absolute/path/to/stock-analysis-api"
+STOCK_ANALYSIS_UV="/absolute/path/to/uv"
 TUSHARE_TOKEN="your_token_here"
 TUSHARE_HTTP_URL=""
 ```
@@ -30,6 +31,7 @@ TUSHARE_HTTP_URL=""
 字段说明：
 
 - `STOCK_ANALYSIS_API_ROOT`: `stock-analysis-api` 仓库根目录
+- `STOCK_ANALYSIS_UV`: 固定 `uv` 可执行文件路径；未设置时 `/research` 按 `UV_BIN` / `UV` / PATH / `$HOME/.local/bin/uv` / `$HOME/.cargo/bin/uv` 查找，并在 prompt 中输出绝对路径
 - `TUSHARE_TOKEN`: A 股 realtime / Tushare 直连能力需要
 - `TUSHARE_HTTP_URL`: 可选，覆盖默认 Tushare 接口地址
 
@@ -38,7 +40,7 @@ TUSHARE_HTTP_URL=""
 ### 1. realtime quote
 
 ```bash
-cd "$STOCK_ANALYSIS_API_ROOT" && uv run python scripts/poll_realtime_quotes.py --symbols 600000,510300 --pretty
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/poll_realtime_quotes.py --symbols 600000,510300 --pretty
 ```
 
 参数：
@@ -49,7 +51,7 @@ cd "$STOCK_ANALYSIS_API_ROOT" && uv run python scripts/poll_realtime_quotes.py -
 ### 2. objective analyze
 
 ```bash
-cd "$STOCK_ANALYSIS_API_ROOT" && uv run python scripts/stock_analyze.py --market cn --symbols 300827 --mode base --pretty
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/stock_analyze.py --market cn --symbols 300827 --mode base --pretty
 ```
 
 参数：
