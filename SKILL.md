@@ -93,7 +93,7 @@ OpenD 未安装、未启动或 SDK 版本不满足时，转入 `install-futu-ope
 
 ## Slash Commands
 
-- `/research`：对一只 A 股 / 美股 / 港股生成深度研报 prompt。支持股票名 / 公司名输入；executor 不做本地缓存或硬编码匹配，而是把原始输入写入上游 `stock-analysis-api` CLI 的 `--symbols`，由上游在调用分析链路前解析唯一市场和代码；A 股 / 美股优先复用 `stock-analysis-api` 的 `stock_analyze.py --mode full`；executor 会按 `STOCK_ANALYSIS_API_ROOT`、当前 skill 安装目录附近的 sibling `stock-analysis-api` 动态生成可复制的绝对 `cd ... && uv run python ...` 命令。找不到 API 仓库时必须显式标记预检失败；上游返回 `identity_conflict` / `identity_not_found` 时必须先向用户澄清。港股当前作为后置支持，按 Futu/OpenD + HKEX / AKShare / yfinance 降级路径执行。输出模板、飞书短版、最终回复清洗、`module_status` / `source_freshness` / `data_gaps` 可信度层、行业整体趋势、市场热度、同类公司平均 PE、权威机构研报汇总、风险与反证、历史验证、Sources 和禁止事项见 `references/research.md`。
+- `/research`：对一只 A 股 / 美股 / 港股生成深度研报 prompt。支持股票名 / 公司名输入；executor 不做本地缓存或硬编码匹配。短裸美股 ticker（如 `AAPL`）可直接走美股，较长英文公司名或非标准裸输入（如 `MINIMAX`）必须进入待解析工作流，不能因为全大写就强行标记为美股。A 股 / 美股优先复用 `stock-analysis-api` 的 `stock_analyze.py --mode full`；executor 会按 `STOCK_ANALYSIS_API_ROOT`、当前 skill 安装目录附近的 sibling `stock-analysis-api` 动态生成可复制的绝对 `cd ... && uv run python ...` 命令。找不到 API 仓库时必须显式标记预检失败；上游返回 `identity_conflict` / `identity_not_found`，或返回 `data.items[0].status=failed/not_supported` 且 `error/info/meta` 指向身份、行情或市场不支持问题时，必须先解析这些字段并澄清或改道，不能沿用错误市场标题。港股当前作为后置支持，按 Futu/OpenD + HKEX / AKShare / yfinance 降级路径执行。输出模板、飞书短版、最终回复清洗、`module_status` / `source_freshness` / `data_gaps` 可信度层、行业整体趋势、市场热度、同类公司平均 PE、权威机构研报汇总、风险与反证、历史验证、Sources 和禁止事项见 `references/research.md`。
 - `/hkipo`：自动发现当前“可认购 + 已截止认购但未上市”的港股 IPO 池，并按评分卡输出简明优先级报告。
 - `/cnipo`：预留 A 股 IPO 指令位，当前只返回占位说明。
 

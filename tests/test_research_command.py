@@ -288,6 +288,28 @@ class ResearchCommandTest(unittest.TestCase):
         self.assertIn("SEC", content)
         self.assertIn("earnings transcript", content)
 
+    def test_long_bare_english_company_name_is_not_forced_to_us_ticker(self) -> None:
+        result = research.build_reply(
+            {
+                "argsText": "MINIMAX",
+                "args": ["MINIMAX"],
+                "workspace": {"name": "飞书研究"},
+            }
+        )
+
+        reply = result["reply"]
+        content = reply["content"]
+
+        self.assertEqual(reply["type"], "assistant_prompt")
+        self.assertIn("- 用户输入：`MINIMAX`", content)
+        self.assertIn("- 识别市场：`待解析`", content)
+        self.assertIn("- 标准代码：`MINIMAX`", content)
+        self.assertIn("市场路由：待解析", content)
+        self.assertIn("若唯一核验为港股", content)
+        self.assertIn("不要把 `MINIMAX` 直接当作美股普通股代码", content)
+        self.assertNotIn("--market us --symbols MINIMAX --mode full --pretty", content)
+        self.assertNotIn("标题使用：`**/research｜US.MINIMAX", content)
+
     def test_exchange_prefixed_symbols_are_normalized(self) -> None:
         us_result = research.build_reply(
             {"argsText": "NASDAQ:AAPL", "args": ["NASDAQ:AAPL"]}

@@ -16,6 +16,42 @@
 
 ## Milestones
 
+### M21 — /research 英文公司名纠偏与 MiniMax 路由
+
+Status: `done`
+
+Scope:
+
+- `commands/research.py`
+- `references/research.md`
+- `SKILL.md`
+- `tests/test_research_command.py`
+- `PLANS/ACTIVE.md`
+- `PLANS/ROADMAP.md`
+
+Validation:
+
+- `python3 -m unittest tests/test_research_command.py`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+
+Progress:
+
+- 2026-05-04：确认 `/research MINIMAX` 被本地 executor 在上游前按全大写正则归为 `us`，导致 prompt 和标题固定为 `US.MINIMAX`，上游和联网证据没有纠偏空间。
+- 2026-05-04：本轮目标是让长英文公司名输入进入“待解析/可纠偏”路径；若公开来源唯一指向港股，最终报告必须切到港股标题和港股数据路径。
+- 2026-05-04：已将短裸美股 ticker 与较长英文公司名拆开处理；`MINIMAX` 生成 `待解析` 路由，不再生成 `--market us --symbols MINIMAX` 或 `US.MINIMAX` 固定标题。
+- 2026-05-04：已同步 `SKILL.md` 和 `references/research.md`，要求读取上游结构化失败字段后再澄清或改道，不能把美股行情失败包装成有效美股报告。
+
+Validation results:
+
+- passed 2026-05-04：`python3 -m unittest tests/test_research_command.py`
+- passed 2026-05-04：`python3 -m py_compile scripts/*.py commands/*.py`
+- passed 2026-05-04：`git diff --check`
+
+Handoff:
+
+- 后续若需要把 `MINIMAX` 自动落到 `HK.00100`，应在上游身份解析层增加跨市场唯一匹配能力；本轮 skill executor 负责避免错误预分类，并把纠偏要求明确写入 prompt。
+
 ### M1 — 建立计划入口
 
 Status: `done`

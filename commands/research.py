@@ -29,6 +29,8 @@ MARKET_ALIASES = {
     "港股": "hk",
 }
 US_SYMBOL_PATTERN = re.compile(r"[A-Z][A-Z0-9.-]{0,9}")
+SHORT_BARE_US_SYMBOL_PATTERN = re.compile(r"[A-Z][A-Z0-9.-]{0,4}")
+BARE_ENGLISH_COMPANY_PATTERN = re.compile(r"[A-Z][A-Z0-9&'.-]{5,79}")
 
 
 @dataclass(frozen=True)
@@ -275,10 +277,12 @@ def parse_target(
         except ValueError as exc:
             return str(exc)
         return ResearchTarget("hk", raw_symbol, futu_symbol, futu_symbol, yahoo_symbol)
-    if US_SYMBOL_PATTERN.fullmatch(raw_symbol):
+    if SHORT_BARE_US_SYMBOL_PATTERN.fullmatch(raw_symbol):
         return ResearchTarget("us", raw_symbol, raw_symbol, f"US.{raw_symbol}")
     if _contains_cjk(raw_input):
         return ResearchTarget("cn", raw_input, raw_input, raw_input)
+    if BARE_ENGLISH_COMPANY_PATTERN.fullmatch(raw_symbol):
+        return ResearchTarget("auto", raw_input, raw_input, raw_input)
 
     return "无法判断市场；请使用 `/research 宁德时代`、`/research cn 300750`、`/research US.AAPL` 或 `/research HK.00700`。"
 
@@ -304,6 +308,14 @@ def _market_execution_requirements(
     skill_dir: str | Path | None = None,
     env: Mapping[str, str] | None = None,
 ) -> str:
+    if target.market == "auto":
+        return f"""市场路由：待解析（英文公司名 / 非标准短 ticker）
+- 必须先检查 `STOCK_ANALYSIS_API_ROOT` 与 `uv` 是否可用，但不要把 `{target.input_symbol}` 直接当作美股普通股代码。
+- 先用上游 CLI 返回字段和公开权威来源核验唯一上市市场与标准代码；若唯一核验为 A 股或美股，再按 `stock-analysis-api` 标准 CLI 继续；若唯一核验为港股，切换到港股路径，使用 Futu/OpenD + HKEX / 公司公告 / AKShare / yfinance 降级规则。
+- 若标准 CLI 返回 `identity_conflict` / `identity_not_found`，或 `data.items[0].status` 为 `failed` / `not_supported` 且 `error.code` 指向 quote、core module、security type 或 identity 问题，必须解析 `data.items[0].error`、`data.items[0].info`、`data.items[0].meta.modules`、`meta.partial_reasons` 后再决定是否澄清或改道。
+- 若唯一核验为港股，最终报告标题和 Sources 必须使用港股标准代码，例如 `HK.00100` / `hk`，不得沿用待解析输入或错误的 `US.*` 标题。
+- 若无法唯一核验上市市场或存在同名歧义，必须先向用户澄清交易所或完整代码，不要用热度、记忆或单一搜索结果猜测。"""
+
     if target.market == "cn":
         command = resolve_stock_analyze_command(target, skill_dir=skill_dir, env=env)
         instruction = _stock_analyze_instruction(command)
@@ -350,13 +362,22 @@ def build_prompt(
         env=env,
     )
 
+    market_label = "待解析" if target.market == "auto" else target.market
+    if target.market == "auto":
+        title_instruction = (
+            f"核验后的 `**/research｜{{标准代码}}｜{{market}}｜{today}**`；"
+            "若唯一核验为港股，必须使用港股标准代码和 `hk` 市场"
+        )
+    else:
+        title_instruction = (
+            f"`**/research｜{target.display_symbol}｜{target.market}｜{today}**`"
+        )
+
     target_block = (
         f"- 用户输入：`{target.input_symbol}`\n"
-        f"- 识别市场：`{target.market}`\n"
+        f"- 识别市场：`{market_label}`\n"
         f"- 标准代码：`{target.display_symbol}`"
     )
-    title_symbol = target.display_symbol
-    title_market = target.market
 
     return f"""今天是 {today}。这是由 stock-analysis-skill 的 /research 触发的单只股票深度研报任务，当前工作区为：{workspace_name}。
 
@@ -384,7 +405,7 @@ def build_prompt(
 
 输出格式
 - 以 `references/research.md` 的 Required Output Structure 为完整结构；默认输出飞书短版，控制在 2500-3500 字。
-- 标题使用：`**/research｜{title_symbol}｜{title_market}｜{today}**`。
+- 标题使用：{title_instruction}。
 - 飞书短版必须包含：结论摘要、数据可信度、关键风险与反证、降级说明、Sources。
 - 飞书短版也必须压缩纳入：行业整体趋势、市场热度、同类公司平均 PE、权威机构研报汇总；若数据不可得，写入数据可信度或降级说明，不要省略。
 - 业务与行业、财务质量、估值上下文、催化剂与验证路径、历史验证默认压缩进结论/风险；只有用户明确要求“详细 / 完整 / 深度 / 展开”时才展开为独立长章节。

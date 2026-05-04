@@ -22,6 +22,7 @@ Resolve the target before collecting data. A-share and US routes have priority; 
 | 6-digit code such as `300827`, `600000` | A-share | Prefer `stock-analysis-api` CLI contracts. |
 | `SH.600000`, `SZ.300827`, `BJ.8xxxxx` | A-share | Preserve explicit exchange if provided. |
 | US ticker such as `AAPL`, `MSFT`, `TSLA`, `NVDA` | US | Prefer US route unless user mentions HK/A-share listing. |
+| Longer bare English company names or nonstandard uppercase inputs such as `MINIMAX` | Agent resolves first | Do not force these into US only because they are uppercase. Verify the unique listing market and standard code; if the only reliable match is HK, switch to the HK route and use the HK title. |
 | `US.AAPL`, `NASDAQ:AAPL`, `NYSE:KO` | US | Normalize to the provider's supported symbol format. |
 | `HK.00700`, `00700.HK`, `港股 00700` | HK | Use HK route only because the user made HK explicit. |
 | Chinese company name with multiple listings | Ask or infer A-share first, US ADR second, HK last | If ambiguity can change the company or listing venue, ask a short clarification. |
@@ -32,6 +33,7 @@ Rules:
 - If the same business has multiple listings, keep the selected listing clear in the report and mention other listings only as context.
 - For stock-name inputs, the executor must not hardcode or locally cache-match the ticker. It passes the raw input to the upstream `stock-analysis-api` CLI; upstream resolves identity before analysis and returns structured identity errors when ambiguous or missing.
 - If upstream identity resolution returns multiple candidates, stop and ask for the exact code or listing venue; do not guess from popularity alone.
+- If the upstream result is a structured failure, read the returned fields before choosing the next route: `data.items[0].status`, `data.items[0].error.code/message`, `data.items[0].info`, `data.items[0].meta.modules`, and `meta.partial_reasons`. Quote, core-module, unsupported-security, or identity failures are evidence to clarify or re-route, not evidence that the requested input is a valid ticker in that market.
 - If symbol identity remains uncertain after the upstream CLI result and source checks, stop and ask for the exchange or full ticker.
 
 ## Data Source Routing
