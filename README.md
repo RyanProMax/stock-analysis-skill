@@ -123,10 +123,10 @@ Tushare 接口总表见 [references/api_reference.md](./references/api_reference
 当宿主启用 skill command dispatch 后：
 
 - `/hkipo`: 自动发现当前“可认购 + 已截止认购但未上市”的港股 IPO 池，并按评分卡输出简明优先级报告
-- `/research`: 对一只 A 股 / 美股 / 港股生成深度研报 prompt；支持股票名输入，由 agent 先识别唯一上市代码后再调用 CLI；A 股 / 美股优先复用运行时解析出的 `stock-analysis-api` full mode 绝对命令，港股按 Futu/OpenD + HKEX / AKShare / yfinance 降级路径执行
+- `/research`: 对一只 A 股 / 美股 / 港股生成深度研报 prompt；支持股票名输入，由上游 `stock-analysis-api` CLI 解析唯一上市代码后再分析；A 股 / 美股优先复用运行时解析出的 `stock-analysis-api` full mode 绝对命令，港股按 Futu/OpenD + HKEX / AKShare / yfinance 降级路径执行
 - `/cnipo`: 预留 A 股 IPO 指令位，当前只返回占位说明
 
-`/research` 只支持单只股票。常用输入包括 `/research 宁德时代`、`/research 300750`、`/research cn 300750`、`/research US.AAPL`、`/research AAPL`、`/research HK.00700` 和 `/research 0700.HK`。命令本身只做参数解析、`stock-analysis-api` 预检和 prompt 生成；遇到股票名 / 公司名时不在 executor 里查本地库或硬编码匹配，而是生成“标的识别阶段”，要求 agent 先用可核验来源识别唯一市场和代码，再替换 prompt 中的 CLI 模板并调用。A 股 / 美股 prompt 中的 CLI 命令由 executor 按 `STOCK_ANALYSIS_API_ROOT` 或 sibling `stock-analysis-api` 动态解析为绝对 `cd ... && uv run python ...`；代码输入会生成完整命令，股票名输入会生成带 `<resolved_symbol>` 的模板，找不到 API 仓库时必须显式进入降级。研报必须按 [references/research.md](./references/research.md) 输出，明确 `module_status`、`source_freshness`、`data_gaps`、行业整体趋势、市场热度、同类公司平均 PE、权威机构研报汇总、风险与反证、历史验证、Sources 和降级原因；飞书默认短版且最终回复必须直接从标题开始，不混入执行过程日志；不输出买卖建议、目标价或确定性承诺。
+`/research` 只支持单只股票。常用输入包括 `/research 宁德时代`、`/research 300750`、`/research cn 300750`、`/research US.AAPL`、`/research AAPL`、`/research HK.00700` 和 `/research 0700.HK`。命令本身只做参数解析、`stock-analysis-api` 预检和 prompt 生成；股票名 / 公司名会原样传给上游 CLI 的 `--symbols`，由 `stock-analysis-api` 在调用分析链路前解析唯一代码；executor 不查本地库、不硬编码匹配、不生成下游标的识别阶段。A 股 / 美股 prompt 中的 CLI 命令由 executor 按 `STOCK_ANALYSIS_API_ROOT` 或 sibling `stock-analysis-api` 动态解析为绝对 `cd ... && uv run python ...`；代码输入和股票名输入都会生成完整命令，找不到 API 仓库时必须显式进入降级；若上游返回 `identity_conflict` / `identity_not_found`，agent 必须先向用户澄清。研报必须按 [references/research.md](./references/research.md) 输出，明确 `module_status`、`source_freshness`、`data_gaps`、行业整体趋势、市场热度、同类公司平均 PE、权威机构研报汇总、风险与反证、历史验证、Sources 和降级原因；飞书默认短版且最终回复必须直接从标题开始，不混入执行过程日志；不输出买卖建议、目标价或确定性承诺。
 
 `/hkipo` 必须按当前日期重新取数。当前 IPO 池、招股状态、上市日、招股截止日、发售价、一手股数和入场费优先使用 Futu/OpenD 只读 `get_ipo_list(HK)`；命令由 executor 按当前 skill 安装目录动态生成，不能依赖用户工作区相对 `.venv`。Futu/OpenD 不可用或字段缺失时，才用 HKEX / 公司公告 / 财经站补齐并标注降级。财经站只补充孖展/认购热度、中签率、灰市、首日涨幅等二级数据，且不得把过期数据当作当前热度评分依据。输出保持极简：不用 `#` / `##` 大标题和宽 Markdown 表格；结论最多 3 条，核心内容全部整合进飞书友好的窄卡片列表，用少量固定 emoji 强化优先级、热度、结构、回测、风险和来源。评分、融资倍数热度、绿鞋/基石检查、回测映射和卡片输出规则见 [references/hkipo.md](./references/hkipo.md)。
 

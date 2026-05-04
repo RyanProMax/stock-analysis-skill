@@ -600,16 +600,16 @@ Review status:
 - passed
 
 
-### M22 — /research 股票名交由 agent 识别
+### M22 — /research 股票名交由上游 CLI 识别
 
 Status: `done`
 
 Scope:
 
-- `/research` 支持输入股票名 / 公司名并交由 agent 识别唯一上市代码
-- executor 不读取 SQLite / 本地缓存、不硬编码匹配；只生成标的识别工作流和待替换 CLI 模板
-- agent 使用可核验来源确认市场、代码、公司名后，再替换 `<resolved_symbol>` 调用 `stock_analyze.py`
-- 多候选、同名公司或多地上市时，agent 先向用户澄清，不调用 CLI、不输出研报
+- `/research` 支持输入股票名 / 公司名，并将原始输入传给 `stock-analysis-api` CLI
+- executor 不读取 SQLite / 本地缓存、不硬编码匹配、不生成下游标的识别模板
+- `stock-analysis-api` 在 CLI 入口解析唯一市场和代码后再调用分析链路
+- 上游返回 `identity_conflict` / `identity_not_found` 时，agent 先向用户澄清，不自行猜测代码
 - 同步 README / SKILL / research reference，并验证 slash command 行为
 
 Validation:
@@ -622,9 +622,9 @@ Validation:
 
 Progress:
 
-- 2026-05-03 北京时间：已按用户反馈纠偏，补 `/research 宁德时代`、`/research cn 宁德时代`、API root 缺失时仍进入 agent 识别流程的单测。
-- 2026-05-03 北京时间：已移除本地 SQLite 标的缓存匹配，股票名输入现在生成“标的识别阶段”，由 agent 先确认唯一代码再调用 CLI 模板。
-- 2026-05-03 北京时间：已同步 README / SKILL / research reference，明确 executor 不硬匹配、agent 识别、多候选先澄清。
+- 2026-05-03 北京时间：已按用户反馈补 `/research 宁德时代`、`/research cn 宁德时代`、API root 缺失场景单测。
+- 2026-05-04 北京时间：已撤掉下游 agent 标的识别流程，股票名输入现在生成 `--symbols 原始输入`，由上游 CLI 解析。
+- 2026-05-04 北京时间：已同步 README / SKILL / research reference，明确 executor 不硬匹配、上游 CLI 识别、多候选先澄清。
 
 Validation status:
 
@@ -670,7 +670,7 @@ Review status:
 ## Progress
 
 - 2026-05-04：`/research` 已新增行业整体趋势、市场热度、同类公司平均 PE、权威机构研报汇总四个强制模块；数据不可得时进入可信度/降级说明。
-- 2026-05-03：`/research` 股票名输入已改为 agent 标的识别流程；executor 不查本地缓存、不硬编码匹配，唯一识别后再调用 CLI 模板。
+- 2026-05-04：`/research` 股票名输入已改为上游 CLI 识别；executor 只传原始输入，不查本地缓存、不硬编码匹配、不生成下游识别模板。
 - 2026-04-27：移除旧 `docs/plan.md`，统一使用 `PLANS/`。
 - 2026-04-27：确认用户要求后续任务时间改用北京时间展示。
 - 2026-04-27：开始创建 `PLANS/ROADMAP.md` 与 `PLANS/ACTIVE.md`，并把富途整合纳入长期 roadmap。
@@ -685,7 +685,7 @@ Review status:
 - 已通过：`python3 -m unittest discover -s tests -v`
 - 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
 - 已通过：`git diff --check`
-- 已通过：`python3 commands/research.py` 抽样验证 `/research 宁德时代` 进入 agent 标的识别阶段，并生成 `<resolved_symbol>` CLI 模板
+- 已通过：`python3 commands/research.py` 抽样验证 `/research 宁德时代` 生成 `--symbols 宁德时代` 并声明上游 CLI 负责解析
 - 已通过：`python3 -m py_compile scripts/*.py commands/*.py`
 - 已通过：`python3 commands/hkipo.py <<< '{}'`
 - 已通过：`python3 scripts/hkipo_backtest.py --limit 20 --source aastocks --format markdown`

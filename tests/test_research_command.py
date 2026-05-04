@@ -109,7 +109,7 @@ class ResearchCommandTest(unittest.TestCase):
         self.assertIn("2500-3500 字", content)
         self.assertIn("Debug details", content)
 
-    def test_cn_stock_name_delegates_identity_resolution_to_agent(self) -> None:
+    def test_cn_stock_name_passes_raw_input_to_upstream_cli(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
             root = pathlib.Path(raw_root).resolve()
             skill_dir = root / "stock-analysis-skill"
@@ -129,14 +129,13 @@ class ResearchCommandTest(unittest.TestCase):
         content = reply["content"]
 
         self.assertEqual(reply["type"], "assistant_prompt")
-        self.assertIn("标的识别阶段", content)
-        self.assertIn("由 agent 先识别唯一上市代码", content)
-        self.assertIn("宁德时代", content)
-        self.assertIn("--symbols <resolved_symbol>", content)
-        self.assertNotIn("股票名匹配：`宁德时代` → `300750`", content)
-        self.assertNotIn("--symbols 300750 --mode full --pretty", content)
+        self.assertIn("--market cn --symbols", content)
+        self.assertIn(research.shlex.quote("宁德时代"), content)
+        self.assertIn("上游 CLI 负责股票名 / 公司名解析", content)
+        self.assertNotIn("标的识别阶段", content)
+        self.assertNotIn("<resolved_symbol>", content)
 
-    def test_cn_stock_name_with_market_hint_still_requires_agent_resolution(self) -> None:
+    def test_cn_stock_name_with_market_hint_passes_raw_input_to_upstream_cli(self) -> None:
         result = research.build_reply(
             {"argsText": "cn 宁德时代", "args": ["cn", "宁德时代"]},
             skill_dir=ROOT,
@@ -147,29 +146,10 @@ class ResearchCommandTest(unittest.TestCase):
         content = reply["content"]
 
         self.assertEqual(reply["type"], "assistant_prompt")
-        self.assertIn("市场倾向：`cn`", content)
-        self.assertIn("先识别唯一上市代码", content)
+        self.assertIn("--market cn --symbols", content)
+        self.assertIn(research.shlex.quote("宁德时代"), content)
         self.assertNotIn("A 股代码需要是 6 位数字", content)
-
-    def test_stock_name_without_api_root_still_delegates_resolution_to_agent(self) -> None:
-        with tempfile.TemporaryDirectory() as raw_root:
-            root = pathlib.Path(raw_root).resolve()
-            skill_dir = root / "stock-analysis-skill"
-            skill_dir.mkdir()
-
-            result = research.build_reply(
-                {"argsText": "宁德时代", "args": ["宁德时代"]},
-                skill_dir=skill_dir,
-                env={},
-            )
-
-        reply = result["reply"]
-        content = reply["content"]
-
-        self.assertEqual(reply["type"], "assistant_prompt")
-        self.assertIn("标的识别阶段", content)
-        self.assertIn("stock-analysis-api 预检：未找到", content)
-        self.assertNotIn("未找到匹配股票代码", content)
+        self.assertNotIn("标的识别阶段", content)
 
     def test_cn_prompt_uses_runtime_resolved_absolute_api_command(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:

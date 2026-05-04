@@ -38,8 +38,6 @@ class ResearchTarget:
     normalized_symbol: str
     display_symbol: str
     yahoo_symbol: str | None = None
-    requires_agent_resolution: bool = False
-    market_hint: str | None = None
 
 
 @dataclass(frozen=True)
@@ -203,19 +201,9 @@ def _hk_symbols(raw_symbol: str) -> tuple[str, str]:
     return futu_symbol, yahoo_symbol
 
 
-def _looks_like_stock_name(raw_symbol: str) -> bool:
-    return bool(re.search(r"[\u4e00-\u9fff]", raw_symbol))
 
-def _agent_resolution_target(raw_input: str, market_hint: str | None) -> ResearchTarget:
-    market = market_hint or "auto"
-    return ResearchTarget(
-        market=market,
-        input_symbol=raw_input,
-        normalized_symbol="<resolved_symbol>",
-        display_symbol=raw_input,
-        requires_agent_resolution=True,
-        market_hint=market_hint,
-    )
+def _contains_cjk(text: str) -> bool:
+    return any("\u4e00" <= char <= "\u9fff" for char in str(text or ""))
 
 
 def parse_target(
@@ -240,15 +228,15 @@ def parse_target(
         digits = re.sub(r"\D", "", raw_symbol)
         if len(digits) == 6:
             return ResearchTarget("cn", raw_symbol, digits, digits)
-        if _looks_like_stock_name(raw_input):
-            return _agent_resolution_target(raw_input, market_hint)
+        if _contains_cjk(raw_input):
+            return ResearchTarget("cn", raw_input, raw_input, raw_input)
         return "A 股代码需要是 6 位数字，例如 `/research 300750`。"
 
     if market_hint == "us":
         symbol = raw_symbol[3:] if raw_symbol.startswith("US.") else raw_symbol
         if not US_SYMBOL_PATTERN.fullmatch(symbol):
-            if _looks_like_stock_name(raw_input):
-                return _agent_resolution_target(raw_input, market_hint)
+            if _contains_cjk(raw_input):
+                return ResearchTarget("us", raw_input, raw_input, raw_input)
             return "美股代码格式无法识别，例如 `/research US.AAPL`。"
         return ResearchTarget("us", raw_symbol, symbol, f"US.{symbol}")
 
@@ -256,8 +244,6 @@ def parse_target(
         try:
             futu_symbol, yahoo_symbol = _hk_symbols(raw_symbol)
         except ValueError as exc:
-            if _looks_like_stock_name(raw_input):
-                return _agent_resolution_target(raw_input, market_hint)
             return str(exc)
         return ResearchTarget("hk", raw_symbol, futu_symbol, futu_symbol, yahoo_symbol)
 
@@ -291,8 +277,8 @@ def parse_target(
         return ResearchTarget("hk", raw_symbol, futu_symbol, futu_symbol, yahoo_symbol)
     if US_SYMBOL_PATTERN.fullmatch(raw_symbol):
         return ResearchTarget("us", raw_symbol, raw_symbol, f"US.{raw_symbol}")
-    if _looks_like_stock_name(raw_input):
-        return _agent_resolution_target(raw_input, market_hint)
+    if _contains_cjk(raw_input):
+        return ResearchTarget("cn", raw_input, raw_input, raw_input)
 
     return "无法判断市场；请使用 `/research 宁德时代`、`/research cn 300750`、`/research US.AAPL` 或 `/research HK.00700`。"
 
@@ -311,58 +297,6 @@ def _stock_analyze_instruction(command: StockAnalyzeCommand) -> str:
     )
 
 
-def _stock_analyze_template_instruction(
-    market_hint: str | None,
-    *,
-    skill_dir: str | Path | None = None,
-    env: Mapping[str, str] | None = None,
-) -> str:
-    resolved_skill_dir = resolve_skill_dir(skill_dir=skill_dir, env=env)
-    market_placeholder = market_hint if market_hint in {"cn", "us"} else "<resolved_market>"
-    for candidate in candidate_api_roots(resolved_skill_dir, env=env):
-        api_root = _valid_api_root(candidate)
-        if api_root:
-            command = (
-                f"cd {shlex.quote(str(api_root))} && "
-                "uv run python scripts/stock_analyze.py "
-                f"--market {market_placeholder} "
-                "--symbols <resolved_symbol> "
-                "--mode full --pretty"
-            )
-            return (
-                f"`{command}`。这里的 `<resolved_symbol>` 必须由 agent 完成标的识别后替换；"
-                "不要在 executor 阶段用本地缓存硬匹配。"
-            )
-
-    return (
-        "stock-analysis-api 预检：未找到 STOCK_ANALYSIS_API_ROOT 指向的有效仓库，"
-        "也未在当前 skill 安装目录附近找到含 scripts/stock_analyze.py 的 stock-analysis-api。"
-        "agent 仍需先识别唯一上市代码；若标准化 CLI 不可用，再按降级规则继续。"
-    )
-
-
-def _agent_resolution_execution_requirements(
-    target: ResearchTarget,
-    *,
-    skill_dir: str | Path | None = None,
-    env: Mapping[str, str] | None = None,
-) -> str:
-    market_hint = target.market_hint
-    market_hint_text = market_hint or "未指定；默认按 A 股 → 美股 → 港股的顺序验证，但不能只凭知名度猜测"
-    template_instruction = _stock_analyze_template_instruction(
-        market_hint,
-        skill_dir=skill_dir,
-        env=env,
-    )
-    return f"""标的识别阶段
-- 用户输入是股票名或公司名：`{target.input_symbol}`；由 agent 先识别唯一上市代码，再调用 CLI，不在 /research executor 里使用 SQLite、本地缓存或硬编码规则直接匹配。
-- 市场倾向：`{market_hint_text}`。
-- 识别优先级：先查交易所 / 公司 IR / 官方公告 / 权威财经资料确认公司名、上市地、代码、交易所和币种；中文公司名无市场倾向时优先验证 A 股，其次美股 ADR，最后港股。
-- 若存在多个可能标的、同名公司、多地上市或代码不确定，必须先用最终回复向用户询问澄清；不得调用 CLI，不得输出研报。
-- 唯一识别后，在研报“请求标的/数据可信度”中写清 `原始输入 → 市场 / 代码 / 公司名` 以及至少一个识别依据来源。
-- 若识别为 A 股或美股，首选执行：{template_instruction}
-- 若识别为港股，按港股后置支持路径走 Futu/OpenD + HKEX / AKShare / yfinance，不要虚构 `stock_analyze.py --market hk`。"""
-
 
 def _market_execution_requirements(
     target: ResearchTarget,
@@ -370,19 +304,13 @@ def _market_execution_requirements(
     skill_dir: str | Path | None = None,
     env: Mapping[str, str] | None = None,
 ) -> str:
-    if target.requires_agent_resolution:
-        return _agent_resolution_execution_requirements(
-            target,
-            skill_dir=skill_dir,
-            env=env,
-        )
-
     if target.market == "cn":
         command = resolve_stock_analyze_command(target, skill_dir=skill_dir, env=env)
         instruction = _stock_analyze_instruction(command)
         return f"""市场路由：A 股
 - 必须先检查 `STOCK_ANALYSIS_API_ROOT`、`uv`、`TUSHARE_TOKEN` / `TUSHARE_HTTP_URL` 是否可用。
 - 首选执行：{instruction}
+- 上游 CLI 负责股票名 / 公司名解析；若返回 `identity_conflict` / `identity_not_found`，必须先向用户澄清，不要自行猜测代码。
 - `stock-analysis-api` JSON 是主事实底稿；只读取 `data.items[0]`、`summary.research_strategy`、`summary.*`、`meta.modules` 和原始 records 摘要。
 - 若 Tushare 权限不足、研报/公告/新闻为空或模块状态为 `partial` / `permission_denied` / `not_supported`，必须进入“数据质量与降级”章节。
 - 不直接改走原始 Tushare，除非用户明确要求原始接口或当前 CLI 无法覆盖。"""
@@ -393,6 +321,7 @@ def _market_execution_requirements(
         return f"""市场路由：美股
 - 必须先检查 `STOCK_ANALYSIS_API_ROOT` 与 `uv` 是否可用。
 - 首选执行：{instruction}
+- 上游 CLI 负责股票名 / 公司名解析；若返回 `identity_conflict` / `identity_not_found`，必须先向用户澄清，不要自行猜测代码。
 - `stock-analysis-api` JSON 是主事实底稿；重点消费 technical、earnings、dcf、comps、three_statement、competitive、sector_overview、summary.research_strategy。
 - 允许联网补充 SEC filings、公司 IR、earnings transcript、最新财报电话会、重大新闻和行业数据；所有联网事实必须标注来源日期。
 - 若 FMP / yfinance / SEC / 新闻源不可用，必须明确写入“数据质量与降级”，不能补编财务或估值数据。"""
@@ -421,23 +350,13 @@ def build_prompt(
         env=env,
     )
 
-    if target.requires_agent_resolution:
-        target_block = (
-            f"- 用户输入：`{target.input_symbol}`\n"
-            "- 识别状态：待 agent 识别唯一上市标的\n"
-            f"- 市场倾向：`{target.market_hint or 'auto'}`\n"
-            "- 标准代码：待识别，识别后再调用 CLI"
-        )
-        title_symbol = "{识别后代码}"
-        title_market = "{识别后市场}"
-    else:
-        target_block = (
-            f"- 用户输入：`{target.input_symbol}`\n"
-            f"- 识别市场：`{target.market}`\n"
-            f"- 标准代码：`{target.display_symbol}`"
-        )
-        title_symbol = target.display_symbol
-        title_market = target.market
+    target_block = (
+        f"- 用户输入：`{target.input_symbol}`\n"
+        f"- 识别市场：`{target.market}`\n"
+        f"- 标准代码：`{target.display_symbol}`"
+    )
+    title_symbol = target.display_symbol
+    title_market = target.market
 
     return f"""今天是 {today}。这是由 stock-analysis-skill 的 /research 触发的单只股票深度研报任务，当前工作区为：{workspace_name}。
 
@@ -491,11 +410,7 @@ def build_reply(
                 skill_dir=skill_dir,
                 env=env,
             ),
-            "ack": (
-                f"已开始识别 {target_or_error.input_symbol} 并生成单票深度研报。"
-                if target_or_error.requires_agent_resolution
-                else f"已开始生成 {target_or_error.display_symbol} 的单票深度研报。"
-            ),
+            "ack": f"已开始生成 {target_or_error.display_symbol} 的单票深度研报。",
         }
     }
 

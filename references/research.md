@@ -30,9 +30,9 @@ Rules:
 
 - Do not route to HK only because a company has an HK listing. Use HK only for explicit HK symbols, explicit user intent, or no credible A-share / US match.
 - If the same business has multiple listings, keep the selected listing clear in the report and mention other listings only as context.
-- For stock-name inputs, the executor must not hardcode or locally cache-match the ticker. The agent resolves identity from reliable sources, then records `原始输入 → 市场 / 代码 / 公司名` and evidence in the report.
-- If agent identity resolution returns multiple candidates, stop and ask for the exact code or listing venue; do not guess from popularity alone.
-- If symbol identity remains uncertain after a quick lookup, stop and ask for the exchange or full ticker.
+- For stock-name inputs, the executor must not hardcode or locally cache-match the ticker. It passes the raw input to the upstream `stock-analysis-api` CLI; upstream resolves identity before analysis and returns structured identity errors when ambiguous or missing.
+- If upstream identity resolution returns multiple candidates, stop and ask for the exact code or listing venue; do not guess from popularity alone.
+- If symbol identity remains uncertain after the upstream CLI result and source checks, stop and ask for the exchange or full ticker.
 
 ## Data Source Routing
 
@@ -44,7 +44,7 @@ Choose one primary market route, then add source-specific evidence.
 | US | `stock-analysis-api` `stock_analyze.py --market us --mode full` | SEC EDGAR, company IR, 10-K / 10-Q / 8-K, earnings releases, investor presentations, Nasdaq / NYSE pages, Futu/OpenD read-only quote/K-line data when available, reputable finance data for consensus or market snapshot. |
 | HK | Futu/OpenD read-only market data | HKEXnews, company announcements, annual and interim reports, exchange filings, reputable finance portals for secondary market data. |
 
-For A-share and US reports with an explicit ticker, the `/research` executor should provide a copy-pasteable absolute command for `stock-analysis-api`. It resolves `STOCK_ANALYSIS_API_ROOT` first, then sibling `stock-analysis-api` directories near the current skill installation. For stock-name inputs, the executor provides an identity-resolution workflow plus a CLI template with `<resolved_market>` / `<resolved_symbol>` placeholders; the agent must resolve a unique listing before replacing those placeholders and running the CLI. Use the generated command or template exactly; do not replace it with the current workspace, a relative path, or an invented `$STOCK_ANALYSIS_API_ROOT` command. If the executor reports a `stock-analysis-api` preflight failure, mark the CLI module unavailable and continue only under the degradation rules below.
+For A-share and US reports, the `/research` executor should provide a copy-pasteable absolute command for `stock-analysis-api`. It resolves `STOCK_ANALYSIS_API_ROOT` first, then sibling `stock-analysis-api` directories near the current skill installation. Explicit tickers and stock-name inputs both use a concrete command; stock-name inputs are passed raw to `--symbols`, and the upstream CLI resolves identity before analysis. Use the generated command exactly; do not replace it with the current workspace, a relative path, or an invented `$STOCK_ANALYSIS_API_ROOT` command. If the executor reports a `stock-analysis-api` preflight failure, mark the CLI module unavailable and continue only under the degradation rules below.
 
 Source priority:
 
@@ -197,6 +197,7 @@ Use a visible status in the report:
 Common degradation reasons:
 
 - `identity_conflict`: multiple tickers or listings could match the request.
+- `identity_not_found`: no reliable ticker or listing match can support the request.
 - `market_data_unavailable`: quote source failed, market source is down, or OpenD is unavailable.
 - `primary_filing_missing`: latest annual / quarterly filing cannot be found.
 - `permission_denied`: data provider requires entitlement or login not available.
