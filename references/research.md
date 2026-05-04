@@ -44,9 +44,11 @@ Choose one primary market route, then add source-specific evidence.
 | --- | --- | --- |
 | A-share | `stock-analysis-api` `stock_analyze.py`; `poll_realtime_quotes.py` for current quote | Exchange / company announcements, CNINFO, annual and quarterly reports, Tushare raw interfaces only when explicitly requested. |
 | US | `stock-analysis-api` `stock_analyze.py --market us --mode full` | SEC EDGAR, company IR, 10-K / 10-Q / 8-K, earnings releases, investor presentations, Nasdaq / NYSE pages, Futu/OpenD read-only quote/K-line data when available, reputable finance data for consensus or market snapshot. |
-| HK | Futu/OpenD read-only market data | HKEXnews, company announcements, annual and interim reports, exchange filings, reputable finance portals for secondary market data. |
+| HK | Futu/OpenD read-only market data with executor OpenD preflight | HKEXnews, company announcements, annual and interim reports, exchange filings, reputable finance portals for secondary market data only after confirmation if OpenD is unavailable. |
 
 For A-share and US reports, the `/research` executor should provide a copy-pasteable absolute command for `stock-analysis-api`. It resolves `STOCK_ANALYSIS_API_ROOT` first, then sibling `stock-analysis-api` directories near the current skill installation. Explicit tickers and stock-name inputs both use a concrete command; stock-name inputs are passed raw to `--symbols`, and the upstream CLI resolves identity before analysis. Use the generated command exactly; it must contain an absolute API root and an absolute `uv` executable resolved by the executor. Do not replace it with the current workspace, a relative path, a bare `uv`, or an invented `$STOCK_ANALYSIS_API_ROOT` command. If the executor reports a `stock-analysis-api` preflight failure, mark the CLI module unavailable and continue only under the degradation rules below.
+
+For explicit HK reports, the `/research` executor must run a read-only OpenD preflight before emitting an `assistant_prompt`. The preflight uses the installed `futuapi` skill's `scripts/quote/get_global_state.py --json` through that skill's own `.venv/bin/python`, not the host process Python. If OpenD, the script, or the futuapi Python environment is unavailable, the executor must return local `final_markdown` asking whether to continue; it must not generate a research prompt and let the agent silently downgrade. Only an explicit user confirmation flag such as `--continue-without-opend` allows the HK report to continue with HKEX / company announcements / AKShare / yfinance as degraded sources. For auto-resolved targets that turn out to be HK, the agent must apply the same gate: if Futu/OpenD cannot be called, stop and ask the user whether to continue before collecting fallback data.
 
 Source priority:
 
@@ -200,7 +202,7 @@ Common degradation reasons:
 
 - `identity_conflict`: multiple tickers or listings could match the request.
 - `identity_not_found`: no reliable ticker or listing match can support the request.
-- `market_data_unavailable`: quote source failed, market source is down, or OpenD is unavailable.
+- `market_data_unavailable`: quote source failed or market source is down. For explicit HK reports, OpenD unavailability is a blocking preflight failure until the user confirms `--continue-without-opend`.
 - `primary_filing_missing`: latest annual / quarterly filing cannot be found.
 - `permission_denied`: data provider requires entitlement or login not available.
 - `stale_data`: latest source is older than the report context requires.

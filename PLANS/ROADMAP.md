@@ -42,6 +42,7 @@
 - [x] `/research` 默认飞书短版和最终回复清洗：正文从标题开始，不混入过程日志
 - [x] `/research` 支持股票名输入，由上游 CLI 识别唯一代码后再分析
 - [x] `/research` 增加行业趋势、市场热度、Peer PE 和权威研报汇总模块
+- [x] `/research` 显式港股增加 OpenD 前置确认，未确认时不允许自行降级
 - [ ] `/research` 港股数据层从后置 prompt 路由升级为稳定字段矩阵与验证样例
 - [ ] `/research` 美股补充 SEC filings / earnings transcript 证据层缓存与引用规范
 - [x] 港股 IPO 池工作流增加近 100 个已上市 IPO 首日表现回测 MVP
@@ -87,3 +88,4 @@
 - 2026-05-04：`/research` 修正长英文公司名路由；`MINIMAX` 这类非短裸 ticker 不再预分类为美股，必须先核验唯一市场，若唯一可靠匹配为港股则切换港股标题与港股数据路径。
 
 - 2026-05-04：`/research` 标准 CLI 命令改为解析绝对 `uv`，优先 `STOCK_ANALYSIS_UV` / `UV_BIN` / `UV`，再查 PATH 和 `$HOME` 常见安装位；找不到时显式预检失败，不再依赖重启后的服务 PATH。
+- 2026-05-04：`/research` 显式港股路径新增 OpenD 只读前置预检；OpenD 或 futuapi 环境不可用时直接询问用户是否继续，只有 `--continue-without-opend` 确认后才允许降级数据源。

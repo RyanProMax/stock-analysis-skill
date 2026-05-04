@@ -34,6 +34,8 @@
 - `/hkipo` 这类 slash command 不应把 `futuapi` 脚本路径写死到某个用户目录，也不应让宿主 Agent 在当前工作区猜测 `.venv/bin/python`。
 - command executor 负责按当前 `stock-analysis-skill` 安装目录解析 Python venv，并在常见 skill 根目录或 `FUTUAPI_SKILL_DIR` 中查找 `futuapi/scripts/quote/get_ipo_list.py`。
 - 若未找到可用 Python 或 `futuapi` 脚本，prompt 必须明确写出 Futu/OpenD 预检失败原因，再允许降级到 HKEX / 公司公告 / 财经站。
+- `/research HK.*` 与 `/research *.HK` 必须更严格：executor 先用 `futuapi/scripts/quote/get_global_state.py --json` 做 OpenD 只读预检；未找到脚本、未找到 futuapi `.venv/bin/python`、OpenD 未运行或预检失败时，直接返回 `final_markdown` 询问用户是否继续，不生成研报 prompt。
+- 只有用户明确追加 `--continue-without-opend` 后，`/research` 港股才允许按 HKEX / 公司公告 / AKShare / yfinance 降级继续；这类确认只放开数据源降级，不放开任何写入、订阅或交易能力。
 
 
 ## Watchlist 选路规则

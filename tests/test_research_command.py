@@ -14,6 +14,22 @@ import research
 
 
 class ResearchCommandTest(unittest.TestCase):
+    def _make_fake_futu_preflight(self, root: pathlib.Path) -> tuple[pathlib.Path, dict[str, str]]:
+        skill_dir = root / "stock-analysis-skill"
+        futuapi_dir = root / ".agents" / "skills" / "futuapi"
+        futu_python = futuapi_dir / ".venv" / "bin" / "python"
+        preflight_script = futuapi_dir / "scripts" / "quote" / "get_global_state.py"
+        skill_dir.mkdir(parents=True)
+        futu_python.parent.mkdir(parents=True)
+        preflight_script.parent.mkdir(parents=True)
+        futu_python.write_text(
+            "#!/bin/sh\necho '{\"data\":{\"qot_logined\":true}}'\n",
+            encoding="utf-8",
+        )
+        futu_python.chmod(0o755)
+        preflight_script.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+        return skill_dir, {"HOME": str(root), "PATH": ""}
+
     def test_cn_symbol_builds_assistant_prompt_with_full_stock_analyze_cli(self) -> None:
         result = research.build_reply(
             {
@@ -373,19 +389,69 @@ class ResearchCommandTest(unittest.TestCase):
             cn_result["reply"]["content"],
         )
 
-    def test_hk_symbol_builds_assistant_prompt_with_hk_deferred_data_path(self) -> None:
-        result = research.build_reply(
-            {
-                "argsText": "HK.00700",
-                "args": ["HK.00700"],
-                "workspace": {"name": "港股研究"},
-            }
-        )
+    def test_hk_research_without_opend_asks_before_degrading(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = pathlib.Path(raw_root).resolve()
+            skill_dir = root / "stock-analysis-skill"
+            skill_dir.mkdir()
+
+            result = research.build_reply(
+                {"argsText": "HK.00700", "args": ["HK.00700"]},
+                skill_dir=skill_dir,
+                env={"HOME": str(root), "PATH": ""},
+            )
+
+        reply = result["reply"]
+        content = reply["content"]
+
+        self.assertEqual(reply["type"], "final_markdown")
+        self.assertIn("OpenD 预检未通过", content)
+        self.assertIn("是否继续", content)
+        self.assertIn("/research HK.00700 --continue-without-opend", content)
+        self.assertNotIn("assistant_prompt", json.dumps(result, ensure_ascii=False))
+
+    def test_hk_research_confirmation_allows_degraded_prompt(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = pathlib.Path(raw_root).resolve()
+            skill_dir = root / "stock-analysis-skill"
+            skill_dir.mkdir()
+
+            result = research.build_reply(
+                {
+                    "argsText": "HK.00700 --continue-without-opend",
+                    "args": ["HK.00700", "--continue-without-opend"],
+                },
+                skill_dir=skill_dir,
+                env={"HOME": str(root), "PATH": ""},
+            )
 
         reply = result["reply"]
         content = reply["content"]
 
         self.assertEqual(reply["type"], "assistant_prompt")
+        self.assertIn("用户已确认 OpenD 不可用时继续", content)
+        self.assertIn("港股数据层降级", content)
+
+    def test_hk_symbol_builds_assistant_prompt_with_hk_deferred_data_path(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = pathlib.Path(raw_root).resolve()
+            skill_dir, env = self._make_fake_futu_preflight(root)
+
+            result = research.build_reply(
+                {
+                    "argsText": "HK.00700",
+                    "args": ["HK.00700"],
+                    "workspace": {"name": "港股研究"},
+                },
+                skill_dir=skill_dir,
+                env=env,
+            )
+
+        reply = result["reply"]
+        content = reply["content"]
+
+        self.assertEqual(reply["type"], "assistant_prompt")
+        self.assertIn("OpenD 预检已通过", content)
         self.assertIn("HK.00700", content)
         self.assertIn("0700.HK", content)
         self.assertIn("港股", content)

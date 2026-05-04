@@ -31,7 +31,7 @@ metadata:
 
 | 用户意图 | 默认路由 | 关键边界 |
 | --- | --- | --- |
-| `/research <symbol>` | `Slash Commands` | 单票深度研报，A 股 / 美股优先复用运行时解析出的 `stock_analyze.py --mode full` 绝对命令，港股走后置降级路径 |
+| `/research <symbol>` | `Slash Commands` | 单票深度研报，A 股 / 美股优先复用运行时解析出的 `stock_analyze.py --mode full` 绝对命令；显式港股先做 OpenD 预检，失败时先询问是否继续 |
 | `/hkipo` | `Slash Commands` | 自动发现港股 IPO 池，按 `references/hkipo.md` 评分 |
 | `/cnipo` | `Slash Commands` | 当前只返回占位说明 |
 | 单票客观分析、研报式摘要、“最近怎么样” | `CLI 使用技能` | 默认走 `stock_analyze.py`，不直接查原始 `report_rc` |
@@ -93,7 +93,7 @@ OpenD 未安装、未启动或 SDK 版本不满足时，转入 `install-futu-ope
 
 ## Slash Commands
 
-- `/research`：对一只 A 股 / 美股 / 港股生成深度研报 prompt。支持股票名 / 公司名输入；executor 不做本地缓存或硬编码匹配。短裸美股 ticker（如 `AAPL`）可直接走美股，较长英文公司名或非标准裸输入（如 `MINIMAX`）必须进入待解析工作流，不能因为全大写就强行标记为美股。A 股 / 美股优先复用 `stock-analysis-api` 的 `stock_analyze.py --mode full`；executor 会按 `STOCK_ANALYSIS_API_ROOT`、当前 skill 安装目录附近的 sibling `stock-analysis-api` 动态生成可复制的绝对 `cd ... && /absolute/uv run python ...` 命令。找不到 API 仓库时必须显式标记预检失败；上游返回 `identity_conflict` / `identity_not_found`，或返回 `data.items[0].status=failed/not_supported` 且 `error/info/meta` 指向身份、行情或市场不支持问题时，必须先解析这些字段并澄清或改道，不能沿用错误市场标题。港股当前作为后置支持，按 Futu/OpenD + HKEX / AKShare / yfinance 降级路径执行。输出模板、飞书短版、最终回复清洗、`module_status` / `source_freshness` / `data_gaps` 可信度层、行业整体趋势、市场热度、同类公司平均 PE、权威机构研报汇总、风险与反证、历史验证、Sources 和禁止事项见 `references/research.md`。
+- `/research`：对一只 A 股 / 美股 / 港股生成深度研报 prompt。支持股票名 / 公司名输入；executor 不做本地缓存或硬编码匹配。短裸美股 ticker（如 `AAPL`）可直接走美股，较长英文公司名或非标准裸输入（如 `MINIMAX`）必须进入待解析工作流，不能因为全大写就强行标记为美股。A 股 / 美股优先复用 `stock-analysis-api` 的 `stock_analyze.py --mode full`；executor 会按 `STOCK_ANALYSIS_API_ROOT`、当前 skill 安装目录附近的 sibling `stock-analysis-api` 动态生成可复制的绝对 `cd ... && /absolute/uv run python ...` 命令。找不到 API 仓库时必须显式标记预检失败；上游返回 `identity_conflict` / `identity_not_found`，或返回 `data.items[0].status=failed/not_supported` 且 `error/info/meta` 指向身份、行情或市场不支持问题时，必须先解析这些字段并澄清或改道，不能沿用错误市场标题。显式港股在进入 agent 前必须调用 futuapi 的 OpenD 只读预检；预检失败只返回确认提示，用户用 `--continue-without-opend` 明确确认后才允许按 HKEX / 公司公告 / AKShare / yfinance 降级继续。待解析输入若唯一核验为港股，也必须先确认 OpenD 可调用；不可调用时先询问用户，不得自行降级。输出模板、飞书短版、最终回复清洗、`module_status` / `source_freshness` / `data_gaps` 可信度层、行业整体趋势、市场热度、同类公司平均 PE、权威机构研报汇总、风险与反证、历史验证、Sources 和禁止事项见 `references/research.md`。
 - `/hkipo`：自动发现当前“可认购 + 已截止认购但未上市”的港股 IPO 池，并按评分卡输出简明优先级报告。
 - `/cnipo`：预留 A 股 IPO 指令位，当前只返回占位说明。
 

@@ -8,6 +8,7 @@ import os
 import re
 import shlex
 import shutil
+import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import datetime
@@ -32,6 +33,8 @@ MARKET_ALIASES = {
 US_SYMBOL_PATTERN = re.compile(r"[A-Z][A-Z0-9.-]{0,9}")
 SHORT_BARE_US_SYMBOL_PATTERN = re.compile(r"[A-Z][A-Z0-9.-]{0,4}")
 BARE_ENGLISH_COMPANY_PATTERN = re.compile(r"[A-Z][A-Z0-9&'.-]{5,79}")
+OPEND_CONTINUE_FLAGS = {"--continue-without-opend", "--confirm-without-opend", "--degraded-ok"}
+FUTU_OPEND_PREFLIGHT_SCRIPT = Path("scripts") / "quote" / "get_global_state.py"
 
 
 @dataclass(frozen=True)
@@ -49,6 +52,13 @@ class StockAnalyzeCommand:
     api_root: Path | None
     reason: str | None
     uv_path: Path | None = None
+
+
+@dataclass(frozen=True)
+class OpenDPreflight:
+    ok: bool
+    reason: str
+    command: str | None = None
 
 
 def emit(payload: dict) -> None:
@@ -212,6 +222,203 @@ def candidate_api_roots(
         seen.add(resolved)
         unique.append(resolved)
     return unique
+
+
+def _home_path(env: Mapping[str, str] | None = None) -> Path | None:
+    resolved_env = os.environ if env is None else env
+    home_value = resolved_env.get("HOME")
+    if not home_value and env is None:
+        home_value = str(Path.home())
+    if not home_value:
+        return None
+    return Path(home_value).expanduser().resolve()
+
+
+def _venv_python_path(root: Path) -> Path | None:
+    for relative_path in (
+        Path(".venv") / "bin" / "python",
+        Path("venv") / "bin" / "python",
+    ):
+        candidate = (root / relative_path).expanduser().resolve()
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def candidate_futuapi_dirs(
+    skill_dir: str | Path | None = None,
+    env: Mapping[str, str] | None = None,
+) -> list[Path]:
+    resolved_env = os.environ if env is None else env
+    resolved_skill_dir = resolve_skill_dir(skill_dir=skill_dir, env=env)
+    roots: list[Path] = []
+
+    for env_name in ("FUTUAPI_SKILL_DIR", "CLI_CLAW_FUTUAPI_SKILL_DIR"):
+        value = resolved_env.get(env_name)
+        if value:
+            roots.append(Path(value))
+
+    roots.extend([resolved_skill_dir.parent, resolved_skill_dir.parent.parent])
+    home = _home_path(env=env)
+    if home:
+        roots.extend(
+            [
+                home / ".agents" / "skills",
+                home / ".claude" / "skills",
+                home / ".cli-claw" / "skills",
+            ]
+        )
+
+    candidates: list[Path] = []
+    for root in roots:
+        resolved_root = root.expanduser().resolve()
+        candidates.append(resolved_root)
+        candidates.append(resolved_root / "futuapi")
+        if resolved_root.is_dir():
+            try:
+                children = list(resolved_root.iterdir())
+            except OSError:
+                children = []
+            for child in children:
+                if child.is_dir():
+                    candidates.append(child / "futuapi")
+
+    seen: set[Path] = set()
+    unique: list[Path] = []
+    for candidate in candidates:
+        resolved = candidate.expanduser().resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        unique.append(resolved)
+    return unique
+
+
+def find_futuapi_preflight_script(
+    skill_dir: str | Path | None = None,
+    env: Mapping[str, str] | None = None,
+) -> Path | None:
+    for candidate in candidate_futuapi_dirs(skill_dir=skill_dir, env=env):
+        script_path = candidate / FUTU_OPEND_PREFLIGHT_SCRIPT
+        if script_path.is_file():
+            return script_path.resolve()
+    return None
+
+
+def find_futuapi_python(
+    script_path: Path | None,
+    env: Mapping[str, str] | None = None,
+) -> Path | None:
+    resolved_env = os.environ if env is None else env
+    for env_name in ("FUTUAPI_PYTHON", "CLI_CLAW_FUTUAPI_PYTHON"):
+        python_path = _path_from_env_executable(resolved_env.get(env_name, ""), env)
+        if python_path:
+            return python_path
+
+    if not script_path:
+        return None
+    futuapi_root = script_path.parents[2]
+    return _venv_python_path(futuapi_root)
+
+
+def _short_process_output(output: str, *, limit: int = 240) -> str:
+    compact = " ".join(str(output or "").split())
+    if len(compact) <= limit:
+        return compact
+    return f"{compact[: limit - 1]}…"
+
+
+def _last_json_line(output: str) -> str:
+    stripped_output = str(output or "").strip()
+    if stripped_output.startswith("{") and stripped_output.endswith("}"):
+        return stripped_output
+    for line in reversed(str(output or "").splitlines()):
+        stripped = line.strip()
+        if stripped.startswith("{") and stripped.endswith("}"):
+            return stripped
+    return ""
+
+
+def _opend_preflight_env(env: Mapping[str, str] | None = None) -> dict[str, str]:
+    resolved_env = dict(os.environ if env is None else env)
+    resolved_env.setdefault("PYTHONIOENCODING", "utf-8")
+    return resolved_env
+
+
+def run_opend_preflight(
+    *,
+    skill_dir: str | Path | None = None,
+    env: Mapping[str, str] | None = None,
+    timeout_seconds: int = 8,
+) -> OpenDPreflight:
+    script_path = find_futuapi_preflight_script(skill_dir=skill_dir, env=env)
+    if not script_path:
+        return OpenDPreflight(False, "未找到 futuapi OpenD 预检脚本")
+
+    python_path = find_futuapi_python(script_path, env=env)
+    if not python_path:
+        return OpenDPreflight(False, "未找到 futuapi 专用 Python 环境（.venv/bin/python）")
+
+    command = f"{shlex.quote(str(python_path))} {shlex.quote(str(script_path))} --json"
+    try:
+        proc = subprocess.run(
+            [str(python_path), str(script_path), "--json"],
+            text=True,
+            capture_output=True,
+            timeout=timeout_seconds,
+            env=_opend_preflight_env(env=env),
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return OpenDPreflight(False, f"OpenD 预检超时（>{timeout_seconds}s）", command)
+    except (FileNotFoundError, PermissionError) as exc:
+        return OpenDPreflight(False, f"OpenD 预检命令不可执行：{exc}", command)
+
+    stdout = proc.stdout or ""
+    stderr = proc.stderr or ""
+    if proc.returncode != 0:
+        reason = _short_process_output(stderr or stdout) or f"预检进程退出码 {proc.returncode}"
+        return OpenDPreflight(False, reason, command)
+
+    json_line = _last_json_line(stdout)
+    if not json_line:
+        return OpenDPreflight(False, "OpenD 预检未返回 JSON 结果", command)
+
+    try:
+        payload = json.loads(json_line)
+    except json.JSONDecodeError:
+        return OpenDPreflight(False, "OpenD 预检 JSON 无法解析", command)
+
+    if payload.get("error"):
+        return OpenDPreflight(False, _short_process_output(str(payload["error"])), command)
+
+    data = payload.get("data")
+    if isinstance(data, dict) and data.get("qot_logined") is False:
+        return OpenDPreflight(False, "OpenD 行情服务未登录", command)
+
+    return OpenDPreflight(True, "OpenD 可调用", command)
+
+
+def _has_opend_continue_confirmation(payload: dict) -> bool:
+    args = _args_from_payload(payload)
+    return any(arg.lower() in OPEND_CONTINUE_FLAGS for arg in args)
+
+
+def _opend_confirmation_reply(target: ResearchTarget, preflight: OpenDPreflight) -> dict:
+    confirm_command = f"/research {target.input_symbol} --continue-without-opend"
+    return {
+        "reply": {
+            "type": "final_markdown",
+            "content": (
+                f"OpenD 预检未通过：{preflight.reason}\n\n"
+                "港股 `/research` 默认必须先使用 Futu/OpenD 只读行情与市场状态。"
+                "是否继续使用 HKEX / 公司公告 / AKShare / yfinance 等降级来源生成研报？\n\n"
+                "如果确认继续，请发送：\n"
+                f"`{confirm_command}`\n\n"
+                "如果不继续，请先启动 Futu OpenD 并确认行情连接可用后重试。"
+            ),
+        }
+    }
 
 
 
@@ -383,12 +590,15 @@ def _market_execution_requirements(
     *,
     skill_dir: str | Path | None = None,
     env: Mapping[str, str] | None = None,
+    opend_preflight: OpenDPreflight | None = None,
+    allow_opend_degraded: bool = False,
 ) -> str:
     if target.market == "auto":
         return f"""市场路由：待解析（英文公司名 / 非标准短 ticker）
 - 必须先检查 `STOCK_ANALYSIS_API_ROOT` 与 `uv` 是否可用，但不要把 `{target.input_symbol}` 直接当作美股普通股代码。
 - 先用上游 CLI 返回字段和公开权威来源核验唯一上市市场与标准代码；若唯一核验为 A 股或美股，再按 `stock-analysis-api` 标准 CLI 继续；若唯一核验为港股，切换到港股路径，使用 Futu/OpenD + HKEX / 公司公告 / AKShare / yfinance 降级规则。
 - 若标准 CLI 返回 `identity_conflict` / `identity_not_found`，或 `data.items[0].status` 为 `failed` / `not_supported` 且 `error.code` 指向 quote、core module、security type 或 identity 问题，必须解析 `data.items[0].error`、`data.items[0].info`、`data.items[0].meta.modules`、`meta.partial_reasons` 后再决定是否澄清或改道。
+- 若唯一核验为港股，必须先确认 Futu/OpenD 可调用；OpenD 不可用时必须停止并询问用户是否继续降级，不得自行改用 HKEX / yfinance 继续。
 - 若唯一核验为港股，最终报告标题和 Sources 必须使用港股标准代码，例如 `HK.00100` / `hk`，不得沿用待解析输入或错误的 `US.*` 标题。
 - 若无法唯一核验上市市场或存在同名歧义，必须先向用户澄清交易所或完整代码，不要用热度、记忆或单一搜索结果猜测。"""
 
@@ -415,11 +625,34 @@ def _market_execution_requirements(
 - 若 FMP / yfinance / SEC / 新闻源不可用，必须明确写入“数据质量与降级”，不能补编财务或估值数据。"""
 
     yahoo_symbol = target.yahoo_symbol or target.normalized_symbol
+    if allow_opend_degraded:
+        opend_status = (
+            "- 用户已确认 OpenD 不可用时继续；本次允许港股数据层降级，"
+            "但必须在数据可信度和降级说明中写清 Futu/OpenD 缺失影响。"
+        )
+        fallback_rule = (
+            "- 港股字段缺失、延迟行情、HKEX PDF 无法抽取或 Futu/OpenD 不可用时，"
+            "必须明确标注“港股数据层降级”；港股结论只能基于已核验事实。"
+        )
+    elif opend_preflight and opend_preflight.ok:
+        command = f"`{opend_preflight.command}`" if opend_preflight.command else "预检命令"
+        opend_status = f"- OpenD 预检已通过：{command}；必须优先使用 Futu/OpenD 只读能力，不得跳过。"
+        fallback_rule = (
+            "- 港股字段缺失、延迟行情或 HKEX PDF 无法抽取时，必须明确标注“港股数据层降级”；"
+            "若 Futu/OpenD 执行阶段再次不可用，必须停止并询问用户确认，不得自行降级。"
+        )
+    else:
+        opend_status = "- OpenD 预检状态未知；显式港股请求应由 executor 先预检，执行中发现不可用必须停止询问用户。"
+        fallback_rule = (
+            "- 港股字段缺失、延迟行情或 HKEX PDF 无法抽取时，必须明确标注“港股数据层降级”；"
+            "Futu/OpenD 不可用时不得自行降级。"
+        )
     return f"""市场路由：港股（后置支持）
 - 港股当前不走 `stock_analyze.py --market hk`；不要虚构该 CLI。
+{opend_status}
 - 优先用 Futu/OpenD 只读能力获取行情快照、K 线、估值快照和市场状态，Futu 代码：`{target.normalized_symbol}`。
 - 用 HKEX / 公司公告补充年报、中报、公告、上市文件和公司行动；用 AKShare / yfinance 作为财务与历史行情补充，Yahoo 格式：`{yahoo_symbol}`。
-- 港股字段缺失、延迟行情、HKEX PDF 无法抽取或 Futu/OpenD 不可用时，必须明确标注“港股数据层降级”；港股结论只能基于已核验事实。"""
+{fallback_rule}"""
 
 
 def build_prompt(
@@ -428,6 +661,8 @@ def build_prompt(
     *,
     skill_dir: str | Path | None = None,
     env: Mapping[str, str] | None = None,
+    opend_preflight: OpenDPreflight | None = None,
+    allow_opend_degraded: bool = False,
 ) -> str:
     today = datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
     workspace = payload.get("workspace") or {}
@@ -436,6 +671,8 @@ def build_prompt(
         target,
         skill_dir=skill_dir,
         env=env,
+        opend_preflight=opend_preflight,
+        allow_opend_degraded=allow_opend_degraded,
     )
 
     market_label = "待解析" if target.market == "auto" else target.market
@@ -498,16 +735,26 @@ def build_reply(
     if isinstance(target_or_error, str):
         return usage(target_or_error)
 
+    target = target_or_error
+    allow_opend_degraded = _has_opend_continue_confirmation(payload)
+    opend_preflight: OpenDPreflight | None = None
+    if target.market == "hk" and not allow_opend_degraded:
+        opend_preflight = run_opend_preflight(skill_dir=skill_dir, env=env)
+        if not opend_preflight.ok:
+            return _opend_confirmation_reply(target, opend_preflight)
+
     return {
         "reply": {
             "type": "assistant_prompt",
             "content": build_prompt(
                 payload,
-                target_or_error,
+                target,
                 skill_dir=skill_dir,
                 env=env,
+                opend_preflight=opend_preflight,
+                allow_opend_degraded=allow_opend_degraded,
             ),
-            "ack": f"已开始生成 {target_or_error.display_symbol} 的单票深度研报。",
+            "ack": f"已开始生成 {target.display_symbol} 的单票深度研报。",
         }
     }
 

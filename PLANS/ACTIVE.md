@@ -16,6 +16,49 @@
 
 ## Milestones
 
+### M23 — 港股 research OpenD 前置确认
+
+Status: `done`
+
+Scope:
+
+- `commands/research.py`
+- `tests/test_research_command.py`
+- `README.md`
+- `SKILL.md`
+- `references/futu.md`
+- `references/research.md`
+- `PLANS/ACTIVE.md`
+- `PLANS/ROADMAP.md`
+
+Validation:
+
+- `python3 -m unittest tests/test_research_command.py -v`
+- `python3 -m unittest discover -s tests -v`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+
+Progress:
+
+- 2026-05-04 北京时间：确认 `/research` 港股路径当前只在 prompt 中允许 Futu/OpenD 不可用后降级，executor 没有本地阻断；这会导致 OpenD 拿不到时 agent 自行继续。
+- 2026-05-04 北京时间：本轮目标是 explicit HK `/research` 在进入 agent 前先做 OpenD 只读预检；预检失败时只返回确认提示，用户确认后才允许降级继续。
+- 2026-05-04 北京时间：已补 RED 用例覆盖三种路径：OpenD 不可用时返回 `final_markdown` 确认提示、`--continue-without-opend` 后才生成降级 prompt、OpenD 可用时 prompt 明确预检通过。
+- 2026-05-04 北京时间：已在 executor 增加 futuapi `get_global_state.py --json` 预检，使用 futuapi 自身 `.venv/bin/python`；不回退到宿主 Python，避免服务重启后环境漂移。
+- 2026-05-04 北京时间：已约束待解析输入若唯一核验为港股，OpenD 不可用时也必须先询问用户，不能自行改用 HKEX / yfinance 继续。
+
+Validation results:
+
+- passed 2026-05-04 北京时间：`python3 -m unittest tests/test_research_command.py -v`
+- passed 2026-05-04 北京时间：`python3 -m unittest discover -s tests -v`
+- passed 2026-05-04 北京时间：`python3 -m py_compile scripts/*.py commands/*.py`
+- passed 2026-05-04 北京时间：`git diff --check`
+
+Handoff:
+
+- `/research HK.00700` / `/research 0700.HK` 现在会在进入 agent 前先跑 futuapi OpenD 只读预检；失败时只返回确认提示，不生成研报 prompt。
+- 用户确认继续时使用 `--continue-without-opend`；该确认只允许港股数据源降级，不改变只读护栏。
+- 已同步当前 Cli Claw 安装副本；本轮未修改宿主服务代码，不需要重启 Cli Claw。
+
 ### M22 — 固定 skill Python / uv 环境
 
 Status: `done`
