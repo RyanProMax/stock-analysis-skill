@@ -14,11 +14,7 @@ from zoneinfo import ZoneInfo
 
 
 FUTU_IPO_SCRIPT = Path("scripts/quote/get_ipo_list.py")
-INCLUDE_CLOSED_FLAGS = {
-    "--include-closed",
-    "--with-closed",
-    "--include-pending-listing",
-}
+INCLUDE_ALL_FLAG = "--all"
 
 
 @dataclass(frozen=True)
@@ -190,7 +186,7 @@ def parse_command_args(payload: dict) -> list[str]:
 
 
 def should_include_closed_ipos(payload: dict) -> bool:
-    return any(arg in INCLUDE_CLOSED_FLAGS for arg in parse_command_args(payload))
+    return INCLUDE_ALL_FLAG in parse_command_args(payload)
 
 
 def build_prompt(
@@ -208,14 +204,14 @@ def build_prompt(
     if include_closed:
         pool_goal = "输出当前仍可认购 + 已截止认购但未上市的港股 IPO；不要求用户提供代码。"
         pool_filter = (
-            "用户已显式传入 `--include-closed`：保留 `is_subscribe_status=false` "
+            "用户已显式传入 `--all`：保留 `is_subscribe_status=false` "
             "且上市日未到的标的，并明确标注已截止/暗盘/上市日。"
         )
     else:
         pool_goal = "默认只输出当前仍可认购的港股 IPO；不要求用户提供代码。"
         pool_filter = (
             "默认过滤 `is_subscribe_status=false` 的已截止新股；即使其尚未上市，也不要"
-            "放入本次优先级卡片。只有用户使用 `/hkipo --include-closed` 时才纳入。"
+            "放入本次优先级卡片。只有用户使用 `/hkipo --all` 时才纳入。"
         )
 
     return f"""今天是 {today}。这是由 stock-analysis-skill 的 /hkipo 触发的港股 IPO 池研究任务，当前工作区为：{workspace_name}。

@@ -17,8 +17,7 @@ By default, discover current Hong Kong IPOs that are:
 
 Filter out IPOs where Futu/OpenD reports `is_subscribe_status=false` by default,
 even if the listing date has not arrived yet. Include subscription-closed but
-not-yet-listed IPOs only when the user explicitly passes `/hkipo --include-closed`
-or the equivalent flags `--with-closed` / `--include-pending-listing`.
+not-yet-listed IPOs only when the user explicitly passes `/hkipo --all`.
 
 If none qualify, state: `当前无符合条件的港股 IPO 池`.
 

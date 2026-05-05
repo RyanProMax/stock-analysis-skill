@@ -94,13 +94,13 @@ OpenD 未安装、未启动或 SDK 版本不满足时，转入 `install-futu-ope
 ## Slash Commands
 
 - `/research`：对一只 A 股 / 美股 / 港股生成深度研报 prompt。支持股票名 / 公司名输入；executor 不做本地缓存或硬编码匹配。短裸美股 ticker（如 `AAPL`）可直接走美股，较长英文公司名或非标准裸输入（如 `MINIMAX`）必须进入待解析工作流，不能因为全大写就强行标记为美股。A 股 / 美股优先复用 `stock-analysis-api` 的 `stock_analyze.py --mode full`；executor 会按 `STOCK_ANALYSIS_API_ROOT`、当前 skill 安装目录附近的 sibling `stock-analysis-api` 动态生成可复制的绝对 `cd ... && /absolute/uv run python ...` 命令。找不到 API 仓库时必须显式标记预检失败；上游返回 `identity_conflict` / `identity_not_found`，或返回 `data.items[0].status=failed/not_supported` 且 `error/info/meta` 指向身份、行情或市场不支持问题时，必须先解析这些字段并澄清或改道，不能沿用错误市场标题。显式港股在进入 agent 前必须调用 futuapi 的 OpenD 只读预检；预检失败只返回确认提示，用户用 `--continue-without-opend` 明确确认后才允许按 HKEX / 公司公告 / AKShare / yfinance 降级继续。待解析输入若唯一核验为港股，也必须先确认 OpenD 可调用；不可调用时先询问用户，不得自行降级。输出模板、飞书短版、最终回复清洗、`module_status` / `source_freshness` / `data_gaps` 可信度层、行业整体趋势、市场热度、同类公司平均 PE、权威机构研报汇总、风险与反证、历史验证、Sources 和禁止事项见 `references/research.md`。
-- `/hkipo`：默认自动发现当前仍可认购的港股 IPO 池，并按评分卡输出简明优先级报告；`/hkipo --include-closed` 才纳入已截止认购但未上市标的。
+- `/hkipo`：默认自动发现当前仍可认购的港股 IPO 池，并按评分卡输出简明优先级报告；`/hkipo --all` 才纳入已截止认购但未上市标的。
 - `/cnipo`：预留 A 股 IPO 指令位，当前只返回占位说明。
 
 `/hkipo` 要求：
 
 - 读取 `references/hkipo.md`，使用 0-100 首日赔率评分卡。
-- 默认过滤 Futu/OpenD 返回的 `is_subscribe_status=false` 已截止新股；只有用户显式传入 `--include-closed`（或同义参数 `--with-closed` / `--include-pending-listing`）时，才输出已截止认购但未上市标的。
+- 默认过滤 Futu/OpenD 返回的 `is_subscribe_status=false` 已截止新股；只有用户显式传入 `--all` 时，才输出已截止认购但未上市标的。
 - 必须按当前日期重新获取最新数据，不允许把旧日期的孖展、公开认购、暗盘或中签率当作当前数据；若只能找到旧数据，必须标注来源日期并按“过期/仅供趋势参考”处理，不得用于当前热度主评分。
 - 当前 IPO 池发现、招股状态、上市日、招股截止日、发售价、一手股数和入场费优先使用 Futu/OpenD 只读 `get_ipo_list(HK)`；`/hkipo` executor 会按当前 skill 安装目录动态生成可复制命令，不依赖用户工作区相对 `.venv`；Futu/OpenD 不可用或字段为 `N/A` 时，才用 HKEX / 公司公告 / 财经站补齐，并明确降级。
 - 事实层中的招股书、全球发售、配发结果和上市文件优先依赖 HKEX / 公司公告等一手来源；财经站只补充 Futu/OpenD 与一手来源未提供的孖展/认购热度、中签率、一手中签率、灰市、首日涨幅等二级数据。

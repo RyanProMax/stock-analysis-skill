@@ -16,6 +16,49 @@
 
 ## Milestones
 
+### M25 — /hkipo 全量参数改为 --all
+
+Status: `done`
+
+Scope:
+
+- `commands/hkipo.py`
+- `tests/test_hkipo_command.py`
+- `SKILL.md`
+- `README.md`
+- `references/hkipo.md`
+- `PLANS/ACTIVE.md`
+
+Validation:
+
+- `python3 -m unittest tests/test_hkipo_command.py`
+- `python3 -m unittest discover -s tests`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+
+Progress:
+
+- 2026-05-05 北京时间：用户要求把 `/hkipo` 纳入已截止新股的参数改成更直观的 `--all`。
+- 2026-05-05 北京时间：已新增 RED 测试，覆盖默认 prompt 只提示 `/hkipo --all`，以及 `--all` 可纳入已截止但未上市标的。
+- 2026-05-05 北京时间：已将 executor、prompt、README、SKILL 和 hkipo reference 全部切换为 `--all`，并移除旧参数文案。
+
+Validation results:
+
+- failed as expected 2026-05-05 北京时间：`python3 -m unittest tests/test_hkipo_command.py`，两个新断言确认旧实现还没有识别 `--all`。
+- passed 2026-05-05 北京时间：`python3 -m unittest tests/test_hkipo_command.py`
+- passed 2026-05-05 北京时间：`python3 -m unittest discover -s tests`
+- passed 2026-05-05 北京时间：`python3 -m py_compile scripts/*.py commands/*.py`
+- passed 2026-05-05 北京时间：`git diff --check`
+- passed 2026-05-05 北京时间：`python3 commands/hkipo.py <<<'{}'` 默认提示 `/hkipo --all` 才纳入已截止新股。
+- passed 2026-05-05 北京时间：`python3 commands/hkipo.py <<<'{"argsText":"--all","args":["--all"]}'` 提示纳入已截止但未上市标的。
+- passed 2026-05-05 北京时间：用户可见文档和 prompt 中不再出现旧参数名。
+- passed 2026-05-05 北京时间：已在当前 Cli Claw 安装副本验证默认 prompt 和 `/hkipo --all` prompt 均为新参数文案。
+
+Handoff:
+
+- `/hkipo` 默认只输出当前仍可认购 IPO；如需纳入已截止但未上市标的，使用 `/hkipo --all`。
+- 已同步当前 Cli Claw 安装副本；本轮未修改宿主服务代码，不需要重启 Cli Claw。
+
 ### M24 — /hkipo 默认过滤已截止新股
 
 Status: `done`
@@ -40,8 +83,8 @@ Validation:
 Progress:
 
 - 2026-05-05 北京时间：用户要求 `/hkipo` 默认不输出已截止新股，并加参数控制是否纳入已截止但未上市标的。
-- 2026-05-05 北京时间：已新增 RED 测试，覆盖默认过滤 `is_subscribe_status=false`，以及 `--include-closed` 显式纳入已截止待上市。
-- 2026-05-05 北京时间：已实现 `/hkipo` 参数解析；默认 prompt 要求过滤已截止新股，`--include-closed` / `--with-closed` / `--include-pending-listing` 会显式纳入已截止但未上市标的。
+- 2026-05-05 北京时间：已新增 RED 测试，覆盖默认过滤 `is_subscribe_status=false`，以及显式参数纳入已截止待上市。
+- 2026-05-05 北京时间：已实现 `/hkipo` 参数解析；默认 prompt 要求过滤已截止新股，显式全量参数会纳入已截止但未上市标的。
 - 2026-05-05 北京时间：已同步 `SKILL.md`、`README.md`、`references/hkipo.md` 和 `commands.json` 的默认范围说明。
 
 Validation results:
@@ -52,11 +95,11 @@ Validation results:
 - passed 2026-05-05 北京时间：`python3 -m py_compile scripts/*.py commands/*.py`
 - passed 2026-05-05 北京时间：`git diff --check`
 - passed 2026-05-05 北京时间：已在当前 Cli Claw 安装副本验证 `python3 commands/hkipo.py <<<'{}'` 默认提示过滤已截止新股。
-- passed 2026-05-05 北京时间：已在当前 Cli Claw 安装副本验证 `python3 commands/hkipo.py <<<'{"argsText":"--include-closed","args":["--include-closed"]}'` 提示纳入已截止但未上市标的。
+- passed 2026-05-05 北京时间：已在当前 Cli Claw 安装副本验证显式全量参数提示纳入已截止但未上市标的。
 
 Handoff:
 
-- `/hkipo` 默认只输出当前仍可认购 IPO；如需恢复旧范围，使用 `/hkipo --include-closed`。
+- `/hkipo` 默认只输出当前仍可认购 IPO；如需恢复旧范围，使用显式全量参数。
 - 已同步当前 Cli Claw 安装副本；本轮未修改宿主服务代码，不需要重启 Cli Claw。
 
 ### M23 — 港股 research OpenD 前置确认
