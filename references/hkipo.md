@@ -49,9 +49,26 @@ For each IPO, collect only decision-useful fields:
 - fundamentals: revenue, profit/loss, cash flow or cash burn, commercialization stage, top customers/orders, R&D and customer concentration
 - valuation: implied market cap/multiple, closest public peers, obvious premium/discount
 - sentiment/odds: public-offer multiple, margin heat, international placing language, callback, one-lot success rate if available
+- subscription conflict: same-batch conflicts by application deadline, or whether the IPO can wait for the previous batch's allotment result before subscribing
 - backtest context: recent listed HK IPO first-day performance and similar-deal outcomes
 
 Use `未披露` or `未找到可靠来源` for missing fields.
+
+## Subscription Conflict
+
+For each current IPO card, include a compact subscription-conflict line based on
+application deadline and allotment-result timing:
+
+- `同批次资金冲突`: IPOs share the same application deadline, or this IPO's
+  application deadline is before the previous batch's allotment result is
+  available.
+- `可等上批次结果后再申购`: this IPO's application deadline is after the previous
+  batch's allotment result announcement, so the user can wait for that result
+  before deciding.
+- If the allotment result date is not disclosed, estimate it from the Hong Kong
+  trading day before the listing date and label the line `估算`.
+- Always name the relevant conflicting or previous-batch IPOs and include the
+  absolute dates used for the judgment.
 
 ## Weighted Scorecard
 
@@ -168,12 +185,12 @@ Use this report shape by default. Do **not** include separate per-name narrative
 Keep the report terse:
 
 - Do not explain trigger text, date mismatches, collection steps, or scoring derivation.
-- Put all key per-IPO content into compact per-name cards, including Futu field coverage, external heat data, backtest mapping, structure, valuation and risk.
+- Put all key per-IPO content into compact per-name cards, including Futu field coverage, external heat data, subscription conflict, backtest mapping, structure, valuation and risk.
 - Do not add a separate backtest section unless the user explicitly asks for details; the card's `回测` line is enough.
 - Outside the cards, only keep 1-3 conclusion bullets and compact sources.
 - Avoid wide Markdown tables in Feishu. They render with horizontal scrolling and clipped columns.
 - Avoid Markdown headings (`#`, `##`) in Feishu. Use bold labels and a short divider instead.
-- Use fixed emoji cues sparingly: 🟢 high priority, 🟡 watch, ⚪ observe; 💰 heat, 🛡 structure, 📈 backtest, ⚠️ risk, 🔗 sources.
+- Use fixed emoji cues sparingly: 🟢 high priority, 🟡 watch, ⚪ observe; 💰 heat, 🛡 structure, ⏱ subscription conflict, 📈 backtest, ⚠️ risk, 🔗 sources.
 
 ```markdown
 **港股 IPO 池｜YYYY-MM-DD**
@@ -189,6 +206,7 @@ Keep the report terse:
 📍 阶段：招股/截止/暗盘/上市日；Futu：发售价/一手/入场费/状态
 💰 热度：最新孖展/公开认购/暗盘，标注日期和是否外部补充
 🛡 结构：绿鞋/基石/保荐/回拨
+⏱ 冲突：同批次资金冲突/可等上批次结果后再申购；列出冲突对象和依据日期
 📈 回测：对应热度分桶和首日赔率映射
 ⚠️ 风险：一句话最大风险
 

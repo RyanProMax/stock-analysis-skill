@@ -16,6 +16,48 @@
 
 ## Milestones
 
+### M26 — /hkipo 申购冲突字段
+
+Status: `done`
+
+Scope:
+
+- `commands/hkipo.py`
+- `tests/test_hkipo_command.py`
+- `SKILL.md`
+- `README.md`
+- `references/hkipo.md`
+- `PLANS/ACTIVE.md`
+
+Validation:
+
+- `python3 -m unittest tests/test_hkipo_command.py`
+- `python3 -m unittest discover -s tests`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+
+Progress:
+
+- 2026-05-05 北京时间：用户要求 `/hkipo` 根据新股申购截止日增加“申购冲突”字段，区分只能同批次申购和可等上批次结果后再申购。
+- 2026-05-05 北京时间：已新增 RED 测试，要求 prompt 包含申购冲突、同批次资金冲突、可等上批次结果后再申购和卡片字段。
+- 2026-05-05 北京时间：已在 `/hkipo` prompt 输出格式新增 `⏱ 冲突` 卡片行；执行规则要求按申购截止日和配发结果公告日判断同批次资金冲突或可等上批次结果后再申购。
+- 2026-05-05 北京时间：已同步 `SKILL.md`、`README.md` 和 `references/hkipo.md`，将申购冲突列为每只 IPO 的必备短字段。
+
+Validation results:
+
+- failed as expected 2026-05-05 北京时间：`python3 -m unittest tests/test_hkipo_command.py`，新增用例确认当前 prompt 缺少申购冲突字段。
+- passed 2026-05-05 北京时间：`python3 -m unittest tests/test_hkipo_command.py`
+- passed 2026-05-05 北京时间：`python3 -m unittest discover -s tests`
+- passed 2026-05-05 北京时间：`python3 -m py_compile scripts/*.py commands/*.py`
+- passed 2026-05-05 北京时间：`git diff --check`
+- passed 2026-05-05 北京时间：`python3 commands/hkipo.py <<<'{}'` 输出包含申购冲突规则和 `⏱ 冲突` 字段。
+- passed 2026-05-05 北京时间：已在当前 Cli Claw 安装副本验证默认 prompt 包含申购冲突规则和 `⏱ 冲突` 字段。
+
+Handoff:
+
+- `/hkipo` 每只 IPO 卡片新增 `⏱ 冲突` 行；根据申购截止日和配发结果公告日判断同批次资金冲突或可等上批次结果后再申购。
+- 已同步当前 Cli Claw 安装副本；本轮未修改宿主服务代码，不需要重启 Cli Claw。
+
 ### M25 — /hkipo 全量参数改为 --all
 
 Status: `done`

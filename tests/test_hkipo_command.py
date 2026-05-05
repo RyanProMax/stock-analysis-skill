@@ -54,6 +54,23 @@ class HkipoFutuCommandTest(unittest.TestCase):
         self.assertIn("保留 `is_subscribe_status=false` 且上市日未到的标的", prompt)
         self.assertNotIn("--include" + "-closed", prompt)
 
+    def test_prompt_requires_subscription_conflict_field(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = pathlib.Path(raw_root).resolve()
+            skill_dir = root / "stock-analysis-skill"
+            skill_dir.mkdir()
+
+            prompt = hkipo.build_prompt(
+                {"workspace": {"name": "测试工作区"}},
+                skill_dir=skill_dir,
+                home_dir=root,
+            )
+
+        self.assertIn("申购冲突", prompt)
+        self.assertIn("同批次资金冲突", prompt)
+        self.assertIn("可等上批次结果后再申购", prompt)
+        self.assertIn("⏱ 冲突：", prompt)
+
     def test_prompt_uses_runtime_resolved_absolute_futu_command(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
             root = pathlib.Path(raw_root).resolve()
