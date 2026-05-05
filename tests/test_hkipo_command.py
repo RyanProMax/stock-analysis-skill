@@ -68,8 +68,30 @@ class HkipoFutuCommandTest(unittest.TestCase):
 
         self.assertIn("申购冲突", prompt)
         self.assertIn("同批次资金冲突", prompt)
-        self.assertIn("可等上批次结果后再申购", prompt)
-        self.assertIn("⏱ 冲突：", prompt)
+        self.assertIn("可先申购 A，等 A 结果/退款后再申 B", prompt)
+        self.assertIn("当前 IPO 池", prompt)
+        self.assertIn("不要和历史旧批次", prompt)
+        self.assertIn("用户点名 A 是否与 B/C 冲突", prompt)
+        self.assertIn("能否资金先集中申购 A", prompt)
+        self.assertIn("⏱ 申购冲突：", prompt)
+        self.assertNotIn("可等上批次结果后再申购", prompt)
+
+    def test_prompt_requires_blank_line_before_compact_card_points(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = pathlib.Path(raw_root).resolve()
+            skill_dir = root / "stock-analysis-skill"
+            skill_dir.mkdir()
+
+            prompt = hkipo.build_prompt(
+                {"workspace": {"name": "测试工作区"}},
+                skill_dir=skill_dir,
+                home_dir=root,
+            )
+
+        self.assertIn("\n\n**💡 关键结论**\n\n", prompt)
+        self.assertIn("\n\n**📌 优先级**\n\n", prompt)
+        self.assertIn("\n\n⏱ 申购冲突：", prompt)
+        self.assertIn("每个加粗小节标题和每条 emoji 字段上方都保留一个空行", prompt)
 
     def test_prompt_uses_runtime_resolved_absolute_futu_command(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:

@@ -105,8 +105,8 @@ OpenD 未安装、未启动或 SDK 版本不满足时，转入 `install-futu-ope
 - 当前 IPO 池发现、招股状态、上市日、招股截止日、发售价、一手股数和入场费优先使用 Futu/OpenD 只读 `get_ipo_list(HK)`；`/hkipo` executor 会按当前 skill 安装目录动态生成可复制命令，不依赖用户工作区相对 `.venv`；Futu/OpenD 不可用或字段为 `N/A` 时，才用 HKEX / 公司公告 / 财经站补齐，并明确降级。
 - 事实层中的招股书、全球发售、配发结果和上市文件优先依赖 HKEX / 公司公告等一手来源；财经站只补充 Futu/OpenD 与一手来源未提供的孖展/认购热度、中签率、一手中签率、灰市、首日涨幅等二级数据。
 - 必须检查绿鞋 / 超额配股权、稳定价格操作人、基石质量与占比、保荐人、回拨和公众货比例。
-- 必须根据申购截止日和配发结果公告日输出“申购冲突”字段，区分同批次资金冲突和可等上批次结果后再申购。
-- 默认输出极简报告：普通加粗标题、结论最多 3 条、飞书友好的窄卡片列表、短链接 Sources；Futu 当前字段、外部补充热度、申购冲突、回测映射、发行结构、基本面/估值和风险全部整合进每只 IPO 的短字段。不要使用 `#` / `##` Markdown 大标题或宽 Markdown 表格。用少量固定 emoji 强化重点：🟢/🟡/⚪ 优先级，💰热度，🛡结构，⏱申购冲突，📈回测，⚠️风险，🔗来源。
+- 必须根据当前 IPO 池内标的的申购截止日、配发结果公告日/退款日输出“申购冲突”字段，只比较本次报告中的可认购标的，以及 `/hkipo --all` 纳入且仍影响资金占用的已截止待配发标的；不要和历史旧批次或回测样本对比。字段需说明是否可先集中申购 A，等 A 结果/退款后再申 B/C。
+- 默认输出极简报告：普通加粗标题、结论最多 3 条、飞书友好的窄卡片列表、短链接 Sources；Futu 当前字段、外部补充热度、申购冲突、回测映射、发行结构、基本面/估值和风险全部整合进每只 IPO 的短字段。不要使用 `#` / `##` Markdown 大标题或宽 Markdown 表格。每个加粗小节标题和每条 emoji 字段上方都保留一个空行，尤其是 `💡 关键结论`、`📌 优先级`、`⏱ 申购冲突`。用少量固定 emoji 强化重点：🟢/🟡/⚪ 优先级，💰热度，🛡结构，⏱申购冲突，📈回测，⚠️风险，🔗来源。
 - 需要校准权重时运行：`.venv/bin/python scripts/hkipo_backtest.py --limit 100 --source aastocks --enrichment-source xinguyufu --debut-price-source futu-kline --format markdown`；OpenD 或 Futu SDK 不可用时降级为 `python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --enrichment-source xinguyufu --debut-price-source listed-table --format markdown`。重点看绿鞋/基石/暗盘覆盖、评分分桶、评分排序相关性、Top/Bottom 评分分位首日涨幅差和失配样本。
 
 ## 输出要求

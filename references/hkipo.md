@@ -57,18 +57,24 @@ Use `未披露` or `未找到可靠来源` for missing fields.
 ## Subscription Conflict
 
 For each current IPO card, include a compact subscription-conflict line based on
-application deadline and allotment-result timing:
+the funding timeline among the **current IPO pool shown in the report**:
 
-- `同批次资金冲突`: IPOs share the same application deadline, or this IPO's
-  application deadline is before the previous batch's allotment result is
-  available.
-- `可等上批次结果后再申购`: this IPO's application deadline is after the previous
-  batch's allotment result announcement, so the user can wait for that result
-  before deciding.
+- Only compare IPOs included in the current report: still-open subscription
+  names by default, plus closed-but-not-listed names included by `/hkipo --all`
+  if their allotment/refund timing still affects capital use. Do not compare
+  against historical old batches or backtest samples.
+- `同批次资金冲突`: IPOs share the same application deadline, or IPO B's
+  application deadline is before IPO A's allotment-result/refund date, so the
+  same cash cannot be recycled from A into B.
+- `可先申购 A，等 A 结果/退款后再申 B`: IPO B's application deadline is after IPO A's
+  allotment-result/refund date, so the user can put capital into A first and
+  then decide whether to apply for B.
 - If the allotment result date is not disclosed, estimate it from the Hong Kong
   trading day before the listing date and label the line `估算`.
-- Always name the relevant conflicting or previous-batch IPOs and include the
-  absolute dates used for the judgment.
+- Always name the relevant IPOs and include the absolute dates used for the
+  judgment. If the user asks whether IPO A conflicts with IPO B/C, directly
+  answer whether capital can first concentrate in A before reusing A's
+  result/refund for B/C.
 
 ## Weighted Scorecard
 
@@ -190,6 +196,9 @@ Keep the report terse:
 - Outside the cards, only keep 1-3 conclusion bullets and compact sources.
 - Avoid wide Markdown tables in Feishu. They render with horizontal scrolling and clipped columns.
 - Avoid Markdown headings (`#`, `##`) in Feishu. Use bold labels and a short divider instead.
+- Put a blank line above every bold section label and every emoji field line, so
+  Feishu cards do not visually merge compact points. This is especially required
+  before `💡 关键结论`, `📌 优先级`, and `⏱ 申购冲突`.
 - Use fixed emoji cues sparingly: 🟢 high priority, 🟡 watch, ⚪ observe; 💰 heat, 🛡 structure, ⏱ subscription conflict, 📈 backtest, ⚠️ risk, 🔗 sources.
 
 ```markdown
@@ -197,17 +206,25 @@ Keep the report terse:
 ----
 
 **💡 关键结论**
+
 - 🟢 highest priority: code + one reason.
 - 🟡 watch: code + one reason.
 - ⚪ observe/cautious: code + one reason.
 
 **📌 优先级**
+
 **🟢 1｜代码 公司｜评分｜优先级**
+
 📍 阶段：招股/截止/暗盘/上市日；Futu：发售价/一手/入场费/状态
+
 💰 热度：最新孖展/公开认购/暗盘，标注日期和是否外部补充
+
 🛡 结构：绿鞋/基石/保荐/回拨
-⏱ 冲突：同批次资金冲突/可等上批次结果后再申购；列出冲突对象和依据日期
+
+⏱ 申购冲突：当前 IPO 池内资金冲突/可先申购 A 后申购 B；列出对象、申购截止日、配发/退款日和判断
+
 📈 回测：对应热度分桶和首日赔率映射
+
 ⚠️ 风险：一句话最大风险
 
 **🔗 来源**

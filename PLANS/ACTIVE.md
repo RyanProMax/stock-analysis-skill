@@ -16,6 +16,47 @@
 
 ## Milestones
 
+### M27 — /hkipo 申购冲突语义与换行
+
+Status: `done`
+
+Scope:
+
+- `commands/hkipo.py`
+- `tests/test_hkipo_command.py`
+- `SKILL.md`
+- `README.md`
+- `references/hkipo.md`
+- `PLANS/ACTIVE.md`
+
+Validation:
+
+- `python3 -m unittest tests/test_hkipo_command.py`
+- `python3 -m unittest discover -s tests`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+
+Progress:
+
+- 2026-05-05 北京时间：用户要求 `/hkipo` 的 `💡 关键结论`、`📌 优先级`、`⏱ 申购冲突` 等小节/字段上方保留空行，提升飞书卡片可读性。
+- 2026-05-05 北京时间：用户澄清“申购冲突”应比较当前 IPO 池里的资金时间线，例如判断樂動機器人能否先梭哈、等结果后再申劑泰科技-P/英派藥業-B，而不是和历史旧批次对比。
+- 2026-05-05 北京时间：已将 `/hkipo` prompt 的申购冲突语义改为当前 IPO 池内资金时间线比较；输出字段改为 `⏱ 申购冲突`，并要求列出对象、申购截止日、配发/退款日和判断。
+- 2026-05-05 北京时间：已将输出模板改为每个加粗小节标题和每条 emoji 字段上方保留空行，同步 README、SKILL 和 hkipo reference。
+
+Validation results:
+
+- failed as expected 2026-05-05 北京时间：`python3 -m unittest tests/test_hkipo_command.py`，新增断言确认旧 prompt 缺少当前池资金时间线语义和空行格式。
+- passed 2026-05-05 北京时间：`python3 -m unittest tests/test_hkipo_command.py`
+- passed 2026-05-05 北京时间：`python3 -m unittest discover -s tests`
+- passed 2026-05-05 北京时间：`python3 -m py_compile scripts/*.py commands/*.py`（sandbox 下 `__pycache__` 写入被拒，已按权限重跑通过）
+- passed 2026-05-05 北京时间：`git diff --check`
+- passed 2026-05-05 北京时间：`printf '{}' | python3 commands/hkipo.py` smoke check，prompt 包含空行格式、`⏱ 申购冲突`、用户点名 A/B/C 的资金复用判断规则和“不要和历史旧批次”约束。
+
+Handoff:
+
+- `/hkipo` 申购冲突现在只比较当前报告 IPO 池里的资金时间线，不再拿历史旧批次或回测样本对比。报告需要明确回答能否先集中申购 A，等 A 配发/退款后再申 B/C。
+- 飞书报告模板已要求 `💡 关键结论`、`📌 优先级`、`⏱ 申购冲突` 等小点上方留空行，避免窄卡片内容挤在一起。
+
 ### M26 — /hkipo 申购冲突字段
 
 Status: `done`
