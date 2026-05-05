@@ -11,6 +11,45 @@ import hkipo
 
 
 class HkipoFutuCommandTest(unittest.TestCase):
+    def test_prompt_excludes_closed_ipo_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = pathlib.Path(raw_root).resolve()
+            skill_dir = root / "stock-analysis-skill"
+            skill_dir.mkdir()
+
+            prompt = hkipo.build_prompt(
+                {
+                    "argsText": "",
+                    "args": [],
+                    "workspace": {"name": "测试工作区"},
+                },
+                skill_dir=skill_dir,
+                home_dir=root,
+            )
+
+        self.assertIn("默认只输出当前仍可认购的港股 IPO", prompt)
+        self.assertIn("过滤 `is_subscribe_status=false`", prompt)
+        self.assertNotIn("自动发现当前“可认购”或“已截止认购但未上市”", prompt)
+
+    def test_prompt_can_include_closed_ipo_with_flag(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = pathlib.Path(raw_root).resolve()
+            skill_dir = root / "stock-analysis-skill"
+            skill_dir.mkdir()
+
+            prompt = hkipo.build_prompt(
+                {
+                    "argsText": "--include-closed",
+                    "args": ["--include-closed"],
+                    "workspace": {"name": "测试工作区"},
+                },
+                skill_dir=skill_dir,
+                home_dir=root,
+            )
+
+        self.assertIn("输出当前仍可认购 + 已截止认购但未上市的港股 IPO", prompt)
+        self.assertIn("保留 `is_subscribe_status=false` 且上市日未到的标的", prompt)
+
     def test_prompt_uses_runtime_resolved_absolute_futu_command(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
             root = pathlib.Path(raw_root).resolve()

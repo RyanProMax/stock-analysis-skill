@@ -11,10 +11,14 @@ Use this reference only for `/hkipo` reports. The goal is a concise, evidence-ba
 
 ## Scope
 
-Discover current Hong Kong IPOs that are either:
+By default, discover current Hong Kong IPOs that are:
 
-1. currently open for subscription; or
-2. subscription closed but not yet listed.
+1. currently open for subscription.
+
+Filter out IPOs where Futu/OpenD reports `is_subscribe_status=false` by default,
+even if the listing date has not arrived yet. Include subscription-closed but
+not-yet-listed IPOs only when the user explicitly passes `/hkipo --include-closed`
+or the equivalent flags `--with-closed` / `--include-pending-listing`.
 
 If none qualify, state: `当前无符合条件的港股 IPO 池`.
 

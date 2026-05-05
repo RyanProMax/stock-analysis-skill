@@ -2,7 +2,7 @@
   "version": 1,
   "commands": {
     "hkipo": {
-      "description": "自动分析当前可认购与待上市港股 IPO 池",
+      "description": "自动分析当前可认购港股 IPO 池",
       "entrypoints": ["im", "web"],
       "executor": {
         "command": "python3",

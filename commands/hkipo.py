@@ -14,6 +14,11 @@ from zoneinfo import ZoneInfo
 
 
 FUTU_IPO_SCRIPT = Path("scripts/quote/get_ipo_list.py")
+INCLUDE_CLOSED_FLAGS = {
+    "--include-closed",
+    "--with-closed",
+    "--include-pending-listing",
+}
 
 
 @dataclass(frozen=True)
@@ -169,6 +174,25 @@ def format_futu_instruction(futu_command: FutuIpoCommand) -> str:
     )
 
 
+def parse_command_args(payload: dict) -> list[str]:
+    raw_args = payload.get("args")
+    if isinstance(raw_args, list):
+        return [str(arg) for arg in raw_args]
+
+    args_text = payload.get("argsText")
+    if isinstance(args_text, str) and args_text.strip():
+        try:
+            return shlex.split(args_text)
+        except ValueError:
+            return args_text.split()
+
+    return []
+
+
+def should_include_closed_ipos(payload: dict) -> bool:
+    return any(arg in INCLUDE_CLOSED_FLAGS for arg in parse_command_args(payload))
+
+
 def build_prompt(
     payload: dict,
     skill_dir: str | Path | None = None,
@@ -180,11 +204,24 @@ def build_prompt(
     futu_instruction = format_futu_instruction(
         resolve_futu_ipo_command(skill_dir=skill_dir, home_dir=home_dir)
     )
+    include_closed = should_include_closed_ipos(payload)
+    if include_closed:
+        pool_goal = "输出当前仍可认购 + 已截止认购但未上市的港股 IPO；不要求用户提供代码。"
+        pool_filter = (
+            "用户已显式传入 `--include-closed`：保留 `is_subscribe_status=false` "
+            "且上市日未到的标的，并明确标注已截止/暗盘/上市日。"
+        )
+    else:
+        pool_goal = "默认只输出当前仍可认购的港股 IPO；不要求用户提供代码。"
+        pool_filter = (
+            "默认过滤 `is_subscribe_status=false` 的已截止新股；即使其尚未上市，也不要"
+            "放入本次优先级卡片。只有用户使用 `/hkipo --include-closed` 时才纳入。"
+        )
 
     return f"""今天是 {today}。这是由 stock-analysis-skill 的 /hkipo 触发的港股 IPO 池研究任务，当前工作区为：{workspace_name}。
 
 任务目标
-- 自动发现当前“可认购”或“已截止认购但未上市”的港股 IPO；不要求用户提供代码。
+- {pool_goal}
 - 输出极简打新优先级：用飞书友好的窄卡片列表展示综合评分、融资倍数/认购热度、绿鞋/基石、首日回测映射。
 - 如果当前没有符合条件的标的，明确写出“当前无符合条件的港股 IPO 池”。
 
@@ -192,6 +229,7 @@ def build_prompt(
 - 必须联网核验当前状态，并使用绝对日期表述关键时间点。
 - 必须按 {today} 重新获取最新数据；不允许把旧日期的孖展、公开认购、暗盘或中签率当作当前数据使用。若只能找到旧数据，必须标注来源日期并写明“过期/仅供趋势参考”，不得用于当前热度主评分。
 - 不要解释触发文本、系统日期或取数过程；若用户消息里的日期与 {today} 不一致，直接按 {today} 输出，不写日期差异说明。
+- IPO 池范围：{pool_filter}
 - 当前 IPO 池发现、招股状态、上市日、招股截止日、发售价、一手股数和入场费必须优先使用 Futu/OpenD 只读接口：{futu_instruction}只有当 Futu/OpenD 不可用、返回空值或字段为 N/A 时，才允许用外部数据源补齐，并在 Sources 中标注“Futu 缺字段，外部源补充”。
 - 招股书、全球发售、配发结果、上市文件、公司公告等事实层优先使用 HKEX / 公司公告；财经站只用于补充 Futu/OpenD 和一手来源未提供的公开发售倍数、孖展/认购热度、中签率、一手中签率、灰市、首日涨幅等二级数据。
 - 必须读取并遵循 stock-analysis-skill 的 `references/hkipo.md`：按 0-100 加权评分，覆盖融资/认购热度、发行结构、回测适配、基本面、估值、证据质量；若已进入暗盘后待上市阶段，暗盘涨幅是最强近端信号。
