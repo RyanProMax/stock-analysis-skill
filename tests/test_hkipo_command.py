@@ -54,7 +54,9 @@ class HkipoFutuCommandTest(unittest.TestCase):
         self.assertIn("保留 `is_subscribe_status=false` 且上市日未到的标的", prompt)
         self.assertNotIn("--include" + "-closed", prompt)
 
-    def test_prompt_requires_top_level_subscription_conflict_section(self) -> None:
+    def test_prompt_removes_subscription_conflict_section_and_uses_dates_in_rank_title(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
             root = pathlib.Path(raw_root).resolve()
             skill_dir = root / "stock-analysis-skill"
@@ -66,21 +68,17 @@ class HkipoFutuCommandTest(unittest.TestCase):
                 home_dir=root,
             )
 
-        self.assertIn("申购冲突", prompt)
-        self.assertIn("同批次资金冲突", prompt)
-        self.assertIn("可先申购 A，等 A 结果/退款后再申 B", prompt)
-        self.assertIn("当前 IPO 池", prompt)
-        self.assertIn("不要和历史旧批次", prompt)
-        self.assertIn("用户点名 A 是否与 B/C 冲突", prompt)
-        self.assertIn("能否资金先集中申购 A", prompt)
-        self.assertIn("**⏱ 申购冲突**", prompt)
-        self.assertIn("和 `💡 关键结论`、`📌 优先级` 同级", prompt)
-        self.assertIn("不要在每只 IPO 字段块内输出 `⏱ 申购冲突`", prompt)
-        self.assertNotIn("每只 IPO 字段块的 `⏱ 申购冲突` 字段", prompt)
-        self.assertNotIn("写入每只 IPO 字段块的 `⏱ 申购冲突` 字段", prompt)
-        self.assertNotIn("可等上批次结果后再申购", prompt)
+        self.assertIn("个股标题末尾必须写申购截止日和开奖/配发结果日", prompt)
+        self.assertIn("5/6截止 | 5/7开奖", prompt)
+        self.assertIn("**🟢 1｜代码 公司｜评分｜M/D截止 | M/D开奖**", prompt)
+        self.assertNotIn("**⏱ 申购冲突**", prompt)
+        self.assertNotIn("申购冲突：", prompt)
+        self.assertNotIn("同批次资金冲突", prompt)
+        self.assertNotIn("高优先级跟踪", prompt)
+        self.assertNotIn("重点跟踪", prompt)
+        self.assertNotIn("投资建议", prompt)
 
-    def test_prompt_keeps_blank_lines_only_between_top_level_sections(self) -> None:
+    def test_prompt_uses_compact_report_body_without_blank_empty_lines(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
             root = pathlib.Path(raw_root).resolve()
             skill_dir = root / "stock-analysis-skill"
@@ -92,15 +90,18 @@ class HkipoFutuCommandTest(unittest.TestCase):
                 home_dir=root,
             )
 
-        self.assertIn("\n\n**💡 关键结论**\n\n", prompt)
-        self.assertIn("\n\n**⏱ 申购冲突**\n\n", prompt)
-        self.assertIn("\n\n**📌 优先级**\n\n", prompt)
+        self.assertIn("**💡 关键结论**\n- 🟢", prompt)
+        self.assertIn("**📌 优先级**\n**🟢 1", prompt)
+        self.assertIn("⚠️ 风险：一句话最大风险\n**🔗 来源**", prompt)
         self.assertIn(
-            "个股字段行之间不要空行，保持 `📍 阶段`、`💰 热度`、`🛡 结构`、`📈 回测`、`⚠️ 风险` 连续紧凑",
+            "正文不要插入空白空行；顶层小节标题、bullet、个股标题和个股字段都用单换行连续排列",
             prompt,
         )
         self.assertIn("📍 阶段：招股/截止/暗盘/上市日", prompt)
         self.assertIn("\n💰 热度：最新孖展/公开认购/暗盘", prompt)
+        self.assertNotIn("\n\n**💡 关键结论**", prompt)
+        self.assertNotIn("\n\n**📌 优先级**", prompt)
+        self.assertNotIn("\n\n**🔗 来源**", prompt)
         self.assertNotIn("\n\n💰 热度：最新孖展/公开认购/暗盘", prompt)
         self.assertNotIn("\n\n🛡 结构：绿鞋/基石/保荐/回拨", prompt)
         self.assertNotIn("\n\n📈 回测：对应热度分桶", prompt)
@@ -110,12 +111,14 @@ class HkipoFutuCommandTest(unittest.TestCase):
         self.assertNotIn("thinking", prompt.lower())
         self.assertNotIn("tool steps", prompt.lower())
 
-    def test_reference_keeps_subscription_conflict_top_level_and_fields_compact(self) -> None:
+    def test_reference_uses_compact_sections_and_date_title_contract(self) -> None:
         reference = (ROOT / "references" / "hkipo.md").read_text(encoding="utf-8")
 
-        self.assertIn("**⏱ 申购冲突**", reference)
-        self.assertIn("top-level section", reference)
-        self.assertIn("Do not insert blank lines between", reference)
+        self.assertIn("deadline and allotment/result date", reference)
+        self.assertIn("**🟢 1｜代码 公司｜评分｜M/D截止 | M/D开奖**", reference)
+        self.assertIn("Do not insert blank empty lines", reference)
+        self.assertIn("fixed source order", reference)
+        self.assertNotIn("**⏱ 申购冲突**", reference)
         self.assertNotIn("⏱ 申购冲突：", reference)
         self.assertNotIn("each emoji field", reference)
         self.assertNotIn("inside every IPO block", reference)

@@ -27,7 +27,7 @@ Current IPO reports must separate **current-state discovery** from **document ev
 
 1. Futu/OpenD `get_ipo_list(HK)` is the first source for the current IPO pool, subscription status, listing date, apply end date, offer price, lot size and entrance price. Use it before web finance portals whenever OpenD is available.
 2. HKEX official listing documents, prospectus, allotment results, listing-date notices and company announcements are the first source for prospectus facts, offering structure, greenshoe, stabilizing manager, cornerstone investors, sponsors and proceeds use.
-3. Reliable finance portals and broker pages are fallback/secondary sources only for fields Futu/OpenD and HKEX do not expose: margin financing, public-offer multiple, one-lot success rate, grey-market data and first-day performance.
+3. Reliable finance portals and broker pages are fallback/secondary sources only for fields Futu/OpenD and HKEX do not expose: margin financing, public-offer multiple, one-lot success rate, grey-market data and first-day performance. Use a fixed source order for these heat fields: Futu/OpenD current fields → broker/finance margin table updated on or closest before the report date → public-offer multiple / one-lot success rate → grey-market data.
 4. Never use GitHub repos, model outputs, stale cached snippets, or unverifiable social posts as IPO fact sources.
 
 ### Freshness Gate
@@ -36,6 +36,7 @@ Current IPO reports must separate **current-state discovery** from **document ev
 - Margin financing, public-offer multiple, one-lot success rate and grey-market return are time-sensitive. For an IPO still open for subscription or in grey-market/listing window, use the latest source published on or closest before the report date.
 - If a newer source exists, older margin or grey-market values must not be used in the score. They may only be shown as historical trend, with the source date clearly labeled.
 - If only stale data is found, write `未找到当前日期最新数据` and cap the Subscription Heat contribution at the tier supported by verified current data.
+- When multiple sources disagree, use the latest timestamp that is not after the report date, cite the range if useful, and do not silently mix an older margin multiple with a newer IPO status.
 - The Sources section must label each secondary source with its publication/update date and purpose, e.g. `2026-04-27 孖展统计`.
 
 ## Required Data Fields
@@ -49,32 +50,9 @@ For each IPO, collect only decision-useful fields:
 - fundamentals: revenue, profit/loss, cash flow or cash burn, commercialization stage, top customers/orders, R&D and customer concentration
 - valuation: implied market cap/multiple, closest public peers, obvious premium/discount
 - sentiment/odds: public-offer multiple, margin heat, international placing language, callback, one-lot success rate if available
-- subscription conflict: same-batch conflicts by application deadline, or whether the IPO can wait for the previous batch's allotment result before subscribing
 - backtest context: recent listed HK IPO first-day performance and similar-deal outcomes
 
 Use `未披露` or `未找到可靠来源` for missing fields.
-
-## Subscription Conflict
-
-Include one top-level `**⏱ 申购冲突**` section based on the funding timeline
-among the **current IPO pool shown in the report**:
-
-- Only compare IPOs included in the current report: still-open subscription
-  names by default, plus closed-but-not-listed names included by `/hkipo --all`
-  if their allotment/refund timing still affects capital use. Do not compare
-  against historical old batches or backtest samples.
-- `同批次资金冲突`: IPOs share the same application deadline, or IPO B's
-  application deadline is before IPO A's allotment-result/refund date, so the
-  same cash cannot be recycled from A into B.
-- `可先申购 A，等 A 结果/退款后再申 B`: IPO B's application deadline is after IPO A's
-  allotment-result/refund date, so the user can put capital into A first and
-  then decide whether to apply for B.
-- If the allotment result date is not disclosed, estimate it from the Hong Kong
-  trading day before the listing date and label the line `估算`.
-- Always name the relevant IPOs and include the absolute dates used for the
-  judgment in that top-level section. If the user asks whether IPO A conflicts
-  with IPO B/C, directly answer whether capital can first concentrate in A
-  before reusing A's result/refund for B/C.
 
 ## Weighted Scorecard
 
@@ -113,7 +91,7 @@ If an IPO has verified margin financing above 1000x and verified grey-market gai
 ### Scoring Rules
 
 - `90-100`: 极高优先级 — extreme heat / grey-market confirmation / supportive structure; still disclose reversal risk.
-- `80-89`: 重点跟踪 — strong combined setup, but one key uncertainty remains.
+- `80-89`: strong watch — strong combined setup, but one key uncertainty remains.
 - `65-79`: 可观察/可小仓博弈 — has a clear edge but at least one material weakness.
 - `50-64`: 中性 — facts are mixed or valuation/odds are not attractive enough.
 - `<50`: 谨慎/回避 — poor odds, weak fundamentals, stretched valuation, or unreliable evidence.
@@ -196,35 +174,26 @@ Keep the report terse:
 - Outside the IPO blocks, only keep 1-3 conclusion bullets and compact sources.
 - Avoid wide Markdown tables; use compact per-name blocks to keep the report body readable on narrow chat surfaces.
 - Avoid Markdown headings (`#`, `##`). Use bold labels and a short divider instead.
-- Put blank lines around top-level bold section labels only: `💡 关键结论`, `⏱ 申购冲突`, `📌 优先级`, and `🔗 来源`.
-- `申购冲突` must be a top-level section beside `关键结论` and `优先级`, not a repeated per-IPO field. Summarize current-pool funding conflicts once, naming the conflicting IPOs and absolute dates used for the judgment.
-- Do not insert blank lines between per-IPO small fields. Keep `📍 阶段`, `💰 热度`, `🛡 结构`, `📈 回测`, and `⚠️ 风险` compact and consecutive.
-- Use fixed emoji cues sparingly: 🟢 high priority, 🟡 watch, ⚪ observe; 💰 heat, 🛡 structure, ⏱ subscription conflict, 📈 backtest, ⚠️ risk, 🔗 sources.
+- Each ranked IPO title must end with the subscription deadline and allotment/result date, not an investment suggestion or priority label: `M/D截止 | M/D开奖`.
+- Do not insert blank empty lines. Keep top-level labels, bullets, IPO title lines and per-IPO small fields separated by single newlines only.
+- Keep `📍 阶段`, `💰 热度`, `🛡 结构`, `📈 回测`, and `⚠️ 风险` compact and consecutive.
+- Use fixed emoji cues sparingly: 🟢 highest in pool, 🟡 watch, ⚪ observe; 💰 heat, 🛡 structure, 📈 backtest, ⚠️ risk, 🔗 sources.
+- Heat numbers must follow the fixed source order in `Source Priority`; every margin/public-subscription/grey-market value needs a source timestamp or explicit stale-data note.
 
 ```markdown
 **港股 IPO 池｜YYYY-MM-DD**
 ----
-
 **💡 关键结论**
-
 - 🟢 highest priority: code + one reason.
 - 🟡 watch: code + one reason.
 - ⚪ observe/cautious: code + one reason.
-
-**⏱ 申购冲突**
-
-- Current-pool funding conflict / whether capital can first apply for A then B; list names, application deadline, allotment/refund date and judgment.
-
 **📌 优先级**
-
-**🟢 1｜代码 公司｜评分｜优先级**
-
+**🟢 1｜代码 公司｜评分｜M/D截止 | M/D开奖**
 📍 阶段：招股/截止/暗盘/上市日；Futu：发售价/一手/入场费/状态
 💰 热度：最新孖展/公开认购/暗盘，标注日期和是否外部补充
 🛡 结构：绿鞋/基石/保荐/回拨
 📈 回测：对应热度分桶和首日赔率映射
 ⚠️ 风险：一句话最大风险
-
 **🔗 来源**
 - Key links only; max 2-3 markdown links per IPO/sample; label purpose and date.
 ```

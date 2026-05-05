@@ -16,6 +16,48 @@
 
 ## Milestones
 
+### M30 — /hkipo 极简正文与热度稳定性
+
+Status: `done`
+
+Scope:
+
+- `commands/hkipo.py`
+- `tests/test_hkipo_command.py`
+- `SKILL.md`
+- `README.md`
+- `references/hkipo.md`
+- `PLANS/ACTIVE.md`
+
+Validation:
+
+- `python3 -m unittest tests/test_hkipo_command.py`
+- `python3 -m unittest discover -s tests`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+
+Progress:
+
+- 2026-05-05 北京时间：用户反馈 `/hkipo` 不需要 `申购冲突` 小节；个股标题末尾不要再写投资建议/跟踪标签，改成申购截止时间和开奖/配发日期，例如 `🟡 2｜01236 樂動機器人｜74｜5/6截止 | 5/7开奖`。
+- 2026-05-05 北京时间：用户反馈正文空行仍过多；目标格式是 `💡 关键结论`、`📌 优先级`、个股条目、`🔗 来源` 紧凑连续，不在顶层小节之间插空白空行。
+- 2026-05-05 北京时间：用户指出樂動機器人孖展倍数偶发不稳定；本轮把 prompt/reference 的热度取数规则从“可联网找补充”收紧为固定优先级、必须记录更新时间、旧数据只能降级、不可混用旧孖展作当前评分。
+
+Validation results:
+
+- failed as expected 2026-05-05 北京时间：`python3 -m unittest tests/test_hkipo_command.py`，新增断言证明旧 prompt/reference 仍包含 `申购冲突` 小节、空白空行和标题尾部优先级标签。
+- passed 2026-05-05 北京时间：`python3 -m unittest tests/test_hkipo_command.py`
+- passed 2026-05-05 北京时间：`python3 -m unittest discover -s tests`
+- passed 2026-05-05 北京时间：`python3 -m py_compile scripts/*.py commands/*.py`
+- passed 2026-05-05 北京时间：`git diff --check`
+- passed 2026-05-05 北京时间：`rg -n "申购冲突|⏱|subscription conflict|同批次资金冲突|可先申购|重点跟踪|高优先级跟踪|投资建议" commands/hkipo.py SKILL.md README.md references/hkipo.md tests/test_hkipo_command.py` 仅命中测试中的反向断言。
+- passed 2026-05-05 北京时间：`printf '{}' | python3 commands/hkipo.py | rg -n "输出格式|申购冲突|M/D截止|5/6截止|重点跟踪|投资建议|\\*\\*📌 优先级\\*\\*|\\*\\*🔗 来源\\*\\*|\\*\\*⏱"`，prompt 输出格式中只保留 `M/D截止 | M/D开奖`、紧凑 `📌 优先级` 与 `🔗 来源`，未出现 `申购冲突` 小节或旧建议标签。
+- passed 2026-05-05 北京时间：仓库无 `scripts/review.sh`，已按 review checklist 人工复核 diff；scope 仅限 M30，prompt、SKILL、README、reference 和 tests 同步。
+
+Handoff:
+
+- `/hkipo` 正文契约已移除 `申购冲突` 小节；标题尾部改为 `M/D截止 | M/D开奖`；正文不再插空白空行。
+- 熱度/孖展稳定性已在 prompt/reference 中收紧为固定来源顺序和更新时间门槛，避免不同搜索路径把旧孖展当成当前主评分。若仍要进一步提升稳定性，需要新增确定性抓取/缓存脚本，而不是继续依赖 agent 自由联网搜索。
+
 ### M29 — /hkipo 报告层级与紧凑字段修正
 
 Status: `done`
