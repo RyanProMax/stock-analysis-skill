@@ -16,6 +16,48 @@
 
 ## Milestones
 
+### M29 — /hkipo 报告层级与紧凑字段修正
+
+Status: `done`
+
+Scope:
+
+- `commands/hkipo.py`
+- `tests/test_hkipo_command.py`
+- `SKILL.md`
+- `README.md`
+- `references/hkipo.md`
+- `PLANS/ACTIVE.md`
+
+Validation:
+
+- `python3 -m unittest tests/test_hkipo_command.py`
+- `python3 -m unittest discover -s tests`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+
+Progress:
+
+- 2026-05-05 北京时间：用户反馈实际 `/hkipo` 飞书输出仍把 `申购冲突` 放在每只 IPO 字段块内，且 `阶段`、`热度`、`结构`、`回测`、`风险` 等小字段之间仍有大段空行。
+- 2026-05-05 北京时间：确认根因是 M28 将旧模板契约重新固化到 prompt/reference：`申购冲突` 被写成每只 IPO 的重复字段，小字段也被要求逐项留空行。
+- 2026-05-05 北京时间：本轮目标是把契约收敛为顶层 `**⏱ 申购冲突**` 小节，与 `💡 关键结论`、`📌 优先级` 同级；个股字段块内只保留 `📍 阶段`、`💰 热度`、`🛡 结构`、`📈 回测`、`⚠️ 风险` 连续紧凑行。
+
+Validation results:
+
+- failed as expected 2026-05-05 北京时间：`python3 -m unittest tests/test_hkipo_command.py`，新增断言先证明旧契约仍把 `申购冲突` 当作 per-IPO 字段，并要求个股 emoji 字段逐项留空行。
+- passed 2026-05-05 北京时间：`python3 -m unittest tests/test_hkipo_command.py`
+- passed 2026-05-05 北京时间：`python3 -m unittest discover -s tests`
+- passed 2026-05-05 北京时间：`python3 -m py_compile scripts/*.py commands/*.py`（sandbox 下 `__pycache__` 写入被拒，已按权限重跑通过）
+- passed 2026-05-05 北京时间：`git diff --check`
+- passed 2026-05-05 北京时间：`rg -n "每条 emoji|emoji field inside|inside every IPO block|⏱ 申购冲突：|每只 IPO 字段块的.*申购冲突|写入每只 IPO 字段块.*申购冲突" SKILL.md README.md references/hkipo.md commands/hkipo.py` 无命中。
+- passed 2026-05-05 北京时间：`printf '{}' | python3 commands/hkipo.py | rg -n "申购冲突|关键结论|优先级|阶段：招股|热度：最新|结构：绿鞋|回测：对应|风险：一句话|每条 emoji|每只 IPO 字段块"`，prompt 显示顶层 `**⏱ 申购冲突**`，且个股字段块内 `阶段/热度/结构/回测/风险` 连续无空行。
+- passed 2026-05-05 北京时间：仓库无 `scripts/review.sh`，已按 review checklist 人工复核 diff；scope 仅限 M29，prompt、SKILL、README、reference 和 tests 不再保留旧 per-IPO `⏱ 申购冲突` 字段契约或小字段逐项空行契约。
+
+Handoff:
+
+- `/hkipo` 输出契约已改为：`**💡 关键结论**`、`**⏱ 申购冲突**`、`**📌 优先级**` 为同级顶层小节；个股字段块只包含 `📍 阶段`、`💰 热度`、`🛡 结构`、`📈 回测`、`⚠️ 风险`，这些小字段之间不留空行。
+- 本轮未修改行情抓取逻辑；只修正 `/hkipo` prompt/reference/skill 文档与对应回归测试。
+
 ### M28 — /hkipo 报告正文模板边界
 
 Status: `done`

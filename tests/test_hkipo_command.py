@@ -54,7 +54,7 @@ class HkipoFutuCommandTest(unittest.TestCase):
         self.assertIn("保留 `is_subscribe_status=false` 且上市日未到的标的", prompt)
         self.assertNotIn("--include" + "-closed", prompt)
 
-    def test_prompt_requires_subscription_conflict_field(self) -> None:
+    def test_prompt_requires_top_level_subscription_conflict_section(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
             root = pathlib.Path(raw_root).resolve()
             skill_dir = root / "stock-analysis-skill"
@@ -73,10 +73,14 @@ class HkipoFutuCommandTest(unittest.TestCase):
         self.assertIn("不要和历史旧批次", prompt)
         self.assertIn("用户点名 A 是否与 B/C 冲突", prompt)
         self.assertIn("能否资金先集中申购 A", prompt)
-        self.assertIn("⏱ 申购冲突：", prompt)
+        self.assertIn("**⏱ 申购冲突**", prompt)
+        self.assertIn("和 `💡 关键结论`、`📌 优先级` 同级", prompt)
+        self.assertIn("不要在每只 IPO 字段块内输出 `⏱ 申购冲突`", prompt)
+        self.assertNotIn("每只 IPO 字段块的 `⏱ 申购冲突` 字段", prompt)
+        self.assertNotIn("写入每只 IPO 字段块的 `⏱ 申购冲突` 字段", prompt)
         self.assertNotIn("可等上批次结果后再申购", prompt)
 
-    def test_prompt_requires_blank_line_before_report_body_points(self) -> None:
+    def test_prompt_keeps_blank_lines_only_between_top_level_sections(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
             root = pathlib.Path(raw_root).resolve()
             skill_dir = root / "stock-analysis-skill"
@@ -89,22 +93,32 @@ class HkipoFutuCommandTest(unittest.TestCase):
             )
 
         self.assertIn("\n\n**💡 关键结论**\n\n", prompt)
+        self.assertIn("\n\n**⏱ 申购冲突**\n\n", prompt)
         self.assertIn("\n\n**📌 优先级**\n\n", prompt)
-        self.assertIn("\n\n⏱ 申购冲突：", prompt)
-        self.assertIn("每个加粗小节标题和每条 emoji 字段上方都保留一个空行", prompt)
+        self.assertIn(
+            "个股字段行之间不要空行，保持 `📍 阶段`、`💰 热度`、`🛡 结构`、`📈 回测`、`⚠️ 风险` 连续紧凑",
+            prompt,
+        )
+        self.assertIn("📍 阶段：招股/截止/暗盘/上市日", prompt)
+        self.assertIn("\n💰 热度：最新孖展/公开认购/暗盘", prompt)
+        self.assertNotIn("\n\n💰 热度：最新孖展/公开认购/暗盘", prompt)
+        self.assertNotIn("\n\n🛡 结构：绿鞋/基石/保荐/回拨", prompt)
+        self.assertNotIn("\n\n📈 回测：对应热度分桶", prompt)
+        self.assertNotIn("每条 emoji 字段上方都保留一个空行", prompt)
         self.assertIn("报告正文", prompt)
         self.assertNotIn("飞书卡片", prompt)
         self.assertNotIn("thinking", prompt.lower())
         self.assertNotIn("tool steps", prompt.lower())
 
-    def test_reference_keeps_subscription_conflict_in_ipo_blocks(self) -> None:
+    def test_reference_keeps_subscription_conflict_top_level_and_fields_compact(self) -> None:
         reference = (ROOT / "references" / "hkipo.md").read_text(encoding="utf-8")
 
-        self.assertIn("⏱ 申购冲突：", reference)
-        self.assertIn("each emoji field", reference)
-        self.assertIn("inside every IPO block", reference)
-        self.assertNotIn("must be a top-level section", reference)
-        self.assertNotIn("Do not insert blank lines between", reference)
+        self.assertIn("**⏱ 申购冲突**", reference)
+        self.assertIn("top-level section", reference)
+        self.assertIn("Do not insert blank lines between", reference)
+        self.assertNotIn("⏱ 申购冲突：", reference)
+        self.assertNotIn("each emoji field", reference)
+        self.assertNotIn("inside every IPO block", reference)
         self.assertNotIn("thinking", reference.lower())
         self.assertNotIn("tool steps", reference.lower())
 
