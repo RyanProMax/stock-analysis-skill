@@ -16,6 +16,48 @@
 
 ## Milestones
 
+### M28 — /hkipo 报告正文模板边界
+
+Status: `done`
+
+Scope:
+
+- `commands/hkipo.py`
+- `tests/test_hkipo_command.py`
+- `SKILL.md`
+- `README.md`
+- `references/hkipo.md`
+- `PLANS/ACTIVE.md`
+
+Validation:
+
+- `python3 -m unittest tests/test_hkipo_command.py`
+- `python3 -m unittest discover -s tests`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+
+Progress:
+
+- 2026-05-05 北京时间：用户澄清 Feishu 消息卡片中 step / thinking 的格式约束不应放在 skill；skill 只应约束最终报告正文模板。
+- 2026-05-05 北京时间：已将 `/hkipo` prompt、SKILL、README 和 hkipo reference 的输出规则收敛为“报告正文”约束，移除与宿主消息卡片展示混淆的表述。
+- 2026-05-05 北京时间：已同步 hkipo reference，申购冲突保留为每只 IPO 字段块的 `⏱ 申购冲突` 字段，并保留每条 emoji 字段上方空行的正文模板要求。
+
+Validation results:
+
+- passed 2026-05-05 北京时间：`python3 -m unittest tests/test_hkipo_command.py`
+- passed 2026-05-05 北京时间：`python3 -m unittest discover -s tests`
+- passed 2026-05-05 北京时间：`python3 -m py_compile scripts/*.py commands/*.py`（sandbox 下 `__pycache__` 写入被拒，已按权限重跑通过）
+- passed 2026-05-05 北京时间：`git diff --check`
+- passed 2026-05-05 北京时间：`rg -n "飞书卡片|must be a top-level section|Do not insert blank lines between|申购冲突只放在顶层|顶层“⏱ 申购冲突”|thinking|tool steps" SKILL.md README.md references/hkipo.md commands/hkipo.py` 无命中。
+- passed 2026-05-05 北京时间：`printf '{}' | python3 commands/hkipo.py`，prompt 只约束报告正文，并保留每只 IPO 字段块的 `⏱ 申购冲突`。
+- passed 2026-05-05 北京时间：已同步当前 Cli Claw 安装副本，`commands/hkipo.py` 与 `references/hkipo.md` 和源码一致；安装副本 smoke check 通过。
+- passed 2026-05-05 北京时间：仓库无 `scripts/review.sh`，已人工复核 diff，确认未触碰非 `/hkipo` 报告正文模板相关逻辑。
+
+Handoff:
+
+- `/hkipo` skill 现在只约束最终报告正文模板：窄字段块、每条 emoji 字段上方空行、每只 IPO 的 `⏱ 申购冲突` 字段。
+- Feishu message card 的 thinking / tool steps / 折叠展示仍由 Cli Claw runtime presentation 层负责，不在 skill 中定义。
+
 ### M27 — /hkipo 申购冲突语义与换行
 
 Status: `done`

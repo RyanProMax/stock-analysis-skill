@@ -56,7 +56,7 @@ Use `未披露` or `未找到可靠来源` for missing fields.
 
 ## Subscription Conflict
 
-For each current IPO card, include a compact subscription-conflict line based on
+For each current IPO block, include a compact subscription-conflict line based on
 the funding timeline among the **current IPO pool shown in the report**:
 
 - Only compare IPOs included in the current report: still-open subscription
@@ -186,24 +186,18 @@ If reliable recent first-day data cannot be found quickly, do not invent it; set
 
 ## Concise Output Contract
 
-Use this report shape by default. Do **not** include separate per-name narrative sections; integrate dimension details into the table.
+Use this final report body shape by default. Do **not** include separate per-name narrative sections; integrate dimension details into compact per-name blocks.
 
 Keep the report terse:
 
 - Do not explain trigger text, date mismatches, collection steps, or scoring derivation.
-- Put all key per-IPO content into compact per-name cards, including Futu field coverage, external heat data, subscription conflict, backtest mapping, structure, valuation and risk.
-- Do not add a separate backtest section unless the user explicitly asks for details; the card's `回测` line is enough.
-- Outside the cards, only keep 1-3 conclusion bullets and compact sources.
-- Avoid wide Markdown tables in Feishu. They render with horizontal scrolling and clipped columns.
-- Avoid Markdown headings (`#`, `##`) in Feishu. Use bold labels and a short divider instead.
-- Put a blank line above top-level bold section labels only, so Feishu cards do
-  not visually merge report sections. This is especially required before
-  `💡 关键结论`, `⏱ 申购冲突`, `📌 优先级`, and `🔗 来源`.
-- Keep per-IPO small fields compact. Do not insert blank lines between `📍 阶段`,
-  `💰 热度`, `🛡 结构`, `📈 回测`, and `⚠️ 风险`.
-- `申购冲突` must be a top-level section beside `关键结论` and `优先级`, not a
-  repeated line inside every IPO card. It should summarize current-pool funding
-  conflicts once, naming the IPOs and absolute dates used for the judgment.
+- Put all key per-IPO content into compact per-name blocks, including Futu field coverage, external heat data, subscription conflict, backtest mapping, structure, valuation and risk.
+- Do not add a separate backtest section unless the user explicitly asks for details; the block's `回测` line is enough.
+- Outside the IPO blocks, only keep 1-3 conclusion bullets and compact sources.
+- Avoid wide Markdown tables; use compact per-name blocks to keep the report body readable on narrow chat surfaces.
+- Avoid Markdown headings (`#`, `##`). Use bold labels and a short divider instead.
+- Put a blank line above each top-level bold section label and each emoji field inside IPO blocks. This is required before `💡 关键结论`, `📌 优先级`, `📍 阶段`, `💰 热度`, `🛡 结构`, `⏱ 申购冲突`, `📈 回测`, `⚠️ 风险`, and `🔗 来源`.
+- `申购冲突` must be a repeated `⏱ 申购冲突` field inside every IPO block. It should summarize current-pool funding conflicts for that IPO, naming the conflicting IPOs and absolute dates used for the judgment.
 - Use fixed emoji cues sparingly: 🟢 high priority, 🟡 watch, ⚪ observe; 💰 heat, 🛡 structure, ⏱ subscription conflict, 📈 backtest, ⚠️ risk, 🔗 sources.
 
 ```markdown
@@ -216,18 +210,20 @@ Keep the report terse:
 - 🟡 watch: code + one reason.
 - ⚪ observe/cautious: code + one reason.
 
-**⏱ 申购冲突**
-
-- 当前 IPO 池资金冲突/可先申购 A 后申购 B；列出对象、申购截止日、配发/退款日和判断。
-
 **📌 优先级**
 
 **🟢 1｜代码 公司｜评分｜优先级**
 
 📍 阶段：招股/截止/暗盘/上市日；Futu：发售价/一手/入场费/状态
+
 💰 热度：最新孖展/公开认购/暗盘，标注日期和是否外部补充
+
 🛡 结构：绿鞋/基石/保荐/回拨
+
+⏱ 申购冲突：当前 IPO 池内资金冲突/可先申购 A 后申购 B；列出对象、申购截止日、配发/退款日和判断
+
 📈 回测：对应热度分桶和首日赔率映射
+
 ⚠️ 风险：一句话最大风险
 
 **🔗 来源**
