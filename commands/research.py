@@ -34,7 +34,8 @@ US_SYMBOL_PATTERN = re.compile(r"[A-Z][A-Z0-9.-]{0,9}")
 SHORT_BARE_US_SYMBOL_PATTERN = re.compile(r"[A-Z][A-Z0-9.-]{0,4}")
 BARE_ENGLISH_COMPANY_PATTERN = re.compile(r"[A-Z][A-Z0-9&'.-]{5,79}")
 OPEND_CONTINUE_FLAGS = {"--continue-without-opend", "--confirm-without-opend", "--degraded-ok"}
-FUTU_OPEND_PREFLIGHT_SCRIPT = Path("scripts") / "quote" / "get_global_state.py"
+STOCK_ANALYZE_SCRIPT = Path("scripts") / "stock_analyze.py"
+FUTU_MARKET_DATA_SCRIPT = Path("scripts") / "futu_market_data.py"
 
 
 @dataclass(frozen=True)
@@ -132,12 +133,12 @@ def resolve_skill_dir(
     return Path(__file__).resolve().parents[1]
 
 
-def _valid_api_root(path: Path) -> Path | None:
+def _valid_api_root(path: Path, required_script: Path = STOCK_ANALYZE_SCRIPT) -> Path | None:
     root = path.expanduser()
     if not root.is_absolute():
         root = Path.cwd() / root
     root = root.resolve()
-    if (root / "scripts" / "stock_analyze.py").is_file():
+    if (root / required_script).is_file():
         return root
     return None
 
@@ -224,101 +225,17 @@ def candidate_api_roots(
     return unique
 
 
-def _home_path(env: Mapping[str, str] | None = None) -> Path | None:
-    resolved_env = os.environ if env is None else env
-    home_value = resolved_env.get("HOME")
-    if not home_value and env is None:
-        home_value = str(Path.home())
-    if not home_value:
-        return None
-    return Path(home_value).expanduser().resolve()
-
-
-def _venv_python_path(root: Path) -> Path | None:
-    for relative_path in (
-        Path(".venv") / "bin" / "python",
-        Path("venv") / "bin" / "python",
-    ):
-        candidate = (root / relative_path).expanduser().resolve()
-        if candidate.is_file():
-            return candidate
-    return None
-
-
-def candidate_futuapi_dirs(
+def resolve_futu_api_root(
+    *,
     skill_dir: str | Path | None = None,
     env: Mapping[str, str] | None = None,
-) -> list[Path]:
-    resolved_env = os.environ if env is None else env
+) -> Path | None:
     resolved_skill_dir = resolve_skill_dir(skill_dir=skill_dir, env=env)
-    roots: list[Path] = []
-
-    for env_name in ("FUTUAPI_SKILL_DIR", "CLI_CLAW_FUTUAPI_SKILL_DIR"):
-        value = resolved_env.get(env_name)
-        if value:
-            roots.append(Path(value))
-
-    roots.extend([resolved_skill_dir.parent, resolved_skill_dir.parent.parent])
-    home = _home_path(env=env)
-    if home:
-        roots.extend(
-            [
-                home / ".agents" / "skills",
-                home / ".claude" / "skills",
-                home / ".cli-claw" / "skills",
-            ]
-        )
-
-    candidates: list[Path] = []
-    for root in roots:
-        resolved_root = root.expanduser().resolve()
-        candidates.append(resolved_root)
-        candidates.append(resolved_root / "futuapi")
-        if resolved_root.is_dir():
-            try:
-                children = list(resolved_root.iterdir())
-            except OSError:
-                children = []
-            for child in children:
-                if child.is_dir():
-                    candidates.append(child / "futuapi")
-
-    seen: set[Path] = set()
-    unique: list[Path] = []
-    for candidate in candidates:
-        resolved = candidate.expanduser().resolve()
-        if resolved in seen:
-            continue
-        seen.add(resolved)
-        unique.append(resolved)
-    return unique
-
-
-def find_futuapi_preflight_script(
-    skill_dir: str | Path | None = None,
-    env: Mapping[str, str] | None = None,
-) -> Path | None:
-    for candidate in candidate_futuapi_dirs(skill_dir=skill_dir, env=env):
-        script_path = candidate / FUTU_OPEND_PREFLIGHT_SCRIPT
-        if script_path.is_file():
-            return script_path.resolve()
+    for candidate in candidate_api_roots(resolved_skill_dir, env=env):
+        api_root = _valid_api_root(candidate, required_script=FUTU_MARKET_DATA_SCRIPT)
+        if api_root:
+            return api_root
     return None
-
-
-def find_futuapi_python(
-    script_path: Path | None,
-    env: Mapping[str, str] | None = None,
-) -> Path | None:
-    resolved_env = os.environ if env is None else env
-    for env_name in ("FUTUAPI_PYTHON", "CLI_CLAW_FUTUAPI_PYTHON"):
-        python_path = _path_from_env_executable(resolved_env.get(env_name, ""), env)
-        if python_path:
-            return python_path
-
-    if not script_path:
-        return None
-    futuapi_root = script_path.parents[2]
-    return _venv_python_path(futuapi_root)
 
 
 def _short_process_output(output: str, *, limit: int = 240) -> str:
@@ -351,22 +268,27 @@ def run_opend_preflight(
     env: Mapping[str, str] | None = None,
     timeout_seconds: int = 8,
 ) -> OpenDPreflight:
-    script_path = find_futuapi_preflight_script(skill_dir=skill_dir, env=env)
-    if not script_path:
-        return OpenDPreflight(False, "未找到 futuapi OpenD 预检脚本")
+    api_root = resolve_futu_api_root(skill_dir=skill_dir, env=env)
+    if not api_root:
+        return OpenDPreflight(False, "未找到 stock-analysis-api Futu CLI（scripts/futu_market_data.py）")
 
-    python_path = find_futuapi_python(script_path, env=env)
-    if not python_path:
-        return OpenDPreflight(False, "未找到 futuapi 专用 Python 环境（.venv/bin/python）")
+    uv_path = resolve_uv_path(env=env)
+    if not uv_path:
+        return OpenDPreflight(False, "未找到 uv 可执行文件，无法运行 stock-analysis-api Futu CLI")
 
-    command = f"{shlex.quote(str(python_path))} {shlex.quote(str(script_path))} --json"
+    command = (
+        f"cd {shlex.quote(str(api_root))} && "
+        f"{shlex.quote(str(uv_path))} run python "
+        "scripts/futu_market_data.py global-state --json"
+    )
     try:
         proc = subprocess.run(
-            [str(python_path), str(script_path), "--json"],
+            [str(uv_path), "run", "python", str(FUTU_MARKET_DATA_SCRIPT), "global-state", "--json"],
             text=True,
             capture_output=True,
             timeout=timeout_seconds,
             env=_opend_preflight_env(env=env),
+            cwd=str(api_root),
             check=False,
         )
     except subprocess.TimeoutExpired:
@@ -389,6 +311,9 @@ def run_opend_preflight(
     except json.JSONDecodeError:
         return OpenDPreflight(False, "OpenD 预检 JSON 无法解析", command)
 
+    if payload.get("status") == "failed":
+        reason = payload.get("error") or payload.get("message") or "stock-analysis-api Futu CLI 返回失败"
+        return OpenDPreflight(False, _short_process_output(str(reason)), command)
     if payload.get("error"):
         return OpenDPreflight(False, _short_process_output(str(payload["error"])), command)
 
@@ -396,7 +321,7 @@ def run_opend_preflight(
     if isinstance(data, dict) and data.get("qot_logined") is False:
         return OpenDPreflight(False, "OpenD 行情服务未登录", command)
 
-    return OpenDPreflight(True, "OpenD 可调用", command)
+    return OpenDPreflight(True, "stock-analysis-api Futu CLI 可调用", command)
 
 
 def _has_opend_continue_confirmation(payload: dict) -> bool:
@@ -636,7 +561,10 @@ def _market_execution_requirements(
         )
     elif opend_preflight and opend_preflight.ok:
         command = f"`{opend_preflight.command}`" if opend_preflight.command else "预检命令"
-        opend_status = f"- OpenD 预检已通过：{command}；必须优先使用 Futu/OpenD 只读能力，不得跳过。"
+        opend_status = (
+            f"- stock-analysis-api Futu CLI OpenD 预检已通过：{command}；"
+            "必须优先使用该 API CLI 的 Futu/OpenD 只读能力，不得跳过。"
+        )
         fallback_rule = (
             "- 港股字段缺失、延迟行情或 HKEX PDF 无法抽取时，必须明确标注“港股数据层降级”；"
             "若 Futu/OpenD 执行阶段再次不可用，必须停止并询问用户确认，不得自行降级。"
@@ -650,7 +578,7 @@ def _market_execution_requirements(
     return f"""市场路由：港股（后置支持）
 - 港股当前不走 `stock_analyze.py --market hk`；不要虚构该 CLI。
 {opend_status}
-- 优先用 Futu/OpenD 只读能力获取行情快照、K 线、估值快照和市场状态，Futu 代码：`{target.normalized_symbol}`。
+- 优先用 stock-analysis-api Futu CLI 获取行情快照、K 线、估值快照和市场状态，Futu 代码：`{target.normalized_symbol}`；快照入口：`scripts/futu_market_data.py snapshot --codes {target.normalized_symbol} --json`；日 K 入口：`scripts/futu_market_data.py kline --code {target.normalized_symbol} --ktype 1d --json`。
 - 用 HKEX / 公司公告补充年报、中报、公告、上市文件和公司行动；用 AKShare / yfinance 作为财务与历史行情补充，Yahoo 格式：`{yahoo_symbol}`。
 {fallback_rule}"""
 

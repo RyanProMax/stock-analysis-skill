@@ -6,7 +6,7 @@
 
 ### 1. 富途 OpenAPI 能力整合
 
-**目标**：把已安装的 `futuapi` / `install-futu-opend` skills 纳入 `stock-analysis-skill` 的统一路由，而不是复制富途脚本或把本仓库变成行情实现源。
+**目标**：把 Futu/OpenD 能力纳入 `stock-analysis-skill` 的统一路由；`/hkipo` 与 `/research` 已用能力优先走 `stock-analysis-api` 内部 CLI，其他尚未迁移能力继续路由到已安装的 `futuapi` / `install-futu-opend` skills，而不是复制富途脚本或把本仓库变成行情实现源。
 
 **能力范围**：
 
@@ -20,6 +20,7 @@
 
 - `stock-analysis-skill` 只负责意图路由、固定模板和安全边界
 - 标准 A 股低 token quote / objective analyze / `/research` A 股与美股深度研报底稿继续优先走 `stock-analysis-api` CLI；`/research` 由 executor 运行时解析绝对 API 命令，避免宿主工作区 cwd 影响
+- `/hkipo` IPO list、`/research` 港股 OpenD 预检 / snapshot / K 线和 HK IPO 回测首日 K 线走 `stock-analysis-api/scripts/futu_market_data.py`
 - 港 / 美 / 多市场行情、盘口、期权、账户、持仓、订单等只读查询能力路由到 `futuapi`
 - OpenD 安装与连通性问题路由到 `install-futu-opend`
 - 禁止 AI 接触交易密码；禁止通过 SDK 或脚本调用交易解锁
@@ -43,11 +44,12 @@
 - [x] `/research` 支持股票名输入，由上游 CLI 识别唯一代码后再分析
 - [x] `/research` 增加行业趋势、市场热度、Peer PE 和权威研报汇总模块
 - [x] `/research` 显式港股增加 OpenD 前置确认，未确认时不允许自行降级
+- [x] `/research` 港股 OpenD 预检和 snapshot / K 线入口迁移到 API Futu CLI
 - [ ] `/research` 港股数据层从后置 prompt 路由升级为稳定字段矩阵与验证样例
 - [ ] `/research` 美股补充 SEC filings / earnings transcript 证据层缓存与引用规范
 - [x] 港股 IPO 池工作流增加近 100 个已上市 IPO 首日表现回测 MVP
 - [x] 港股 IPO 回测补充评分分桶、排序相关性和高分/低分失配样本
-- [x] 港股 IPO 回测支持用 Futu/OpenD 历史日 K 线重算首日涨幅
+- [x] 港股 IPO 回测支持通过 API Futu CLI 用 Futu/OpenD 历史日 K 线重算首日涨幅
 - [x] 港股 IPO 回测补充绿鞋/基石/暗盘 enrichment 数据源自动抓取
 - [x] 港股 IPO 池工作流强制当前日期新鲜度与 Futu/OpenD 优先数据源
 - [x] 港股 IPO 池输出压缩为极简结论和单表关键字段
@@ -89,3 +91,4 @@
 
 - 2026-05-04：`/research` 标准 CLI 命令改为解析绝对 `uv`，优先 `STOCK_ANALYSIS_UV` / `UV_BIN` / `UV`，再查 PATH 和 `$HOME` 常见安装位；找不到时显式预检失败，不再依赖重启后的服务 PATH。
 - 2026-05-04：`/research` 显式港股路径新增 OpenD 只读前置预检；OpenD 或 futuapi 环境不可用时直接询问用户是否继续，只有 `--continue-without-opend` 确认后才允许降级数据源。
+- 2026-05-06：`/hkipo` 当前 IPO 池、`/research` 港股 OpenD 预检 / snapshot / K 线入口和 HK IPO 回测首日 K 线已迁移到 `stock-analysis-api/scripts/futu_market_data.py`，不再调用外部 `futuapi` 脚本。

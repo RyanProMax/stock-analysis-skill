@@ -16,19 +16,19 @@ import research
 class ResearchCommandTest(unittest.TestCase):
     def _make_fake_futu_preflight(self, root: pathlib.Path) -> tuple[pathlib.Path, dict[str, str]]:
         skill_dir = root / "stock-analysis-skill"
-        futuapi_dir = root / ".agents" / "skills" / "futuapi"
-        futu_python = futuapi_dir / ".venv" / "bin" / "python"
-        preflight_script = futuapi_dir / "scripts" / "quote" / "get_global_state.py"
+        api_root = root / "stock-analysis-api"
+        futu_cli = api_root / "scripts" / "futu_market_data.py"
+        uv_path = root / "tooling" / "uv"
         skill_dir.mkdir(parents=True)
-        futu_python.parent.mkdir(parents=True)
-        preflight_script.parent.mkdir(parents=True)
-        futu_python.write_text(
+        futu_cli.parent.mkdir(parents=True)
+        uv_path.parent.mkdir(parents=True)
+        futu_cli.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+        uv_path.write_text(
             "#!/bin/sh\necho '{\"data\":{\"qot_logined\":true}}'\n",
             encoding="utf-8",
         )
-        futu_python.chmod(0o755)
-        preflight_script.write_text("#!/usr/bin/env python\n", encoding="utf-8")
-        return skill_dir, {"HOME": str(root), "PATH": ""}
+        uv_path.chmod(0o755)
+        return skill_dir, {"HOME": str(root), "PATH": "", "STOCK_ANALYSIS_UV": str(uv_path)}
 
     def test_cn_symbol_builds_assistant_prompt_with_full_stock_analyze_cli(self) -> None:
         result = research.build_reply(
@@ -452,11 +452,12 @@ class ResearchCommandTest(unittest.TestCase):
 
         self.assertEqual(reply["type"], "assistant_prompt")
         self.assertIn("OpenD 预检已通过", content)
+        self.assertIn("scripts/futu_market_data.py global-state --json", content)
         self.assertIn("HK.00700", content)
         self.assertIn("0700.HK", content)
         self.assertIn("港股", content)
         self.assertIn("后置支持", content)
-        self.assertIn("Futu/OpenD", content)
+        self.assertIn("stock-analysis-api Futu CLI", content)
         self.assertIn("HKEX", content)
         self.assertNotIn("uv run python scripts/stock_analyze.py --market hk", content)
 

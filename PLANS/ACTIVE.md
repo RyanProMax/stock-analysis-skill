@@ -16,6 +16,56 @@
 
 ## Milestones
 
+### M31 — /hkipo 与 /research Futu 能力迁移到 API
+
+Status: `done`
+
+Scope:
+
+- `commands/hkipo.py`
+- `commands/research.py`
+- `scripts/hkipo_backtest.py`
+- `tests/test_hkipo_command.py`
+- `tests/test_research_command.py`
+- `tests/test_hkipo_backtest.py`
+- `SKILL.md`
+- `README.md`
+- `references/futu.md`
+- `references/research.md`
+- `references/hkipo.md`
+- `PLANS/ACTIVE.md`
+- `PLANS/ROADMAP.md`
+
+Validation:
+
+- `python3 -m unittest tests/test_hkipo_command.py tests/test_research_command.py tests/test_hkipo_backtest.py`
+- `python3 -m unittest discover -s tests`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+
+Progress:
+
+- 2026-05-06 北京时间：用户要求先把 `/hkipo` 与 `/research` 用到的 Futu/OpenD 能力全量迁移到 `stock-analysis-api`。
+- 2026-05-06 北京时间：确认迁移范围为 `/hkipo` IPO list、`/research` OpenD global-state 预检、HK IPO 回测历史日 K，以及港股研报 prompt 中引用的 snapshot 入口；不包含盘口、逐笔、分时、期权、账户、持仓和订单等尚未被这两个命令直接使用的能力。
+- 2026-05-06 北京时间：已将 `/hkipo` IPO list 命令、`/research` 港股 OpenD 预检与 prompt 中的 snapshot/kline 入口，以及 `hkipo_backtest.py --debut-price-source futu-kline` 切换到 `stock-analysis-api/scripts/futu_market_data.py`。
+
+Validation results:
+
+- failed as expected 2026-05-06 北京时间：`python3 -m unittest tests/test_hkipo_command.py tests/test_research_command.py tests/test_hkipo_backtest.py`，新增测试证明旧实现仍调用外部 `futuapi` 脚本 / SDK。
+- passed 2026-05-06 北京时间：`python3 -m unittest tests/test_hkipo_command.py tests/test_research_command.py tests/test_hkipo_backtest.py`
+- passed 2026-05-06 北京时间：`python3 -m unittest discover -s tests`
+- passed 2026-05-06 北京时间：`python3 -m py_compile scripts/*.py commands/*.py`（普通沙箱无法写 `__pycache__`，已按权限流程提升后重跑）
+- passed 2026-05-06 北京时间：`git diff --check`
+- passed 2026-05-06 北京时间：`rg -n "futuapi/scripts|quote/get_ipo_list|quote/get_global_state|find_futuapi|candidate_futuapi|FUTU_OPEND_PREFLIGHT_SCRIPT|FUTU_IPO_SCRIPT|from futu import" commands scripts tests SKILL.md README.md AGENTS.md references/futu.md references/research.md references/hkipo.md PLANS/ROADMAP.md` 无命中。
+- passed 2026-05-06 北京时间：仓库无 `scripts/review.sh`，已按 review gate 人工复核 diff；确认 `/hkipo`、`/research` 与 HK IPO 回测主路径不再调用外部 `futuapi` 脚本，失败路径仍保留确认/降级门槛。
+
+Handoff:
+
+- `/hkipo` 当前 IPO 池改为生成 `stock-analysis-api/scripts/futu_market_data.py ipo-list --market HK --json` 的绝对 API CLI 命令。
+- `/research` 显式港股 OpenD 预检改为 `scripts/futu_market_data.py global-state --json`；prompt 中的港股 snapshot / kline 入口也指向 API CLI。
+- `scripts/hkipo_backtest.py --debut-price-source futu-kline` 改为通过 API CLI 拉首日 K 线；`--api-root` / `--uv` 可显式指定 API 仓库与 uv。
+- 盘口、逐笔、分时、期权、账户、持仓和订单等尚未被 `/hkipo` / `/research` 直接使用的能力仍保留为后续迁移范围。
+
 ### M30 — /hkipo 极简正文与热度稳定性
 
 Status: `done`

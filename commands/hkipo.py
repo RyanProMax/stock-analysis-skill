@@ -6,22 +6,24 @@ from __future__ import annotations
 import json
 import os
 import shlex
+import shutil
 import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Mapping
 from zoneinfo import ZoneInfo
 
 
-FUTU_IPO_SCRIPT = Path("scripts/quote/get_ipo_list.py")
+FUTU_MARKET_DATA_SCRIPT = Path("scripts") / "futu_market_data.py"
 INCLUDE_ALL_FLAG = "--all"
 
 
 @dataclass(frozen=True)
 class FutuIpoCommand:
     command: str | None
-    python_path: Path | None
-    script_path: Path | None
+    api_root: Path | None
+    uv_path: Path | None
     reason: str | None
 
 
@@ -29,48 +31,78 @@ def emit(payload: dict) -> None:
     sys.stdout.write(json.dumps(payload, ensure_ascii=False))
 
 
-def path_exists(path: Path) -> Path | None:
-    expanded = path.expanduser()
-    if not expanded.is_absolute():
-        expanded = Path.cwd() / expanded
-    absolute = expanded.absolute()
-    return absolute if absolute.exists() else None
-
-
-def resolve_skill_dir(skill_dir: str | Path | None = None) -> Path:
+def resolve_skill_dir(
+    skill_dir: str | Path | None = None,
+    env: Mapping[str, str] | None = None,
+) -> Path:
     if skill_dir:
         return Path(skill_dir).expanduser().resolve()
-    env_skill_dir = os.environ.get("CLI_CLAW_SKILL_DIR")
+    resolved_env = os.environ if env is None else env
+    env_skill_dir = resolved_env.get("CLI_CLAW_SKILL_DIR")
     if env_skill_dir:
         return Path(env_skill_dir).expanduser().resolve()
     return Path(__file__).resolve().parents[1]
 
 
-def venv_python_path(root: Path) -> Path:
-    if os.name == "nt":
-        return root / ".venv" / "Scripts" / "python.exe"
-    return root / ".venv" / "bin" / "python"
+def _path_from_env_executable(value: str, env: Mapping[str, str] | None = None) -> Path | None:
+    raw_value = str(value or "").strip()
+    if not raw_value:
+        return None
+    path_env = None if env is None else env.get("PATH", "")
+    if os.sep not in raw_value and not (os.altsep and os.altsep in raw_value):
+        resolved = shutil.which(raw_value, path=path_env)
+        if resolved:
+            return Path(resolved).expanduser().resolve()
+    candidate = Path(raw_value).expanduser()
+    if not candidate.is_absolute():
+        candidate = Path.cwd() / candidate
+    candidate = candidate.resolve()
+    return candidate if candidate.is_file() else None
 
 
-def candidate_futuapi_dirs(skill_dir: Path, home_dir: Path) -> list[Path]:
+def candidate_uv_paths(env: Mapping[str, str] | None = None) -> list[Path]:
+    resolved_env = os.environ if env is None else env
     candidates: list[Path] = []
-    for env_name in ("FUTUAPI_SKILL_DIR", "CLI_CLAW_FUTUAPI_SKILL_DIR"):
-        env_value = os.environ.get(env_name)
-        if env_value:
-            candidates.append(Path(env_value).expanduser())
+    for env_name in ("STOCK_ANALYSIS_UV", "UV_BIN", "UV"):
+        uv_path = _path_from_env_executable(resolved_env.get(env_name, ""), env=env)
+        if uv_path:
+            candidates.append(uv_path)
+    path_uv = shutil.which("uv", path=None if env is None else resolved_env.get("PATH", ""))
+    if path_uv:
+        candidates.append(Path(path_uv).expanduser().resolve())
+    home_value = resolved_env.get("HOME") or str(Path.home())
+    if home_value:
+        home = Path(home_value).expanduser()
+        candidates.extend([home / ".local" / "bin" / "uv", home / ".cargo" / "bin" / "uv"])
 
-    roots = [
-        skill_dir.parent,
-        skill_dir.parent.parent,
-        home_dir / ".agents" / "skills",
-        home_dir / ".claude" / "skills",
-        home_dir / ".cli-claw" / "skills",
-    ]
-    for root in roots:
-        candidates.append(root / "futuapi")
-        if root.exists():
-            candidates.extend(root.glob("*/futuapi"))
+    seen: set[Path] = set()
+    unique: list[Path] = []
+    for candidate in candidates:
+        resolved = candidate.expanduser().resolve()
+        if resolved in seen or not resolved.is_file():
+            continue
+        seen.add(resolved)
+        unique.append(resolved)
+    return unique
 
+
+def candidate_api_roots(
+    skill_dir: Path,
+    home_dir: Path,
+    env: Mapping[str, str] | None = None,
+) -> list[Path]:
+    resolved_env = os.environ if env is None else env
+    candidates: list[Path] = []
+    env_root = resolved_env.get("STOCK_ANALYSIS_API_ROOT")
+    if env_root:
+        candidates.append(Path(env_root))
+    candidates.extend(
+        [
+            skill_dir.parent / "stock-analysis-api",
+            skill_dir.parent.parent / "stock-analysis-api",
+            home_dir / "stock-analysis-api",
+        ]
+    )
     seen: set[Path] = set()
     unique: list[Path] = []
     for candidate in candidates:
@@ -82,76 +114,60 @@ def candidate_futuapi_dirs(skill_dir: Path, home_dir: Path) -> list[Path]:
     return unique
 
 
-def find_futuapi_script(skill_dir: Path, home_dir: Path) -> Path | None:
-    for futuapi_dir in candidate_futuapi_dirs(skill_dir, home_dir):
-        script_path = futuapi_dir / FUTU_IPO_SCRIPT
-        if script_path.is_file():
-            return script_path.resolve()
-    return None
-
-
-def current_python_has_futu() -> bool:
-    try:
-        import futu  # noqa: F401
-    except Exception:
-        return False
-    return True
-
-
-def find_futu_python(skill_dir: Path, script_path: Path | None) -> Path | None:
-    candidates: list[Path] = []
-    for env_name in ("STOCK_ANALYSIS_FUTU_PYTHON", "FUTUAPI_PYTHON"):
-        env_value = os.environ.get(env_name)
-        if env_value:
-            candidates.append(Path(env_value).expanduser())
-
-    candidates.append(venv_python_path(skill_dir))
-    if script_path:
-        futuapi_dir = script_path.parents[2]
-        candidates.append(venv_python_path(futuapi_dir))
-
-    if current_python_has_futu():
-        candidates.append(Path(sys.executable))
-
-    for candidate in candidates:
-        resolved = path_exists(candidate)
-        if resolved:
-            return resolved
+def _valid_futu_api_root(path: Path) -> Path | None:
+    root = path.expanduser()
+    if not root.is_absolute():
+        root = Path.cwd() / root
+    root = root.resolve()
+    if (root / FUTU_MARKET_DATA_SCRIPT).is_file():
+        return root
     return None
 
 
 def resolve_futu_ipo_command(
     skill_dir: str | Path | None = None,
     home_dir: str | Path | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> FutuIpoCommand:
-    resolved_skill_dir = resolve_skill_dir(skill_dir)
+    resolved_skill_dir = resolve_skill_dir(skill_dir, env=env)
     resolved_home_dir = (
         Path(home_dir).expanduser().resolve() if home_dir else Path.home().resolve()
     )
-    script_path = find_futuapi_script(resolved_skill_dir, resolved_home_dir)
-    python_path = find_futu_python(resolved_skill_dir, script_path)
+    uv_path = candidate_uv_paths(env=env)
+    resolved_uv_path = uv_path[0] if uv_path else None
+    api_root = None
+    for candidate in candidate_api_roots(resolved_skill_dir, resolved_home_dir, env=env):
+        api_root = _valid_futu_api_root(candidate)
+        if api_root:
+            break
 
-    missing: list[str] = []
-    if not python_path:
-        missing.append("stock-analysis-skill .venv Python 或可导入 futu 的 Python")
-    if not script_path:
-        missing.append("已安装 futuapi skill 的 get_ipo_list.py")
-    if missing:
+    if not api_root:
         return FutuIpoCommand(
             command=None,
-            python_path=python_path,
-            script_path=script_path,
-            reason="未找到" + "、".join(missing),
+            api_root=None,
+            uv_path=resolved_uv_path,
+            reason="未找到 stock-analysis-api 仓库或 scripts/futu_market_data.py",
+        )
+    if not resolved_uv_path:
+        return FutuIpoCommand(
+            command=None,
+            api_root=api_root,
+            uv_path=None,
+            reason=(
+                "未找到 uv 可执行文件；请设置 STOCK_ANALYSIS_UV / UV_BIN，"
+                "或确保 HOME 下存在 .local/bin/uv / .cargo/bin/uv"
+            ),
         )
 
     command = (
-        f"cd {shlex.quote(str(resolved_skill_dir))} && "
-        f"{shlex.quote(str(python_path))} {shlex.quote(str(script_path))} HK --json"
+        f"cd {shlex.quote(str(api_root))} && "
+        f"{shlex.quote(str(resolved_uv_path))} run python "
+        "scripts/futu_market_data.py ipo-list --market HK --json"
     )
     return FutuIpoCommand(
         command=command,
-        python_path=python_path,
-        script_path=script_path,
+        api_root=api_root,
+        uv_path=resolved_uv_path,
         reason=None,
     )
 
@@ -159,13 +175,14 @@ def resolve_futu_ipo_command(
 def format_futu_instruction(futu_command: FutuIpoCommand) -> str:
     if futu_command.command:
         return (
-            f"`{futu_command.command}`。这条命令由 /hkipo executor 运行时解析，"
-            "必须直接复制执行；不要改用当前工作区 `.venv/bin/python` 或系统 Python。"
+            f"stock-analysis-api Futu CLI：`{futu_command.command}`。"
+            "这条命令由 /hkipo executor 运行时解析，必须直接复制执行；"
+            "不要改用当前工作区 `.venv/bin/python`、系统 Python 或外部 skill 脚本。"
         )
 
     return (
-        f"Futu/OpenD 预检：{futu_command.reason}。不要在当前工作区猜测 "
-        "`.venv/bin/python`；此时才允许按 Futu/OpenD 不可用处理，并用 HKEX / "
+        f"stock-analysis-api Futu CLI 预检：{futu_command.reason}。不要在当前工作区"
+        "猜测 `.venv/bin/python`；此时才允许按 Futu/OpenD 不可用处理，并用 HKEX / "
         "公司公告 / 财经站补齐。"
     )
 
@@ -193,12 +210,13 @@ def build_prompt(
     payload: dict,
     skill_dir: str | Path | None = None,
     home_dir: str | Path | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> str:
     today = datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
     workspace = payload.get("workspace") or {}
     workspace_name = workspace.get("name") or workspace.get("folder") or "当前工作区"
     futu_instruction = format_futu_instruction(
-        resolve_futu_ipo_command(skill_dir=skill_dir, home_dir=home_dir)
+        resolve_futu_ipo_command(skill_dir=skill_dir, home_dir=home_dir, env=env)
     )
     include_closed = should_include_closed_ipos(payload)
     if include_closed:

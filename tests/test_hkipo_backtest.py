@@ -1,5 +1,6 @@
 import pathlib
 import sys
+import tempfile
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -8,6 +9,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from hkipo_backtest import (
     IpoSample,
     apply_futu_debut_returns,
+    make_futu_debut_close_fetcher,
     apply_xinguyufu_enrichment,
     summarize_score_calibration,
 )
@@ -81,6 +83,31 @@ class FutuDebutReturnTest(unittest.TestCase):
         self.assertEqual(sample.futu_debut_close, 100.0)
         self.assertEqual(sample.listed_table_debut_return_pct, 10.0)
         self.assertAlmostEqual(sample.debut_return_pct, 25.0)
+
+    def test_futu_first_day_close_fetcher_uses_stock_analysis_api_cli(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = pathlib.Path(raw_root).resolve()
+            api_root = root / "stock-analysis-api"
+            futu_cli = api_root / "scripts" / "futu_market_data.py"
+            uv_path = root / "tooling" / "uv"
+            futu_cli.parent.mkdir(parents=True)
+            futu_cli.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+            uv_path.parent.mkdir(parents=True)
+            uv_path.write_text(
+                "#!/bin/sh\n"
+                "printf '%s\n' '{\"status\":\"ok\",\"data\":[{\"time_key\":\"2025-12-23\",\"close\":88.8}]}'\n",
+                encoding="utf-8",
+            )
+            uv_path.chmod(0o755)
+
+            fetch_close, closer = make_futu_debut_close_fetcher(
+                api_root=api_root,
+                uv_path=uv_path,
+            )
+            close = fetch_close("02635.HK", "2025-12-23")
+            closer.close()
+
+        self.assertEqual(close, 88.8)
 
 
 class XinguyufuEnrichmentTest(unittest.TestCase):

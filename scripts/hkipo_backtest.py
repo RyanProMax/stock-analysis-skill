@@ -7,19 +7,23 @@ import argparse
 import csv
 import json
 import math
+import os
 import re
+import shutil
 import statistics
 import subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass
 from html.parser import HTMLParser
+from pathlib import Path
 from typing import Callable, Iterable
 from urllib.parse import quote
 
 AASTOCKS_LISTED_IPO_URL = "https://aastocks.com/en/stocks/market/ipo/listedipo.aspx"
 XINGUYUFU_IPO_API_URL = "https://xinguyufu.cn/api/ipo"
 USER_AGENT = "Mozilla/5.0 (compatible; stock-analysis-skill/1.0)"
+FUTU_MARKET_DATA_SCRIPT = Path("scripts") / "futu_market_data.py"
 
 
 @dataclass
@@ -147,6 +151,95 @@ def normalize_listing_date(value: str) -> str | None:
 def to_futu_hk_code(code: str) -> str:
     match = re.fullmatch(r"(\d{5})\.HK", code.strip())
     return f"HK.{match.group(1)}" if match else code.strip()
+
+
+class NoopCloser:
+    def close(self) -> None:
+        return None
+
+
+def _path_from_env_executable(value: str, env: dict[str, str] | None = None) -> Path | None:
+    raw_value = str(value or "").strip()
+    if not raw_value:
+        return None
+    path_env = None if env is None else env.get("PATH", "")
+    if os.sep not in raw_value and not (os.altsep and os.altsep in raw_value):
+        resolved = shutil.which(raw_value, path=path_env)
+        if resolved:
+            return Path(resolved).expanduser().resolve()
+    candidate = Path(raw_value).expanduser()
+    if not candidate.is_absolute():
+        candidate = Path.cwd() / candidate
+    candidate = candidate.resolve()
+    return candidate if candidate.is_file() else None
+
+
+def resolve_uv_path(
+    uv_path: str | Path | None = None,
+    env: dict[str, str] | None = None,
+) -> Path | None:
+    if uv_path:
+        candidate = Path(uv_path).expanduser()
+        if not candidate.is_absolute():
+            candidate = Path.cwd() / candidate
+        candidate = candidate.resolve()
+        if candidate.is_file():
+            return candidate
+
+    resolved_env = os.environ if env is None else env
+    for env_name in ("STOCK_ANALYSIS_UV", "UV_BIN", "UV"):
+        candidate = _path_from_env_executable(resolved_env.get(env_name, ""), env=env)
+        if candidate:
+            return candidate
+    path_uv = shutil.which("uv", path=None if env is None else resolved_env.get("PATH", ""))
+    if path_uv:
+        return Path(path_uv).expanduser().resolve()
+    home_value = resolved_env.get("HOME") or str(Path.home())
+    for candidate in (Path(home_value) / ".local" / "bin" / "uv", Path(home_value) / ".cargo" / "bin" / "uv"):
+        resolved = candidate.expanduser().resolve()
+        if resolved.is_file():
+            return resolved
+    return None
+
+
+def resolve_futu_api_root(
+    api_root: str | Path | None = None,
+    env: dict[str, str] | None = None,
+) -> Path | None:
+    resolved_env = os.environ if env is None else env
+    candidates: list[Path] = []
+    if api_root:
+        candidates.append(Path(api_root))
+    env_root = resolved_env.get("STOCK_ANALYSIS_API_ROOT")
+    if env_root:
+        candidates.append(Path(env_root))
+    skill_root = Path(__file__).resolve().parents[1]
+    candidates.extend(
+        [
+            skill_root.parent / "stock-analysis-api",
+            skill_root.parent.parent / "stock-analysis-api",
+        ]
+    )
+    seen: set[Path] = set()
+    for candidate in candidates:
+        resolved = candidate.expanduser().resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        if (resolved / FUTU_MARKET_DATA_SCRIPT).is_file():
+            return resolved
+    return None
+
+
+def last_json_line(output: str) -> str:
+    stripped_output = str(output or "").strip()
+    if stripped_output.startswith("{") and stripped_output.endswith("}"):
+        return stripped_output
+    for line in reversed(str(output or "").splitlines()):
+        stripped = line.strip()
+        if stripped.startswith("{") and stripped.endswith("}"):
+            return stripped
+    return ""
 
 
 def normalize_hk_numeric_code(code: str) -> str:
@@ -326,31 +419,76 @@ def score_from_dimensions(
     return round(max(0, min(100, score)))
 
 
-def make_futu_debut_close_fetcher(host: str, port: int) -> tuple[Callable[[str, str], float | None], object]:
-    from futu import AuType, KLType, OpenQuoteContext, RET_OK
+def make_futu_debut_close_fetcher(
+    host: str = "127.0.0.1",
+    port: int = 11111,
+    *,
+    api_root: str | Path | None = None,
+    uv_path: str | Path | None = None,
+    env: dict[str, str] | None = None,
+    timeout: int = 30,
+) -> tuple[Callable[[str, str], float | None], object]:
+    resolved_api_root = resolve_futu_api_root(api_root=api_root, env=env)
+    if not resolved_api_root:
+        raise RuntimeError("未找到 stock-analysis-api Futu CLI（scripts/futu_market_data.py）")
+    resolved_uv_path = resolve_uv_path(uv_path=uv_path, env=env)
+    if not resolved_uv_path:
+        raise RuntimeError("未找到 uv 可执行文件，无法运行 stock-analysis-api Futu CLI")
 
-    try:
-        ctx = OpenQuoteContext(host=host, port=port, ai_type=1)
-    except TypeError:
-        ctx = OpenQuoteContext(host=host, port=port)
+    process_env = dict(os.environ if env is None else env)
+    process_env.setdefault("PYTHONIOENCODING", "utf-8")
+    process_env["FUTU_OPEND_HOST"] = str(host)
+    process_env["FUTU_OPEND_PORT"] = str(port)
 
     def fetch_close(code: str, listing_date: str) -> float | None:
         futu_code = to_futu_hk_code(code)
-        ret, data, _ = ctx.request_history_kline(
-            futu_code,
-            start=listing_date,
-            end=listing_date,
-            ktype=KLType.K_DAY,
-            autype=AuType.NONE,
-            max_count=1,
+        proc = subprocess.run(
+            [
+                str(resolved_uv_path),
+                "run",
+                "python",
+                str(FUTU_MARKET_DATA_SCRIPT),
+                "kline",
+                "--code",
+                futu_code,
+                "--ktype",
+                "1d",
+                "--start",
+                listing_date,
+                "--end",
+                listing_date,
+                "--num",
+                "1",
+                "--rehab",
+                "none",
+                "--json",
+            ],
+            cwd=str(resolved_api_root),
+            env=process_env,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
         )
-        if ret != RET_OK or data is None or len(data) == 0:
+        if proc.returncode != 0:
             return None
-        row = data.iloc[0] if hasattr(data, "iloc") else data[0]
-        close = row.get("close") if hasattr(row, "get") else None
+        json_line = last_json_line(proc.stdout)
+        if not json_line:
+            return None
+        try:
+            payload = json.loads(json_line)
+        except json.JSONDecodeError:
+            return None
+        if payload.get("status") == "failed" or payload.get("error"):
+            return None
+        rows = payload.get("data")
+        if not isinstance(rows, list) or not rows:
+            return None
+        row = rows[0]
+        close = row.get("close") if isinstance(row, dict) else None
         return float(close) if close not in {None, ""} else None
 
-    return fetch_close, ctx
+    return fetch_close, NoopCloser()
 
 
 def close_futu_context(ctx: object | None) -> None:
@@ -367,10 +505,19 @@ def apply_futu_debut_returns(
     delay: float = 0.55,
     host: str = "127.0.0.1",
     port: int = 11111,
+    api_root: str | Path | None = None,
+    uv_path: str | Path | None = None,
+    env: dict[str, str] | None = None,
 ) -> int:
     ctx = None
     if fetch_close is None:
-        fetch_close, ctx = make_futu_debut_close_fetcher(host, port)
+        fetch_close, ctx = make_futu_debut_close_fetcher(
+            host,
+            port,
+            api_root=api_root,
+            uv_path=uv_path,
+            env=env,
+        )
     updated = 0
     try:
         for sample in samples:
@@ -900,6 +1047,8 @@ def main() -> int:
     parser.add_argument("--futu-host", default="127.0.0.1", help="Futu OpenD host for --debut-price-source futu-kline")
     parser.add_argument("--futu-port", type=int, default=11111, help="Futu OpenD port for --debut-price-source futu-kline")
     parser.add_argument("--futu-delay", type=float, default=0.55, help="delay between Futu historical K-line requests")
+    parser.add_argument("--api-root", help="stock-analysis-api root for --debut-price-source futu-kline")
+    parser.add_argument("--uv", help="uv executable for --debut-price-source futu-kline")
     args = parser.parse_args()
     try:
         samples = load_aastocks_samples(args.limit, load_enrichment(args.enrichment_csv))
@@ -912,8 +1061,10 @@ def main() -> int:
                 delay=args.futu_delay,
                 host=args.futu_host,
                 port=args.futu_port,
+                api_root=args.api_root,
+                uv_path=args.uv,
             )
-            print(f"Futu/OpenD 首日 K 线覆盖：{updated}/{len(samples)}", file=sys.stderr)
+            print(f"stock-analysis-api Futu CLI 首日 K 线覆盖：{updated}/{len(samples)}", file=sys.stderr)
     except Exception as exc:
         print(f"回测数据抓取失败：{exc}", file=sys.stderr)
         return 1

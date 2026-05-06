@@ -1,5 +1,4 @@
 import pathlib
-import os
 import sys
 import tempfile
 import unittest
@@ -125,40 +124,30 @@ class HkipoFutuCommandTest(unittest.TestCase):
         self.assertNotIn("thinking", reference.lower())
         self.assertNotIn("tool steps", reference.lower())
 
-    def test_prompt_uses_runtime_resolved_absolute_futu_command(self) -> None:
+    def test_prompt_uses_runtime_resolved_stock_analysis_api_futu_cli(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
             root = pathlib.Path(raw_root).resolve()
             skill_dir = root / "developer space" / "stock-analysis-skill"
-            python_path = skill_dir / ".venv" / "bin" / "python"
-            futu_script = (
-                root
-                / ".agents"
-                / "skills"
-                / "futuapi"
-                / "scripts"
-                / "quote"
-                / "get_ipo_list.py"
-            )
-            python_path.parent.mkdir(parents=True)
-            target_python = root / "python-real"
-            target_python.write_text("#!/usr/bin/env python\n", encoding="utf-8")
-            if hasattr(os, "symlink"):
-                python_path.symlink_to(target_python)
-            else:
-                python_path.write_text("#!/usr/bin/env python\n", encoding="utf-8")
-            futu_script.parent.mkdir(parents=True)
-            futu_script.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+            api_root = root / "developer space" / "stock-analysis-api"
+            futu_cli = api_root / "scripts" / "futu_market_data.py"
+            uv_path = root / "tooling" / "uv"
+            skill_dir.mkdir(parents=True)
+            futu_cli.parent.mkdir(parents=True)
+            futu_cli.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+            uv_path.parent.mkdir(parents=True)
+            uv_path.write_text("#!/bin/sh\n", encoding="utf-8")
 
             prompt = hkipo.build_prompt(
                 {"workspace": {"name": "测试工作区"}},
                 skill_dir=skill_dir,
                 home_dir=root,
+                env={"STOCK_ANALYSIS_UV": str(uv_path)},
             )
 
-        self.assertIn(str(python_path), prompt)
-        self.assertNotIn(str(target_python), prompt)
-        self.assertIn(str(futu_script), prompt)
-        self.assertIn(f"{futu_script.resolve()} HK --json", prompt)
+        self.assertIn(f"cd {hkipo.shlex.quote(str(api_root))}", prompt)
+        self.assertIn(str(uv_path), prompt)
+        self.assertIn("scripts/futu_market_data.py ipo-list --market HK --json", prompt)
+        self.assertNotIn("futuapi", prompt)
         self.assertNotIn("`.venv/bin/python ", prompt)
         self.assertNotIn("/Users/ryan", prompt)
 
@@ -174,34 +163,33 @@ class HkipoFutuCommandTest(unittest.TestCase):
                 home_dir=root,
             )
 
-        self.assertIn("Futu/OpenD 预检：未找到", prompt)
+        self.assertIn("stock-analysis-api Futu CLI 预检：未找到", prompt)
         self.assertNotIn("`.venv/bin/python ", prompt)
         self.assertNotIn("/Users/ryan", prompt)
 
-    def test_prompt_can_use_futuapi_skill_venv_when_stock_skill_venv_is_missing(
+    def test_prompt_can_use_sibling_api_root_when_env_root_is_missing(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
             root = pathlib.Path(raw_root).resolve()
             skill_dir = root / "stock-analysis-skill"
-            futuapi_dir = root / ".agents" / "skills" / "futuapi"
-            futuapi_python = futuapi_dir / ".venv" / "bin" / "python"
-            futu_script = futuapi_dir / "scripts" / "quote" / "get_ipo_list.py"
-            skill_dir.mkdir()
-            futuapi_python.parent.mkdir(parents=True)
-            futuapi_python.write_text("#!/usr/bin/env python\n", encoding="utf-8")
-            futu_script.parent.mkdir(parents=True)
-            futu_script.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+            api_root = root / "stock-analysis-api"
+            futu_cli = api_root / "scripts" / "futu_market_data.py"
+            uv_path = root / "uv"
+            skill_dir.mkdir(parents=True)
+            futu_cli.parent.mkdir(parents=True)
+            futu_cli.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+            uv_path.write_text("#!/bin/sh\n", encoding="utf-8")
 
             prompt = hkipo.build_prompt(
                 {"workspace": {"name": "测试工作区"}},
                 skill_dir=skill_dir,
                 home_dir=root,
+                env={"STOCK_ANALYSIS_UV": str(uv_path)},
             )
 
-        self.assertIn(str(futuapi_python), prompt)
-        self.assertIn(f"{futu_script.resolve()} HK --json", prompt)
-        self.assertNotIn("Futu/OpenD 预检：未找到", prompt)
+        self.assertIn("scripts/futu_market_data.py ipo-list --market HK --json", prompt)
+        self.assertNotIn("stock-analysis-api Futu CLI 预检：未找到", prompt)
 
 
 if __name__ == "__main__":

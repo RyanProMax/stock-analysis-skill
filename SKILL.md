@@ -10,7 +10,7 @@ metadata:
 `stock-analysis-skill` 是股票任务的意图路由与输出约束，不是行情、分析或交易实现源。当前只保留四类入口：
 
 - `CLI 使用技能`：标准化 A 股客观分析、单票研报摘要、A 股 / ETF 低 token 实时行情。
-- `Futu/OpenD 使用技能`：港 / 美 / 多市场行情、深度行情、衍生品、账户 / 持仓 / 订单等只读查询。
+- `Futu/OpenD 使用技能`：港 / 美 / 多市场行情、深度行情、衍生品、账户 / 持仓 / 订单等只读查询；`/hkipo` 与 `/research` 已用到的 Futu 只读能力走 `stock-analysis-api` 内部 CLI。
 - `Tushare 使用技能`：用户明确要求的原始 Tushare 接口、字段、时间窗或接口查阅。
 - `Slash Commands`：`/research` 单票深度研报、`/hkipo` 港股 IPO 池研究工作流；`/cnipo` 目前占位。
 
@@ -51,7 +51,7 @@ metadata:
 
 1. `STOCK_ANALYSIS_API_ROOT` 指向 `stock-analysis-api` 仓库根目录。
 2. 固定 `uv` 可用：优先 `STOCK_ANALYSIS_UV`，其次 `UV_BIN` / `UV` / PATH / `$HOME/.local/bin/uv` / `$HOME/.cargo/bin/uv`；生成给 agent 的命令必须使用解析后的绝对 `uv` 路径。
-3. API 仓库存在 `scripts/poll_realtime_quotes.py` 与 `scripts/stock_analyze.py`。
+3. API 仓库存在 `scripts/poll_realtime_quotes.py`、`scripts/stock_analyze.py` 与 `scripts/futu_market_data.py`。
 4. A 股数据所需的 `TUSHARE_TOKEN` / `TUSHARE_HTTP_URL` 可被 API 仓库读取。
 
 标准命令：
@@ -59,6 +59,7 @@ metadata:
 ```bash
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/poll_realtime_quotes.py --symbols 600000,510300 --pretty
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/stock_analyze.py --market cn --symbols 300827 --mode base --pretty
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_market_data.py ipo-list --market HK --json
 ```
 
 输出规则统一见 `references/cli.md`。默认不要原样转贴 raw JSON；除非用户明确要求调试或原始输出，优先按固定模板汇总。`change_pct`、`turnover_rate`、`amplitude` 等 ratio 字段面向用户展示为百分比。
@@ -69,10 +70,11 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/stock_a
 
 进入该路由前确认：
 
-1. `futuapi` skill 已安装并可加载。
-2. OpenD 正在运行，默认地址 `127.0.0.1:11111`。
-3. Python SDK `futu-api` 版本满足 `futuapi` skill 要求。
-4. 请求不涉及交易、订阅、提醒、自选股、配置或本地文件写入。
+1. `/hkipo`、`/research` 港股预检 / snapshot / K 线和 HK IPO 回测优先使用 `stock-analysis-api/scripts/futu_market_data.py`。
+2. 盘口、逐笔、分时、期权、账户、资金、持仓、订单等尚未迁移能力仍要求 `futuapi` skill 已安装并可加载。
+3. OpenD 正在运行，默认地址 `127.0.0.1:11111`。
+4. Python SDK `futu-api` 版本满足 API 仓库或 `futuapi` skill 要求。
+5. 请求不涉及交易、订阅、提醒、自选股、配置或本地文件写入。
 
 OpenD 未安装、未启动或 SDK 版本不满足时，转入 `install-futu-opend`。输出 contract、watchlist 选路、失败降级和拒绝模板统一见 `references/futu.md`。
 
@@ -93,7 +95,7 @@ OpenD 未安装、未启动或 SDK 版本不满足时，转入 `install-futu-ope
 
 ## Slash Commands
 
-- `/research`：对一只 A 股 / 美股 / 港股生成深度研报 prompt。支持股票名 / 公司名输入；executor 不做本地缓存或硬编码匹配。短裸美股 ticker（如 `AAPL`）可直接走美股，较长英文公司名或非标准裸输入（如 `MINIMAX`）必须进入待解析工作流，不能因为全大写就强行标记为美股。A 股 / 美股优先复用 `stock-analysis-api` 的 `stock_analyze.py --mode full`；executor 会按 `STOCK_ANALYSIS_API_ROOT`、当前 skill 安装目录附近的 sibling `stock-analysis-api` 动态生成可复制的绝对 `cd ... && /absolute/uv run python ...` 命令。找不到 API 仓库时必须显式标记预检失败；上游返回 `identity_conflict` / `identity_not_found`，或返回 `data.items[0].status=failed/not_supported` 且 `error/info/meta` 指向身份、行情或市场不支持问题时，必须先解析这些字段并澄清或改道，不能沿用错误市场标题。显式港股在进入 agent 前必须调用 futuapi 的 OpenD 只读预检；预检失败只返回确认提示，用户用 `--continue-without-opend` 明确确认后才允许按 HKEX / 公司公告 / AKShare / yfinance 降级继续。待解析输入若唯一核验为港股，也必须先确认 OpenD 可调用；不可调用时先询问用户，不得自行降级。输出模板、飞书短版、最终回复清洗、`module_status` / `source_freshness` / `data_gaps` 可信度层、行业整体趋势、市场热度、同类公司平均 PE、权威机构研报汇总、风险与反证、历史验证、Sources 和禁止事项见 `references/research.md`。
+- `/research`：对一只 A 股 / 美股 / 港股生成深度研报 prompt。支持股票名 / 公司名输入；executor 不做本地缓存或硬编码匹配。短裸美股 ticker（如 `AAPL`）可直接走美股，较长英文公司名或非标准裸输入（如 `MINIMAX`）必须进入待解析工作流，不能因为全大写就强行标记为美股。A 股 / 美股优先复用 `stock-analysis-api` 的 `stock_analyze.py --mode full`；executor 会按 `STOCK_ANALYSIS_API_ROOT`、当前 skill 安装目录附近的 sibling `stock-analysis-api` 动态生成可复制的绝对 `cd ... && /absolute/uv run python ...` 命令。找不到 API 仓库时必须显式标记预检失败；上游返回 `identity_conflict` / `identity_not_found`，或返回 `data.items[0].status=failed/not_supported` 且 `error/info/meta` 指向身份、行情或市场不支持问题时，必须先解析这些字段并澄清或改道，不能沿用错误市场标题。显式港股在进入 agent 前必须调用 `stock-analysis-api/scripts/futu_market_data.py global-state --json` 做 OpenD 只读预检；预检失败只返回确认提示，用户用 `--continue-without-opend` 明确确认后才允许按 HKEX / 公司公告 / AKShare / yfinance 降级继续。待解析输入若唯一核验为港股，也必须先确认 OpenD 可调用；不可调用时先询问用户，不得自行降级。输出模板、飞书短版、最终回复清洗、`module_status` / `source_freshness` / `data_gaps` 可信度层、行业整体趋势、市场热度、同类公司平均 PE、权威机构研报汇总、风险与反证、历史验证、Sources 和禁止事项见 `references/research.md`。
 - `/hkipo`：默认自动发现当前仍可认购的港股 IPO 池，并按评分卡输出简明优先级报告；`/hkipo --all` 才纳入已截止认购但未上市标的。
 - `/cnipo`：预留 A 股 IPO 指令位，当前只返回占位说明。
 
@@ -102,13 +104,13 @@ OpenD 未安装、未启动或 SDK 版本不满足时，转入 `install-futu-ope
 - 读取 `references/hkipo.md`，使用 0-100 首日赔率评分卡。
 - 默认过滤 Futu/OpenD 返回的 `is_subscribe_status=false` 已截止新股；只有用户显式传入 `--all` 时，才输出已截止认购但未上市标的。
 - 必须按当前日期重新获取最新数据，不允许把旧日期的孖展、公开认购、暗盘或中签率当作当前数据；若只能找到旧数据，必须标注来源日期并按“过期/仅供趋势参考”处理，不得用于当前热度主评分。
-- 当前 IPO 池发现、招股状态、上市日、招股截止日、发售价、一手股数和入场费优先使用 Futu/OpenD 只读 `get_ipo_list(HK)`；`/hkipo` executor 会按当前 skill 安装目录动态生成可复制命令，不依赖用户工作区相对 `.venv`；Futu/OpenD 不可用或字段为 `N/A` 时，才用 HKEX / 公司公告 / 财经站补齐，并明确降级。
+- 当前 IPO 池发现、招股状态、上市日、招股截止日、发售价、一手股数和入场费优先使用 `stock-analysis-api/scripts/futu_market_data.py ipo-list --market HK --json`；`/hkipo` executor 会按当前 skill 安装目录动态生成可复制的 API CLI 命令，不依赖用户工作区相对 `.venv` 或外部 skill 脚本；Futu/OpenD 不可用或字段为 `N/A` 时，才用 HKEX / 公司公告 / 财经站补齐，并明确降级。
 - 事实层中的招股书、全球发售、配发结果和上市文件优先依赖 HKEX / 公司公告等一手来源；财经站只补充 Futu/OpenD 与一手来源未提供的孖展/认购热度、中签率、一手中签率、灰市、首日涨幅等二级数据。
 - 热度字段必须按固定顺序核验：Futu/OpenD 当前字段 → 当日或最接近报告日的券商/财经站孖展统计 → 公开认购倍数/一手中签率 → 暗盘。所有孖展、公开认购和暗盘数值都要标注来源更新时间；来源冲突时使用更新时间最新且不晚于报告日的数据，旧值只能作趋势参考。
 - 必须检查绿鞋 / 超额配股权、稳定价格操作人、基石质量与占比、保荐人、回拨和公众货比例。
 - 每个个股标题末尾写申购截止日和开奖/配发结果日，格式为 `M/D截止 | M/D开奖`；不要写建议性措辞、跟踪标签或“优先级”文字。
 - 默认输出极简报告正文：普通加粗标题、结论最多 3 条、窄字段块列表、短链接 Sources；Futu 当前字段、外部补充热度、回测映射、发行结构、基本面/估值和风险整合进每只 IPO 的短字段。不要使用 `#` / `##` Markdown 大标题或宽 Markdown 表格。正文不要插入空白空行；“💡 关键结论”“📌 优先级”“🔗 来源”、bullet、个股标题和 `📍 阶段`、`💰 热度`、`🛡 结构`、`📈 回测`、`⚠️ 风险` 等个股小点都用单换行连续排列。用少量固定 emoji 强化重点：🟢/🟡/⚪ 排序，💰热度，🛡结构，📈回测，⚠️风险，🔗来源。
-- 需要校准权重时运行：`.venv/bin/python scripts/hkipo_backtest.py --limit 100 --source aastocks --enrichment-source xinguyufu --debut-price-source futu-kline --format markdown`；OpenD 或 Futu SDK 不可用时降级为 `python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --enrichment-source xinguyufu --debut-price-source listed-table --format markdown`。重点看绿鞋/基石/暗盘覆盖、评分分桶、评分排序相关性、Top/Bottom 评分分位首日涨幅差和失配样本。
+- 需要校准权重时运行：`python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --enrichment-source xinguyufu --debut-price-source futu-kline --api-root "$STOCK_ANALYSIS_API_ROOT" --uv "$STOCK_ANALYSIS_UV" --format markdown`；OpenD 或 API Futu CLI 不可用时降级为 `python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --enrichment-source xinguyufu --debut-price-source listed-table --format markdown`。重点看绿鞋/基石/暗盘覆盖、评分分桶、评分排序相关性、Top/Bottom 评分分位首日涨幅差和失配样本。
 
 ## 输出要求
 
@@ -125,5 +127,5 @@ OpenD 未安装、未启动或 SDK 版本不满足时，转入 `install-futu-ope
 - 港股 IPO 评分与回测：`references/hkipo.md`
 - Tushare 接口总表：`references/api_reference.md`
 - Futu/OpenD 路由与输出 Contract：`references/futu.md`
-- Futu/OpenD 能力：已安装的 `futuapi` 与 `install-futu-opend` skills
+- Futu/OpenD 能力：`/hkipo` / `/research` 已迁移到 `stock-analysis-api/scripts/futu_market_data.py`；其他尚未迁移能力继续使用已安装的 `futuapi` 与 `install-futu-opend` skills
 - Tushare 官方文档：<https://tushare.pro/document/1?doc_id=290>

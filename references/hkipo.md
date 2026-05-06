@@ -25,7 +25,7 @@ If none qualify, state: `当前无符合条件的港股 IPO 池`.
 
 Current IPO reports must separate **current-state discovery** from **document evidence** and **secondary market heat**.
 
-1. Futu/OpenD `get_ipo_list(HK)` is the first source for the current IPO pool, subscription status, listing date, apply end date, offer price, lot size and entrance price. Use it before web finance portals whenever OpenD is available.
+1. `stock-analysis-api/scripts/futu_market_data.py ipo-list --market HK --json` is the first source for the current IPO pool, subscription status, listing date, apply end date, offer price, lot size and entrance price. Use it before web finance portals whenever OpenD is available.
 2. HKEX official listing documents, prospectus, allotment results, listing-date notices and company announcements are the first source for prospectus facts, offering structure, greenshoe, stabilizing manager, cornerstone investors, sponsors and proceeds use.
 3. Reliable finance portals and broker pages are fallback/secondary sources only for fields Futu/OpenD and HKEX do not expose: margin financing, public-offer multiple, one-lot success rate, grey-market data and first-day performance. Use a fixed source order for these heat fields: Futu/OpenD current fields → broker/finance margin table updated on or closest before the report date → public-offer multiple / one-lot success rate → grey-market data.
 4. Never use GitHub repos, model outputs, stale cached snippets, or unverifiable social posts as IPO fact sources.
@@ -127,10 +127,10 @@ python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --format markdow
 The script uses AAStocks Listed IPO fields: listing date, offer/listing price, market-cap range, public over-subscription rate, applied lots for one lot, one-lot success rate, last price, first-day return and accumulated return. When OpenD is logged in, use Futu historical daily K-line to recompute first-day close returns:
 
 ```bash
-.venv/bin/python scripts/hkipo_backtest.py --limit 100 --source aastocks --enrichment-source xinguyufu --debut-price-source futu-kline --format markdown
+python3 scripts/hkipo_backtest.py --limit 100 --source aastocks --enrichment-source xinguyufu --debut-price-source futu-kline --api-root "$STOCK_ANALYSIS_API_ROOT" --uv "$STOCK_ANALYSIS_UV" --format markdown
 ```
 
-AAStocks still provides the recent listed IPO sample list and offer price. Futu `get_ipo_list(HK)` covers current IPOs only; it is not a recent-100 listed IPO history source and does not provide historical greenshoe, cornerstone or grey-market fields. Use `--enrichment-source xinguyufu` to fetch public Xinguyufu API rows by stock code for greenshoe, cornerstone, grey-market, sponsor and stabilizer fields. This follows the open-source AKShare-style pattern of requesting public financial web pages / JSON with a browser user-agent and mapping fields explicitly.
+AAStocks still provides the recent listed IPO sample list and offer price. The API Futu CLI `ipo-list --market HK` covers current IPOs only; it is not a recent-100 listed IPO history source and does not provide historical greenshoe, cornerstone or grey-market fields. Use `--enrichment-source xinguyufu` to fetch public Xinguyufu API rows by stock code for greenshoe, cornerstone, grey-market, sponsor and stabilizer fields. This follows the open-source AKShare-style pattern of requesting public financial web pages / JSON with a browser user-agent and mapping fields explicitly.
 
 The report includes total win rate, average/median first-day return, break rate, heat buckets, score buckets, industry buckets, valuation/market-cap buckets, score/return correlation, score rank correlation, top-vs-bottom score quintile spread, and high-score loser / low-score winner mismatch samples.
 

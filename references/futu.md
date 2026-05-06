@@ -1,6 +1,6 @@
 # Futu/OpenD 路由与输出 Contract
 
-> 本文件记录 `stock-analysis-skill` 对已安装 `futuapi` / `install-futu-opend` skills 的统一路由、输出模板和安全边界。本仓库不复制富途脚本，不直接实现行情、账户或交易逻辑；通过本 skill 使用 Futu/OpenD 时只允许查询操作。
+> 本文件记录 `stock-analysis-skill` 对 Futu/OpenD 能力的统一路由、输出模板和安全边界。本仓库不复制富途脚本，不直接实现行情、账户或交易逻辑；`/hkipo` 与 `/research` 已用能力走 `stock-analysis-api/scripts/futu_market_data.py`，其他尚未迁移能力继续路由到已安装 `futuapi` / `install-futu-opend` skills。通过本 skill 使用 Futu/OpenD 时只允许查询操作。
 
 ## 全局只读护栏
 
@@ -14,6 +14,8 @@
 | --- | --- | --- |
 | A 股标准化客观分析 | `stock-analysis-api` / `scripts/stock_analyze.py` | 保持固定 objective analyze contract |
 | A 股股票 / ETF 低 token 行情轮询 | `stock-analysis-api` / `scripts/poll_realtime_quotes.py` | 适合简单 watchlist 与飞书推送 |
+| `/hkipo` 当前 IPO 池 | `stock-analysis-api` / `scripts/futu_market_data.py ipo-list --market HK --json` | executor 解析 API root 与绝对 `uv` |
+| `/research` 港股预检 / snapshot / K 线 | `stock-analysis-api` / `scripts/futu_market_data.py` | 使用 `global-state`、`snapshot`、`kline` 子命令 |
 | 港股 / 美股 / 多市场行情、盘口、逐笔、分时、K 线 | `futuapi` | 需要 OpenD 与 `futu-api` SDK |
 | 期权链、到期日、Greeks、窝轮 / 牛熊证、期货资料 | `futuapi` | 使用富途多市场衍生品能力 |
 | 资金流、经纪队列、板块、条件选股 | `futuapi` | 用于市场结构与筛选 |
@@ -25,16 +27,16 @@
 
 - 时间：面向用户统一展示北京时间（Asia/Shanghai, UTC+8）；源数据时间保留在 `source_time`。
 - 百分比：内部 ratio 字段保持小数；面向用户展示为百分比，例如 `0.021` -> `+2.10%`。
-- 数据源：必须标注 `source`，例如 `stock-analysis-api`、`futuapi`、`tushare`。
+- 数据源：必须标注 `source`，例如 `stock-analysis-api`、`futu_opend`、`futuapi`、`tushare`。
 - 降级：源端不可用时输出 `status=degraded` 或 `status=failed`，不要伪造行情或账户数据。
 - 建议边界：不输出买卖建议、目标价、主观 conviction；只输出事实、触发原因和风险提示。
 
-## 跨 Skill 命令解析
+## 跨仓库命令解析
 
-- `/hkipo` 这类 slash command 不应把 `futuapi` 脚本路径写死到某个用户目录，也不应让宿主 Agent 在当前工作区猜测 `.venv/bin/python`。
-- command executor 负责按当前 `stock-analysis-skill` 安装目录解析 Python venv，并在常见 skill 根目录或 `FUTUAPI_SKILL_DIR` 中查找 `futuapi/scripts/quote/get_ipo_list.py`。
-- 若未找到可用 Python 或 `futuapi` 脚本，prompt 必须明确写出 Futu/OpenD 预检失败原因，再允许降级到 HKEX / 公司公告 / 财经站。
-- `/research HK.*` 与 `/research *.HK` 必须更严格：executor 先用 `futuapi/scripts/quote/get_global_state.py --json` 做 OpenD 只读预检；未找到脚本、未找到 futuapi `.venv/bin/python`、OpenD 未运行或预检失败时，直接返回 `final_markdown` 询问用户是否继续，不生成研报 prompt。
+- `/hkipo` 不应把任何用户目录或外部 skill 脚本路径写死，也不应让宿主 Agent 在当前工作区猜测 `.venv/bin/python`。
+- command executor 负责按 `STOCK_ANALYSIS_API_ROOT` 或当前 `stock-analysis-skill` 安装目录附近的 sibling `stock-analysis-api` 解析 API 根目录，并按 `STOCK_ANALYSIS_UV` / `UV_BIN` / `UV` / PATH / `$HOME/.local/bin/uv` / `$HOME/.cargo/bin/uv` 解析绝对 `uv`。
+- `/hkipo` 当前 IPO 池必须生成 `cd <api_root> && <uv> run python scripts/futu_market_data.py ipo-list --market HK --json`；若 API CLI 或 `uv` 缺失，prompt 必须明确写出 Futu/OpenD 预检失败原因，再允许降级到 HKEX / 公司公告 / 财经站。
+- `/research HK.*` 与 `/research *.HK` 必须更严格：executor 先用 `cd <api_root> && <uv> run python scripts/futu_market_data.py global-state --json` 做 OpenD 只读预检；API CLI、`uv`、OpenD 或行情登录不可用时，直接返回 `final_markdown` 询问用户是否继续，不生成研报 prompt。
 - 只有用户明确追加 `--continue-without-opend` 后，`/research` 港股才允许按 HKEX / 公司公告 / AKShare / yfinance 降级继续；这类确认只放开数据源降级，不放开任何写入、订阅或交易能力。
 
 
