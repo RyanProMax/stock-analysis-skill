@@ -1240,8 +1240,41 @@ Review status:
 
 - passed
 
+### M34 — /research 默认重点版短报结构
+
+Status: `done`
+
+Scope:
+
+- 将 `/research` IM/飞书默认输出改为用户反馈确认的重点版结构
+- 默认先回答财务结构是否健康、估值合理性、行业相对高低估、当下情绪热度、未来叙事与增长点、权威机构观点共识与分歧
+- 保留可信度层、风险与反证、降级说明和 Sources，但不再把工程可信度放在正文最前面抢占注意力
+- 同步 `references/research.md`、`commands/research.py`、入口说明和测试
+
+Validation:
+
+- `python3 -m unittest tests/test_research_command.py -v`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+
+Progress:
+
+- 2026-05-06 北京时间：用户确认 TSLA 重点版结构更符合需求；本轮固化为 `/research` 默认飞书短版模板。
+- 2026-05-06 北京时间：已更新 `references/research.md` 的 Default Feishu Short Form，默认采用重点版 / 决策看板结构。
+- 2026-05-06 北京时间：已同步 `commands/research.py` prompt 输出格式、`SKILL.md` / `README.md` 入口说明，并增加测试断言。
+- 2026-05-06 北京时间：已抽样生成 `/research TSLA` prompt，确认飞书短版要求先回答财务结构、估值相对位置、情绪热度、叙事增长点和机构观点综合。
+
+Validation status:
+
+- passed
+
+Review status:
+
+- passed
+
 ## Progress
 
+- 2026-05-06：`/research` 飞书默认短版已改为重点版 / 决策看板结构，优先回答财务健康、估值相对位置、情绪热度、叙事增长点和机构观点综合，再给风险、可信度和降级说明。
 - 2026-05-04：`/research` 已新增行业整体趋势、市场热度、同类公司平均 PE、权威机构研报汇总四个强制模块；数据不可得时进入可信度/降级说明。
 - 2026-05-04：`/research` 股票名输入已改为上游 CLI 识别；executor 只传原始输入，不查本地缓存、不硬编码匹配、不生成下游识别模板。
 - 2026-04-27：移除旧 `docs/plan.md`，统一使用 `PLANS/`。
@@ -1253,6 +1286,8 @@ Review status:
 
 ## Validation
 
+- 已通过：M34 `python3 -m unittest tests/test_research_command.py -v`、`python3 -m py_compile scripts/*.py commands/*.py`、`git diff --check`
+- 已通过：M34 抽样执行 `python3 commands/research.py` 生成 `/research TSLA` prompt，确认重点版短报章节进入输出约束。
 - 已通过：M23 `python3 -m unittest discover -s tests -v`、`python3 -m py_compile scripts/*.py commands/*.py`、`git diff --check`
 - 已通过：`python3 -m unittest tests/test_research_command.py -v`
 - 已通过：`python3 -m unittest discover -s tests -v`
@@ -1327,3 +1362,4 @@ Review status:
 - M19 已完成：`/research` A 股 / 美股 prompt 已改为运行时解析 `stock-analysis-api` 绝对命令；找不到 API 仓库时显式预检失败并按研报降级规则继续。
 - M20 已完成：`/research` 已增加可信度层、风险与反证、历史验证模块；风险不新增独立指令，组合/持仓风险纳入同入口只读约束。
 - M21 已完成：`/research` 默认飞书短版和最终回复清洗已落地；最终正文直接从标题开始，过程日志和 debug 细节不进入用户版报告。
+- M34 已完成：`/research` 飞书默认短版升级为重点版 / 决策看板结构；默认先回答财务结构、估值合理性、行业相对位置、情绪热度、叙事增长点和机构观点综合，再给风险、可信度、降级说明与 Sources。

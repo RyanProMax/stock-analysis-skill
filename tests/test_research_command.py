@@ -113,6 +113,10 @@ class ResearchCommandTest(unittest.TestCase):
         self.assertIn("不得包含执行过程日志", content)
         self.assertIn("默认输出飞书短版", content)
         self.assertIn("2500-3500 字", content)
+        self.assertIn("重点版 / 决策看板", content)
+        self.assertIn("财务结构是否健康", content)
+        self.assertIn("估值与行业相对位置", content)
+        self.assertIn("机构观点综合", content)
         self.assertIn("调试细节", content)
 
     def test_research_reference_defines_final_reply_hygiene_and_short_form(self) -> None:
@@ -123,6 +127,10 @@ class ResearchCommandTest(unittest.TestCase):
         self.assertIn("不得包含执行过程日志", content)
         self.assertIn("Default Feishu Short Form", content)
         self.assertIn("2500-3500 字", content)
+        self.assertIn("focus-first decision dashboard", content)
+        self.assertIn("财务结构", content)
+        self.assertIn("估值与行业相对位置", content)
+        self.assertIn("机构观点综合", content)
         self.assertIn("Debug details", content)
 
     def test_cn_stock_name_passes_raw_input_to_upstream_cli(self) -> None:

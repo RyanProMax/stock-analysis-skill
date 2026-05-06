@@ -64,7 +64,7 @@ Source priority:
 3. **Collect primary evidence**: latest annual / quarterly filings, earnings release, guidance, major announcements, risk factors, and segment data.
 4. **Cross-check secondary data**: peer valuation, consensus, news, sector indicators, ownership or capital flows if relevant. Always collect industry trend, market heat, peer-average PE, and authoritative research-report summaries when sources are available.
 5. **Build data reliability layer**: fill `module_status`, `source_freshness`, and `data_gaps` before writing conclusions.
-6. **Write the memo**: separate facts, interpretation, uncertainty, risks, and historical validation. Keep every material claim traceable to a source.
+6. **Write the memo**: default IM / Feishu output is focus-first. Answer the user's most actionable research questions before technical metadata: financial health, valuation reasonableness, relative industry valuation, market heat, future narrative / growth drivers, and institutional research consensus vs disagreement. Keep every material claim traceable to a source.
 7. **Declare degradation**: if any required source is missing, stale, permission-limited, or unavailable, state it in the memo instead of filling gaps.
 
 ## Final Reply Hygiene
@@ -76,7 +76,7 @@ Source priority:
 
 ## Required Output Structure
 
-Use this shape by default. Keep headings compact and conclusion-first.
+Use this shape for full or expanded reports. Keep headings compact and conclusion-first. For IM / Feishu replies, the default is the focus-first short form below; do not expand every full-report section unless the user asks for “详细 / 完整 / 深度 / 展开”.
 
 ```markdown
 **/research｜{ticker} {company}｜{market}｜YYYY-MM-DD**
@@ -142,15 +142,27 @@ Use this shape by default. Keep headings compact and conclusion-first.
 
 For IM / Feishu replies, default to a compact report of 2500-3500 字 unless the user explicitly asks for “详细 / 完整 / 深度 / 展开”.
 
+The short form must be a **focus-first decision dashboard**, not a compressed checklist. The user should be able to capture the key points in the first screen:
+
+- First answer: company financial structure health, current valuation reasonableness, whether the stock looks rich or cheap relative to the industry, current market heat, future narrative / growth points, and authoritative institutional research consensus vs disagreement.
+- Put `module_status`, `source_freshness`, and `data_gaps` after the focus sections unless the data state is `failed` or identity is unresolved. Reliability metadata is mandatory, but should not bury the research conclusion.
+- Prefer strong section names such as `一句话结论`, `财务结构`, `估值与行业相对位置`, `情绪热度`, `叙事与增长点`, `机构观点综合`, `风险与反证`, `数据可信度`, `降级说明`, `Sources`.
+- Avoid broad narrative sections that force the reader to hunt for the point. Each section should directly answer “so what?” with dated evidence.
+
 Required short-form sections:
 
-1. `结论摘要`: 3-5 bullets, including data status, key facts, and largest uncertainty.
-2. `数据可信度`: user-readable summary of `module_status`, `source_freshness`, and `data_gaps`; keep it to 3 bullets when possible.
-3. `关键风险与反证`: 3-5 concrete risks and invalidation signals.
-4. `降级说明`: concise user-facing degradation reasons; no stack traces or internal function names.
-5. `Sources`: 3-8 authoritative sources.
+1. `一句话结论` or `结论摘要`: 1-3 bullets that state the core research answer, not process status.
+2. `财务结构`: liquidity, leverage, cash flow, margin quality, inventory / receivables / capex pressure, and whether the structure is healthy or stressed.
+3. `估值与行业相对位置`: current market cap / PE / PS / PB or relevant multiples, peer sample, PE basis, mean / median, exclusions for negative or abnormal PE, and whether the stock is relatively rich or cheap.
+4. `情绪热度`: price / volume / sector heat / news or search proxy / institution attention, separated from long-term fundamentals.
+5. `叙事与增长点`: 2-5 future narratives and their observable verification signals; include反证 signals when a narrative is still early.
+6. `机构观点综合`: authoritative broker / rating agency / industry / exchange / consulting reports with institution, report date, core point, consensus and disagreement. Do not turn ratings or target prices into advice.
+7. `风险与反证`: 3-5 concrete risks and invalidation signals.
+8. `数据可信度`: user-readable summary of `module_status`, `source_freshness`, and `data_gaps`; keep it compact unless reliability is the main issue.
+9. `降级说明`: concise user-facing degradation reasons; no stack traces or internal function names.
+10. `Sources`: 3-8 authoritative sources.
 
-Compress business, financials, valuation, catalysts, and historical validation into the sections above by default, but still include concise bullets for 行业整体趋势、市场热度、同类公司平均 PE、权威机构研报汇总. If any of the four modules is unavailable, explicitly state the missing source or limitation. Historical validation may be one line: “未做历史验证：原因...”. Expand the full structure only when requested.
+Compress business, industry trend, market snapshot, financials, valuation, catalysts, and historical validation into the focus-first sections by default. Still include concise bullets for 行业整体趋势、市场热度、同类公司平均 PE、权威机构研报汇总. If any of the four modules is unavailable, explicitly state the missing source or limitation in `数据可信度` or `降级说明`. Historical validation may be one line: “未做历史验证：原因...”. Expand the full structure only when requested.
 
 ## Data Reliability Contract
 
