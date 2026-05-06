@@ -16,6 +16,53 @@
 
 ## Milestones
 
+### M33 — 安装副本读取 skill `.env` 后调用 API Futu
+
+Status: `done`
+
+Scope:
+
+- `commands/env_loader.py`
+- `commands/hkipo.py`
+- `commands/research.py`
+- `tests/test_hkipo_command.py`
+- `tests/test_research_command.py`
+- `PLANS/ACTIVE.md`
+
+Validation:
+
+- `python3 -m unittest tests/test_hkipo_command.py tests/test_research_command.py`
+- `python3 -m unittest discover -s tests`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+- Installed skill smoke:
+  - `python3 commands/hkipo.py`
+  - `python3 commands/research.py` with `HK.00700`
+
+Progress:
+
+- 2026-05-06 北京时间：用户反馈 Futu 再次不可用；初查确认 `stock-analysis-api/scripts/futu_market_data.py global-state`、`snapshot HK.00700`、`ipo-list --market HK` 均可正常调用，OpenD / API Futu CLI 本身可用。
+- 2026-05-06 北京时间：安装副本直接执行 `/research HK.00700` 复现失败，错误为未找到 `stock-analysis-api Futu CLI`；根因是 command 脚本自身不读取安装目录 `.env`，脱离 dispatcher 或 dispatcher 环境异常时拿不到 `STOCK_ANALYSIS_API_ROOT`。
+
+Validation results:
+
+- passed 2026-05-06 北京时间：
+  - `python3 -m unittest tests/test_hkipo_command.py tests/test_research_command.py`
+  - `python3 -m unittest discover -s tests`
+  - `python3 -m py_compile scripts/*.py commands/*.py`（普通沙箱无法写 `__pycache__`，已按权限流程提升后重跑）
+  - `git diff --check`
+  - 源码 `/research HK.00700` 真实 smoke：OpenD 预检通过，输出 API Futu `global-state` / `snapshot` / `kline` 入口。
+  - 源码 `/hkipo` 真实 smoke：输出 API Futu `ipo-list --market HK --json` 入口。
+  - 已同步到 Cli Claw 安装副本；安装副本 `/research HK.00700` 真实 smoke 通过，OpenD 预检通过。
+  - 安装副本 `/hkipo` 真实 smoke 通过，输出 API Futu `ipo-list --market HK --json` 入口。
+- passed review gate 2026-05-06 北京时间：仓库无 `scripts/review.sh`，已人工复核 diff；改动仅增加 command `.env` 读取与安装副本回归测试，不恢复外部 `futuapi` skill 调用链。
+
+Handoff:
+
+- Futu/OpenD 本身可用；本次故障是安装副本 command 环境没有稳定读取 `.env`，导致找不到迁移后的 `stock-analysis-api/scripts/futu_market_data.py`。
+- `/hkipo` / `/research` 现在即使脱离 dispatcher 直接执行，也会先读取 skill 安装目录 `.env`，再解析 `STOCK_ANALYSIS_API_ROOT` / `STOCK_ANALYSIS_UV`。
+- 已把 `commands/env_loader.py`、`commands/hkipo.py`、`commands/research.py` 同步到当前 Cli Claw 安装副本。
+
 ### M32 — /hkipo 与 /research 删除 futuapi 调用链残留
 
 Status: `done`

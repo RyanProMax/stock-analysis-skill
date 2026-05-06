@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Mapping
 from zoneinfo import ZoneInfo
 
+from env_loader import effective_skill_env
 
 FUTU_MARKET_DATA_SCRIPT = Path("scripts") / "futu_market_data.py"
 INCLUDE_ALL_FLAG = "--all"
@@ -130,13 +131,16 @@ def resolve_futu_ipo_command(
     env: Mapping[str, str] | None = None,
 ) -> FutuIpoCommand:
     resolved_skill_dir = resolve_skill_dir(skill_dir, env=env)
+    resolved_env = effective_skill_env(resolved_skill_dir, env=env)
     resolved_home_dir = (
-        Path(home_dir).expanduser().resolve() if home_dir else Path.home().resolve()
+        Path(home_dir).expanduser().resolve()
+        if home_dir
+        else Path(resolved_env.get("HOME") or str(Path.home())).expanduser().resolve()
     )
-    uv_path = candidate_uv_paths(env=env)
+    uv_path = candidate_uv_paths(env=resolved_env)
     resolved_uv_path = uv_path[0] if uv_path else None
     api_root = None
-    for candidate in candidate_api_roots(resolved_skill_dir, resolved_home_dir, env=env):
+    for candidate in candidate_api_roots(resolved_skill_dir, resolved_home_dir, env=resolved_env):
         api_root = _valid_futu_api_root(candidate)
         if api_root:
             break

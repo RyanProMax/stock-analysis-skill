@@ -513,6 +513,60 @@ class ResearchCommandTest(unittest.TestCase):
         self.assertNotIn("install-futu-opend", content)
         self.assertNotIn("外部 skill", content)
 
+    def test_main_hk_research_loads_installed_skill_env_file(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = pathlib.Path(raw_root).resolve()
+            skill_dir = root / "installed" / "stock-analysis-skill"
+            api_root = root / "api root"
+            futu_cli = api_root / "scripts" / "futu_market_data.py"
+            uv_path = root / "tooling" / "uv"
+            skill_dir.mkdir(parents=True)
+            futu_cli.parent.mkdir(parents=True)
+            futu_cli.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+            uv_path.parent.mkdir(parents=True)
+            uv_path.write_text(
+                "#!/bin/sh\necho '{\"status\":\"ok\",\"source\":\"futu_opend\",\"data\":{\"qot_logined\":true}}'\n",
+                encoding="utf-8",
+            )
+            uv_path.chmod(0o755)
+            (skill_dir / ".env").write_text(
+                f'STOCK_ANALYSIS_API_ROOT="{api_root}"\n'
+                f'STOCK_ANALYSIS_UV="{uv_path}"\n',
+                encoding="utf-8",
+            )
+
+            env = dict(os.environ)
+            for key in ("STOCK_ANALYSIS_API_ROOT", "STOCK_ANALYSIS_UV", "UV_BIN", "UV"):
+                env.pop(key, None)
+            env["CLI_CLAW_SKILL_DIR"] = str(skill_dir)
+            env["PATH"] = ""
+
+            proc = subprocess.run(
+                [sys.executable, str(ROOT / "commands" / "research.py")],
+                input=json.dumps(
+                    {
+                        "argsText": "HK.00700",
+                        "args": ["HK.00700"],
+                        "workspace": {"name": "安装副本验证"},
+                    }
+                ),
+                text=True,
+                capture_output=True,
+                check=True,
+                env=env,
+            )
+
+        payload = json.loads(proc.stdout)
+        content = payload["reply"]["content"]
+
+        self.assertEqual(payload["reply"]["type"], "assistant_prompt")
+        self.assertIn("OpenD 预检已通过", content)
+        self.assertIn(f"cd {research.shlex.quote(str(api_root))}", content)
+        self.assertIn(str(uv_path), content)
+        self.assertIn("scripts/futu_market_data.py snapshot --codes HK.00700 --json", content)
+        self.assertNotIn("OpenD 预检未通过", content)
+        self.assertNotIn("futuapi", content.lower())
+
     def test_missing_symbol_returns_local_usage_markdown(self) -> None:
         result = research.build_reply({"argsText": "", "args": []})
 

@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Mapping
 from zoneinfo import ZoneInfo
 
+from env_loader import effective_skill_env
 
 MARKET_ALIASES = {
     "a": "cn",
@@ -231,7 +232,8 @@ def resolve_futu_api_root(
     env: Mapping[str, str] | None = None,
 ) -> Path | None:
     resolved_skill_dir = resolve_skill_dir(skill_dir=skill_dir, env=env)
-    for candidate in candidate_api_roots(resolved_skill_dir, env=env):
+    resolved_env = effective_skill_env(resolved_skill_dir, env=env)
+    for candidate in candidate_api_roots(resolved_skill_dir, env=resolved_env):
         api_root = _valid_api_root(candidate, required_script=FUTU_MARKET_DATA_SCRIPT)
         if api_root:
             return api_root
@@ -268,11 +270,13 @@ def run_opend_preflight(
     env: Mapping[str, str] | None = None,
     timeout_seconds: int = 8,
 ) -> OpenDPreflight:
-    api_root = resolve_futu_api_root(skill_dir=skill_dir, env=env)
+    resolved_skill_dir = resolve_skill_dir(skill_dir=skill_dir, env=env)
+    resolved_env = effective_skill_env(resolved_skill_dir, env=env)
+    api_root = resolve_futu_api_root(skill_dir=resolved_skill_dir, env=resolved_env)
     if not api_root:
         return OpenDPreflight(False, "未找到 stock-analysis-api Futu CLI（scripts/futu_market_data.py）")
 
-    uv_path = resolve_uv_path(env=env)
+    uv_path = resolve_uv_path(env=resolved_env)
     if not uv_path:
         return OpenDPreflight(False, "未找到 uv 可执行文件，无法运行 stock-analysis-api Futu CLI")
 
@@ -287,7 +291,7 @@ def run_opend_preflight(
             text=True,
             capture_output=True,
             timeout=timeout_seconds,
-            env=_opend_preflight_env(env=env),
+            env=_opend_preflight_env(env=resolved_env),
             cwd=str(api_root),
             check=False,
         )
@@ -354,8 +358,9 @@ def resolve_stock_analyze_command(
     env: Mapping[str, str] | None = None,
 ) -> StockAnalyzeCommand:
     resolved_skill_dir = resolve_skill_dir(skill_dir=skill_dir, env=env)
-    uv_path = resolve_uv_path(env=env)
-    for candidate in candidate_api_roots(resolved_skill_dir, env=env):
+    resolved_env = effective_skill_env(resolved_skill_dir, env=env)
+    uv_path = resolve_uv_path(env=resolved_env)
+    for candidate in candidate_api_roots(resolved_skill_dir, env=resolved_env):
         api_root = _valid_api_root(candidate)
         if not api_root:
             continue

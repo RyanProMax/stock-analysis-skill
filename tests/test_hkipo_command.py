@@ -200,6 +200,48 @@ class HkipoFutuCommandTest(unittest.TestCase):
         self.assertNotIn("install-futu-opend", content)
         self.assertNotIn("外部 skill 脚本", content)
 
+    def test_main_loads_installed_skill_env_file_for_api_futu_cli(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = pathlib.Path(raw_root).resolve()
+            skill_dir = root / "installed" / "stock-analysis-skill"
+            api_root = root / "api root"
+            futu_cli = api_root / "scripts" / "futu_market_data.py"
+            uv_path = root / "tooling" / "uv"
+            skill_dir.mkdir(parents=True)
+            futu_cli.parent.mkdir(parents=True)
+            futu_cli.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+            uv_path.parent.mkdir(parents=True)
+            uv_path.write_text("#!/bin/sh\n", encoding="utf-8")
+            (skill_dir / ".env").write_text(
+                f'STOCK_ANALYSIS_API_ROOT="{api_root}"\n'
+                f'STOCK_ANALYSIS_UV="{uv_path}"\n',
+                encoding="utf-8",
+            )
+
+            env = dict(os.environ)
+            for key in ("STOCK_ANALYSIS_API_ROOT", "STOCK_ANALYSIS_UV", "UV_BIN", "UV"):
+                env.pop(key, None)
+            env["CLI_CLAW_SKILL_DIR"] = str(skill_dir)
+            env["PATH"] = ""
+
+            proc = subprocess.run(
+                [sys.executable, str(ROOT / "commands" / "hkipo.py")],
+                input=json.dumps({"argsText": "", "args": []}),
+                text=True,
+                capture_output=True,
+                check=True,
+                env=env,
+            )
+
+        payload = json.loads(proc.stdout)
+        content = payload["reply"]["content"]
+
+        self.assertEqual(payload["reply"]["type"], "assistant_prompt")
+        self.assertIn(f"cd {hkipo.shlex.quote(str(api_root))}", content)
+        self.assertIn(str(uv_path), content)
+        self.assertIn("scripts/futu_market_data.py ipo-list --market HK --json", content)
+        self.assertNotIn("stock-analysis-api Futu CLI 预检：未找到", content)
+
     def test_prompt_reports_missing_futu_preflight_without_relative_venv(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
             root = pathlib.Path(raw_root).resolve()
