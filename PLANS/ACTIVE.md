@@ -16,6 +16,41 @@
 
 ## Milestones
 
+### M35 — /research 机构目标价披露边界
+
+Status: `done`
+
+Scope:
+
+- 修正 `/research` prompt、reference 和入口说明中“目标价一概禁止”和“机构研报可汇总目标价但不得作为建议”的冲突
+- 在“机构观点综合 / 权威机构研报汇总”中强制列出可核验的机构目标价、评级/观点、发布日期、来源和分歧
+- 明确目标价只作为外部机构观点披露，不得作为本系统建议、交易指令、目标价字段或确定性承诺
+
+Validation:
+
+- `python3 -m unittest tests/test_research_command.py -v`
+- `python3 -m unittest discover -s tests -v`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+
+Progress:
+
+- 2026-05-06 北京时间：用户指出 SNDK 报告缺少权威机构目标价；定位到 prompt/reference 同时存在“不得把评级/目标价写成建议”和“完全不输出目标价”的冲突。
+- 2026-05-06 北京时间：已将 `/research` prompt、`references/research.md`、`SKILL.md`、`README.md` 调整为：机构目标价必须列入机构观点综合，但只能作为带来源、日期、币种的外部观点，不得作为本系统建议。
+- 2026-05-06 北京时间：已补测试覆盖 prompt/reference 对机构目标价、评级/观点和“不得作为本系统建议”的要求。
+
+Validation status:
+
+- passed 2026-05-06 北京时间：
+  - `python3 -m unittest tests/test_research_command.py -v`
+  - `python3 -m unittest discover -s tests -v`
+  - `python3 -m py_compile scripts/*.py commands/*.py`（普通沙箱无法写 `__pycache__`，已按权限流程提升后重跑）
+  - `git diff --check`
+
+Review status:
+
+- passed 2026-05-06 北京时间：人工复核 diff；改动只收敛 `/research` 机构目标价披露边界，没有放开买卖建议、系统目标价、`price_target` 字段或交易指令。
+
 ### M33 — 安装副本读取 skill `.env` 后调用 API Futu
 
 Status: `done`

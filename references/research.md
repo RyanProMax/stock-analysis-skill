@@ -1,6 +1,6 @@
 # /research Single-Stock Deep Research Workflow
 
-Use this reference for `/research` single-stock deep reports. The goal is an evidence-based research memo for one listed company, not a buy/sell recommendation, price target, or trading plan.
+Use this reference for `/research` single-stock deep reports. The goal is an evidence-based research memo for one listed company, not a buy/sell recommendation, system-generated price target, or trading plan. Third-party institutional target prices may be cited only as sourced external views.
 
 ## Scope
 
@@ -62,7 +62,7 @@ Source priority:
 1. **Resolve identity**: confirm ticker, exchange, company name, currency, report date, and source timezone. User-facing time defaults to Beijing time.
 2. **Collect market snapshot**: latest price, change, market cap if available, volume / turnover, 52-week context or recent trend. Label market status and source time.
 3. **Collect primary evidence**: latest annual / quarterly filings, earnings release, guidance, major announcements, risk factors, and segment data.
-4. **Cross-check secondary data**: peer valuation, consensus, news, sector indicators, ownership or capital flows if relevant. Always collect industry trend, market heat, peer-average PE, and authoritative research-report summaries when sources are available.
+4. **Cross-check secondary data**: peer valuation, consensus, news, sector indicators, ownership or capital flows if relevant. Always collect industry trend, market heat, peer-average PE, and authoritative research-report summaries with ratings / views and institutional target prices when sources are available.
 5. **Build data reliability layer**: fill `module_status`, `source_freshness`, and `data_gaps` before writing conclusions.
 6. **Write the memo**: default IM / Feishu output is focus-first. Answer the user's most actionable research questions before technical metadata: financial health, valuation reasonableness, relative industry valuation, market heat, future narrative / growth drivers, and institutional research consensus vs disagreement. Keep every material claim traceable to a source.
 7. **Declare degradation**: if any required source is missing, stale, permission-limited, or unavailable, state it in the memo instead of filling gaps.
@@ -107,7 +107,8 @@ Use this shape for full or expanded reports. Keep headings compact and conclusio
 - 行业整体趋势：景气度、供需、政策、技术周期、竞争格局或价格链变化，必须标注来源和截至日期。
 - 市场热度：板块表现、成交/资金、新闻/搜索/社媒热度、机构关注度等可得 proxy；区分短期交易热度与中长期基本面趋势。
 - 同类公司平均 PE：列出可比公司样本、PE 口径（TTM / forward / 静态）、均值/中位数、是否剔除负 PE 或异常值、数据日期。
-- 权威机构研报汇总：汇总券商、评级机构、行业协会、交易所、咨询机构或公司/行业权威报告；列机构名、研报发布日期、核心观点、共识与分歧。不得把单一机构观点当成市场共识，不把评级/目标价写成建议。
+- 权威机构研报汇总：汇总券商、评级机构、行业协会、交易所、咨询机构或公司/行业权威报告；列机构名、研报发布日期、评级/观点、机构目标价、核心观点、共识与分歧。不得把单一机构观点当成市场共识，不把评级/目标价写成本系统建议。
+- 机构目标价：只作为外部观点披露，必须标注机构、发布日期/更新时间、币种、当前价对比口径和来源；若只能找到二级报道或数据聚合页，必须标注来源限制，不得改写成本系统目标价。
 
 **财务质量**
 - 收入、利润、现金流、毛利率 / 费用率、资产负债、资本开支。
@@ -115,7 +116,7 @@ Use this shape for full or expanded reports. Keep headings compact and conclusio
 
 **估值上下文**
 - 市值、主要倍数、可比公司或历史区间。
-- 只说明相对位置和关键假设，不输出目标价。
+- 只说明相对位置和关键假设，不生成本系统目标价；机构目标价只能放在机构观点综合中作为外部观点引用。
 
 **催化剂与验证路径**
 - 未来 1-4 个可验证事件：财报、产品、订单、政策、监管、指数、资本动作。
@@ -144,7 +145,7 @@ For IM / Feishu replies, default to a compact report of 2500-3500 字 unless the
 
 The short form must be a **focus-first decision dashboard**, not a compressed checklist. The user should be able to capture the key points in the first screen:
 
-- First answer: company financial structure health, current valuation reasonableness, whether the stock looks rich or cheap relative to the industry, current market heat, future narrative / growth points, and authoritative institutional research consensus vs disagreement.
+- First answer: company financial structure health, current valuation reasonableness, whether the stock looks rich or cheap relative to the industry, current market heat, future narrative / growth points, and authoritative institutional ratings / views, target prices, consensus vs disagreement.
 - Put `module_status`, `source_freshness`, and `data_gaps` after the focus sections unless the data state is `failed` or identity is unresolved. Reliability metadata is mandatory, but should not bury the research conclusion.
 - Prefer strong section names such as `一句话结论`, `财务结构`, `估值与行业相对位置`, `情绪热度`, `叙事与增长点`, `机构观点综合`, `风险与反证`, `数据可信度`, `降级说明`, `Sources`.
 - Avoid broad narrative sections that force the reader to hunt for the point. Each section should directly answer “so what?” with dated evidence.
@@ -156,7 +157,7 @@ Required short-form sections:
 3. `估值与行业相对位置`: current market cap / PE / PS / PB or relevant multiples, peer sample, PE basis, mean / median, exclusions for negative or abnormal PE, and whether the stock is relatively rich or cheap.
 4. `情绪热度`: price / volume / sector heat / news or search proxy / institution attention, separated from long-term fundamentals.
 5. `叙事与增长点`: 2-5 future narratives and their observable verification signals; include反证 signals when a narrative is still early.
-6. `机构观点综合`: authoritative broker / rating agency / industry / exchange / consulting reports with institution, report date, core point, consensus and disagreement. Do not turn ratings or target prices into advice.
+6. `机构观点综合`: authoritative broker / rating agency / industry / exchange / consulting reports with institution, report date, rating/view, institutional target price, core point, consensus and disagreement. Do not turn ratings or target prices into advice.
 7. `风险与反证`: 3-5 concrete risks and invalidation signals.
 8. `数据可信度`: user-readable summary of `module_status`, `source_freshness`, and `data_gaps`; keep it compact unless reliability is the main issue.
 9. `降级说明`: concise user-facing degradation reasons; no stack traces or internal function names.
@@ -179,7 +180,8 @@ These modules are required unless reliable sources are unavailable; if unavailab
 - 行业整体趋势: describe current industry direction with dated evidence, including demand/supply, policy, technology cycle, pricing, inventory, competitive structure, or regulatory changes when relevant.
 - 市场热度: use available proxies such as sector/index performance, turnover, fund flows, news volume, search/social attention, broker coverage, and announcement intensity. Distinguish short-term heat from fundamental trend.
 - 同类公司平均 PE: define peer selection, PE basis (TTM / forward / static), mean and median when possible, exclusions for negative or extreme PE, and data date. If peers are not comparable, explain why instead of forcing an average.
-- 权威机构研报汇总: summarize authoritative reports from brokers, rating agencies, industry associations, exchanges, consulting firms, or recognized research providers. Include institution, report date, core points, consensus, disagreement, and limitations. Do not treat one report as consensus, and do not present ratings or target prices as investment advice.
+- 权威机构研报汇总: summarize authoritative reports from brokers, rating agencies, industry associations, exchanges, consulting firms, or recognized research providers. Include institution, report date, rating/view, institutional target price, core points, consensus, disagreement, and limitations. Do not treat one report as consensus, and do not present ratings or target prices as investment advice.
+- 机构目标价: cite only sourced third-party target prices, with institution, publication/update date, currency, current-price comparison basis, and source limitations. If no reliable source is available, state `未找到可靠机构目标价来源` in `data_gaps` / `降级说明` instead of omitting the field. 机构目标价不得作为本系统建议、交易指令或预期结果。
 
 
 ## Analysis Rules
@@ -189,7 +191,7 @@ These modules are required unless reliable sources are unavailable; if unavailab
 - For A-share reports, consume `stock_analyze.py` summary fields first when available, then supplement with filings and current web evidence.
 - For US reports, filings and company IR are the anchor. Quote / chart data is context, not the main evidence.
 - For HK reports, do not reuse IPO first-day scoring. Treat listed HK stocks as normal single-stock research.
-- If valuation is requested, use ranges, peer context, historical multiples, and explicit assumptions. Do not convert the result into a target price or trade instruction.
+- If valuation is requested, use ranges, peer context, historical multiples, and explicit assumptions. Do not convert your own analysis into a target price or trade instruction; third-party institutional target prices belong only in `机构观点综合` as sourced external views.
 - If the user asks "能不能买", answer with factual pros / cons, suitability caveats, and follow-up checks; do not provide a buy/sell/hold call.
 
 ## Risk and Historical Validation Contract
@@ -234,7 +236,8 @@ When degraded:
 Do not output or imply:
 
 - Buy / sell / hold recommendations.
-- Target prices, stop-losses, take-profit levels, position sizing, allocation advice, or exact trade timing.
+- System-generated target prices, stop-losses, take-profit levels, position sizing, allocation advice, or exact trade timing.
+- Unsourced target prices, or wording that presents an institutional target price as this system's own target, advice, or expected outcome.
 - `recommendation`, `confidence`, `price_target`, `conviction`, `thesis` as formal fields.
 - Guarantees about returns, "确定", "必涨", "稳赚", or similar certainty language.
 - Unverified rumors, social-media claims, search snippets, model memory, or stale cached data as facts.

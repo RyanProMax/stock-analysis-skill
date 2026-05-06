@@ -49,7 +49,8 @@ class ResearchCommandTest(unittest.TestCase):
         self.assertIn("stock-analysis-api", content)
         self.assertIn("references/research.md", content)
         self.assertIn("A 股", content)
-        self.assertIn("不输出买卖建议、目标价", content)
+        self.assertIn("不输出买卖建议、本系统目标价", content)
+        self.assertIn("机构目标价必须作为外部观点", content)
 
     def test_research_prompt_requires_quality_risk_and_validation_modules(self) -> None:
         result = research.build_reply(
@@ -79,6 +80,8 @@ class ResearchCommandTest(unittest.TestCase):
         self.assertIn("同类公司平均 PE", content)
         self.assertIn("权威机构研报汇总", content)
         self.assertIn("研报发布日期", content)
+        self.assertIn("机构目标价", content)
+        self.assertIn("评级/观点", content)
         self.assertIn("不得把单一机构观点当成市场共识", content)
 
     def test_research_reference_defines_quality_risk_and_validation_contract(self) -> None:
@@ -101,6 +104,8 @@ class ResearchCommandTest(unittest.TestCase):
         self.assertIn("同类公司平均 PE", content)
         self.assertIn("权威机构研报汇总", content)
         self.assertIn("研报发布日期", content)
+        self.assertIn("机构目标价", content)
+        self.assertIn("不得作为本系统建议", content)
 
     def test_research_prompt_requires_clean_final_and_feishu_short_form(self) -> None:
         result = research.build_reply(

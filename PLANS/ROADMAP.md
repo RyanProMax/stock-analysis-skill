@@ -96,3 +96,4 @@
 - 2026-05-06：`/hkipo` 当前 IPO 池、`/research` 港股 OpenD 预检 / snapshot / K 线入口和 HK IPO 回测首日 K 线已迁移到 `stock-analysis-api/scripts/futu_market_data.py`，不再调用外部 Futu 脚本。
 - 2026-05-06：`/hkipo` 与 `/research` command 输出链路增加真实子进程回归测试，锁定 API Futu CLI 路由，不再允许回退到外部 Futu skill。
 - 2026-05-06：`/research` 飞书默认短版已升级为重点版 / 决策看板结构，优先回答财务结构、估值相对位置、情绪热度、叙事增长点和机构观点综合。
+- 2026-05-06：`/research` 机构观点综合已要求列出可核验的机构评级/观点与机构目标价；目标价只作为外部观点披露，必须标注机构、日期、币种和来源，不得作为本系统建议或 `price_target` 字段。
