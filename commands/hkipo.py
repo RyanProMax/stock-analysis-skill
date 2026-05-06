@@ -177,7 +177,7 @@ def format_futu_instruction(futu_command: FutuIpoCommand) -> str:
         return (
             f"stock-analysis-api Futu CLI：`{futu_command.command}`。"
             "这条命令由 /hkipo executor 运行时解析，必须直接复制执行；"
-            "不要改用当前工作区 `.venv/bin/python`、系统 Python 或外部 skill 脚本。"
+            "不要改用当前工作区 `.venv/bin/python`、系统 Python 或其他脚本。"
         )
 
     return (

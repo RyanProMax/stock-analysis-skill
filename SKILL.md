@@ -10,7 +10,7 @@ metadata:
 `stock-analysis-skill` 是股票任务的意图路由与输出约束，不是行情、分析或交易实现源。当前只保留四类入口：
 
 - `CLI 使用技能`：标准化 A 股客观分析、单票研报摘要、A 股 / ETF 低 token 实时行情。
-- `Futu/OpenD 使用技能`：港 / 美 / 多市场行情、深度行情、衍生品、账户 / 持仓 / 订单等只读查询；`/hkipo` 与 `/research` 已用到的 Futu 只读能力走 `stock-analysis-api` 内部 CLI。
+- `Futu/OpenD 使用技能`：统一通过 `stock-analysis-api` 内部 CLI / provider 使用 Futu/OpenD；尚未迁入 API 的能力必须明确标记为未支持，不再路由到外部 Futu skill。
 - `Tushare 使用技能`：用户明确要求的原始 Tushare 接口、字段、时间窗或接口查阅。
 - `Slash Commands`：`/research` 单票深度研报、`/hkipo` 港股 IPO 池研究工作流；`/cnipo` 目前占位。
 
@@ -36,7 +36,7 @@ metadata:
 | `/cnipo` | `Slash Commands` | 当前只返回占位说明 |
 | 单票客观分析、研报式摘要、“最近怎么样” | `CLI 使用技能` | 默认走 `stock_analyze.py`，不直接查原始 `report_rc` |
 | A 股股票 / ETF 低 token 实时行情 | `CLI 使用技能` | 默认走 `poll_realtime_quotes.py` |
-| 港 / 美 / 多市场行情、盘口、逐笔、分时、K 线、期权、持仓、订单等只读查询 | `Futu/OpenD 使用技能` | 仅限只读；OpenD 问题转 `install-futu-opend` |
+| 港 / 美 / 多市场行情、盘口、逐笔、分时、K 线、期权、持仓、订单等只读查询 | `Futu/OpenD 使用技能` | 仅限 API 已迁移能力；未迁移能力明确返回未支持 |
 | 原始 Tushare 数据、接口清单、自定义字段或时间窗 | `Tushare 使用技能` | 只有用户明确要求原始接口时才使用 |
 
 明确例外：
@@ -71,12 +71,12 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_ma
 进入该路由前确认：
 
 1. `/hkipo`、`/research` 港股预检 / snapshot / K 线和 HK IPO 回测优先使用 `stock-analysis-api/scripts/futu_market_data.py`。
-2. 盘口、逐笔、分时、期权、账户、资金、持仓、订单等尚未迁移能力仍要求 `futuapi` skill 已安装并可加载。
+2. 盘口、逐笔、分时、期权、账户、资金、持仓、订单等尚未迁移能力不得改走其他脚本；必须明确说明“尚未迁入 stock-analysis-api”。
 3. OpenD 正在运行，默认地址 `127.0.0.1:11111`。
-4. Python SDK `futu-api` 版本满足 API 仓库或 `futuapi` skill 要求。
+4. Python SDK `futu-api` 版本满足 API 仓库要求。
 5. 请求不涉及交易、订阅、提醒、自选股、配置或本地文件写入。
 
-OpenD 未安装、未启动或 SDK 版本不满足时，转入 `install-futu-opend`。输出 contract、watchlist 选路、失败降级和拒绝模板统一见 `references/futu.md`。
+OpenD 未安装、未启动或 SDK 版本不满足时，说明 API Futu CLI / OpenD 环境不可用，并按 `references/futu.md` 的降级和拒绝模板处理。
 
 ## Tushare 使用技能
 
@@ -104,7 +104,7 @@ OpenD 未安装、未启动或 SDK 版本不满足时，转入 `install-futu-ope
 - 读取 `references/hkipo.md`，使用 0-100 首日赔率评分卡。
 - 默认过滤 Futu/OpenD 返回的 `is_subscribe_status=false` 已截止新股；只有用户显式传入 `--all` 时，才输出已截止认购但未上市标的。
 - 必须按当前日期重新获取最新数据，不允许把旧日期的孖展、公开认购、暗盘或中签率当作当前数据；若只能找到旧数据，必须标注来源日期并按“过期/仅供趋势参考”处理，不得用于当前热度主评分。
-- 当前 IPO 池发现、招股状态、上市日、招股截止日、发售价、一手股数和入场费优先使用 `stock-analysis-api/scripts/futu_market_data.py ipo-list --market HK --json`；`/hkipo` executor 会按当前 skill 安装目录动态生成可复制的 API CLI 命令，不依赖用户工作区相对 `.venv` 或外部 skill 脚本；Futu/OpenD 不可用或字段为 `N/A` 时，才用 HKEX / 公司公告 / 财经站补齐，并明确降级。
+- 当前 IPO 池发现、招股状态、上市日、招股截止日、发售价、一手股数和入场费优先使用 `stock-analysis-api/scripts/futu_market_data.py ipo-list --market HK --json`；`/hkipo` executor 会按当前 skill 安装目录动态生成可复制的 API CLI 命令，不依赖用户工作区相对 `.venv` 或其他脚本；Futu/OpenD 不可用或字段为 `N/A` 时，才用 HKEX / 公司公告 / 财经站补齐，并明确降级。
 - 事实层中的招股书、全球发售、配发结果和上市文件优先依赖 HKEX / 公司公告等一手来源；财经站只补充 Futu/OpenD 与一手来源未提供的孖展/认购热度、中签率、一手中签率、灰市、首日涨幅等二级数据。
 - 热度字段必须按固定顺序核验：Futu/OpenD 当前字段 → 当日或最接近报告日的券商/财经站孖展统计 → 公开认购倍数/一手中签率 → 暗盘。所有孖展、公开认购和暗盘数值都要标注来源更新时间；来源冲突时使用更新时间最新且不晚于报告日的数据，旧值只能作趋势参考。
 - 必须检查绿鞋 / 超额配股权、稳定价格操作人、基石质量与占比、保荐人、回拨和公众货比例。
@@ -127,5 +127,5 @@ OpenD 未安装、未启动或 SDK 版本不满足时，转入 `install-futu-ope
 - 港股 IPO 评分与回测：`references/hkipo.md`
 - Tushare 接口总表：`references/api_reference.md`
 - Futu/OpenD 路由与输出 Contract：`references/futu.md`
-- Futu/OpenD 能力：`/hkipo` / `/research` 已迁移到 `stock-analysis-api/scripts/futu_market_data.py`；其他尚未迁移能力继续使用已安装的 `futuapi` 与 `install-futu-opend` skills
+- Futu/OpenD 能力：`/hkipo` / `/research` 已迁移到 `stock-analysis-api/scripts/futu_market_data.py`；其他尚未迁移能力等待 API provider 扩展，不再从本 skill 路由到外部 Futu skill
 - Tushare 官方文档：<https://tushare.pro/document/1?doc_id=290>

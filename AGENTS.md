@@ -5,7 +5,7 @@
 这是一个根目录单一 `stock-analysis-skill` 仓库。当前只保留四类能力说明：
 
 - `CLI 使用技能`：直接消费 `stock-analysis-api` 仓库中的内部 CLI
-- `Futu/OpenD 使用技能`：`/hkipo` 与 `/research` 已用能力走 `stock-analysis-api` Futu CLI；其他尚未迁移能力路由到已安装的 `futuapi` / `install-futu-opend` skills
+- `Futu/OpenD 使用技能`：`/hkipo` 与 `/research` 已用能力走 `stock-analysis-api` Futu CLI；其他尚未迁移能力明确标记为待 API provider 扩展，不再路由到外部 Futu skill
 - `Tushare 使用技能`：保留 Tushare 本地工具与接口参考资产
 - `Slash Commands`：通过 `commands.json` + `commands/*.py` 暴露单票研报与 IPO 池类命令
 
@@ -31,14 +31,14 @@
   - `scripts/stock_analyze.py`
 - 单票分析、单票研报摘要、A 股标准化实时行情默认先走 CLI，不先走 Futu 或 Tushare
 - `/hkipo` 与 `/research` 用到的 Futu/OpenD 只读能力默认路由到 `stock-analysis-api/scripts/futu_market_data.py`
-- 港 / 美 / 多市场盘口、期权、账户、持仓、订单等尚未迁移能力默认路由到 Futu/OpenD skills
+- 港 / 美 / 多市场盘口、期权、账户、持仓、订单等尚未迁移能力默认返回“尚未迁入 API”，不得绕回外部 Futu skill
 - `/research` 与 IPO 池类命令允许通过 `commands.json` + `commands/*.py` 暴露；复杂研究型 command 优先输出结构化提示词，由宿主 Agent 继续完成联网分析
 - `/research` A 股 / 美股命令由 executor 优先按 `STOCK_ANALYSIS_API_ROOT`、再按 skill 安装目录附近的 sibling `stock-analysis-api` 解析绝对 CLI；找不到时必须在 prompt 中显式预检失败并降级
 - 本仓库不再维护对应 wrapper 脚本
 - Tushare 本地辅助能力统一收口到 `scripts/tushare_toolkit.py`
 - `references/cli.md` 是唯一 CLI 使用说明
 - `references/api_reference.md` 是唯一 Tushare 接口总表
-- Futu/OpenD 能力不在本仓库实现；`/hkipo` / `/research` 已迁移能力通过 API 仓库 CLI，其他能力通过已安装 skills 路由。本仓库不复制富途脚本、不保存交易密码；通过本 skill 只允许查询操作，禁止下单、改单、撤单、订阅、交易解锁或任何写入类行为
+- Futu/OpenD 能力不在本仓库实现；`/hkipo` / `/research` 已迁移能力通过 API 仓库 CLI，其他能力等待 `stock-analysis-api` provider 扩展。本仓库不复制富途脚本、不保存交易密码；通过本 skill 只允许查询操作，禁止下单、改单、撤单、订阅、交易解锁或任何写入类行为
 
 ## Task Workflow
 

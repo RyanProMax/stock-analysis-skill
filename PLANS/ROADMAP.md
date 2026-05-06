@@ -6,7 +6,7 @@
 
 ### 1. 富途 OpenAPI 能力整合
 
-**目标**：把 Futu/OpenD 能力纳入 `stock-analysis-skill` 的统一路由；`/hkipo` 与 `/research` 已用能力优先走 `stock-analysis-api` 内部 CLI，其他尚未迁移能力继续路由到已安装的 `futuapi` / `install-futu-opend` skills，而不是复制富途脚本或把本仓库变成行情实现源。
+**目标**：把 Futu/OpenD 能力纳入 `stock-analysis-api` 的统一 provider / CLI；`stock-analysis-skill` 只路由到 API 已实现能力。未迁入 API 的能力明确标记为未支持，不再路由到外部 Futu skill。
 
 **能力范围**：
 
@@ -21,17 +21,17 @@
 - `stock-analysis-skill` 只负责意图路由、固定模板和安全边界
 - 标准 A 股低 token quote / objective analyze / `/research` A 股与美股深度研报底稿继续优先走 `stock-analysis-api` CLI；`/research` 由 executor 运行时解析绝对 API 命令，避免宿主工作区 cwd 影响
 - `/hkipo` IPO list、`/research` 港股 OpenD 预检 / snapshot / K 线和 HK IPO 回测首日 K 线走 `stock-analysis-api/scripts/futu_market_data.py`
-- 港 / 美 / 多市场行情、盘口、期权、账户、持仓、订单等只读查询能力路由到 `futuapi`
-- OpenD 安装与连通性问题路由到 `install-futu-opend`
+- 港 / 美 / 多市场行情、盘口、期权、账户、持仓、订单等只读查询能力后续逐步迁入 `stock-analysis-api`
+- OpenD 安装与连通性问题只作为环境前置条件提示，不在本 skill 中执行外部安装或 Futu skill
 - 禁止 AI 接触交易密码；禁止通过 SDK 或脚本调用交易解锁
 
 **待办**：
 
 - [x] 在 `SKILL.md` 增加 Futu 路由优先级与安全边界
 - [x] 在 `references/cli.md` 或新增 reference 中定义统一输出 contract
-- [x] 明确 `futuapi` 与 `stock-analysis-api` 的市场 / 能力分工矩阵
+- [x] 明确历史外部 Futu skill 与 `stock-analysis-api` 的能力迁移边界
 - [x] 增加全局只读护栏，禁止任何写入、编辑、下单或交易状态变更行为
-- [x] 设计 watchlist 监控场景如何选择 `poll_realtime_quotes.py` vs `futuapi get_stock_quote/get_snapshot`
+- [x] 设计 watchlist 监控场景如何选择 `poll_realtime_quotes.py` vs API Futu provider
 - [x] 新增 `/research` 单票深度研报 slash command，A 股 / 美股优先复用 `stock_analyze.py --mode full`，港股后置走 Futu/OpenD + HKEX / AKShare / yfinance 降级路径
 
 ## Backlog
@@ -45,6 +45,7 @@
 - [x] `/research` 增加行业趋势、市场热度、Peer PE 和权威研报汇总模块
 - [x] `/research` 显式港股增加 OpenD 前置确认，未确认时不允许自行降级
 - [x] `/research` 港股 OpenD 预检和 snapshot / K 线入口迁移到 API Futu CLI
+- [ ] 迁移剩余 Futu 只读能力到 API provider，并删除外部 Futu skill 依赖入口
 - [ ] `/research` 港股数据层从后置 prompt 路由升级为稳定字段矩阵与验证样例
 - [ ] `/research` 美股补充 SEC filings / earnings transcript 证据层缓存与引用规范
 - [x] 港股 IPO 池工作流增加近 100 个已上市 IPO 首日表现回测 MVP
@@ -63,7 +64,7 @@
 ## 已完成
 
 - 2026-04-23：新增 `/hkipo` 与 `/cnipo` slash command 声明；`/hkipo` 输出港股 IPO 研究 prompt，`/cnipo` 保持占位。
-- 2026-04-27：安装并审计富途官方 `futuapi` 与 `install-futu-opend` skills，开始规划统一整合到 `stock-analysis-skill`。
+- 2026-04-27：安装并审计富途官方独立能力包，开始规划统一整合到 `stock-analysis-skill`。
 - 2026-04-27：移除旧 `docs/plan.md`，统一使用 `PLANS/`；完成 Futu/OpenD 路由优先级、能力边界和只读安全要求。
 - 2026-04-27：新增 `references/futu.md`，定义 Futu/OpenD 路由与输出 Contract。
 - 2026-04-27：完成 watchlist 自动选路规则：A 股轻量轮询优先 CLI，混合市场 / 深行情 / 账户联动优先 Futu。
@@ -77,7 +78,7 @@
 - 2026-04-28：`/hkipo` 输出模板已压缩为最多 3 条结论、单张评分总览表和 Sources；回测映射、Futu 覆盖、外部热度、发行结构和风险全部进表格。
 - 2026-04-28：`/hkipo` 飞书输出模板改为窄卡片列表，避免宽 Markdown 表格横向滚动和裁切；Sources 改为短链接标签。
 - 2026-04-28：`/hkipo` 飞书输出模板去除 `#` / `##` 大标题，改为普通加粗标签、短分隔和固定 emoji 信号。
-- 2026-04-30：`/hkipo` Futu/OpenD 查询命令改为运行时动态解析当前 skill 安装目录和 `futuapi` 脚本路径，不再依赖用户工作区相对 `.venv` 或固定用户目录。
+- 2026-04-30：`/hkipo` Futu/OpenD 查询命令曾改为运行时动态解析外部 Futu 脚本路径，后续已迁移到 API CLI。
 - 2026-05-01：新增 `/research` 单票深度研报 command 和 `references/research.md`，支持 A 股 / 美股优先、港股后置的统一研报模板与降级规范。
 - 2026-05-01：`/research` A 股 / 美股 prompt 已改为运行时解析 `stock-analysis-api` 绝对命令；优先 `STOCK_ANALYSIS_API_ROOT`，再查找 skill 安装目录附近 sibling，缺失时显式预检失败并降级。
 
@@ -90,5 +91,6 @@
 - 2026-05-04：`/research` 修正长英文公司名路由；`MINIMAX` 这类非短裸 ticker 不再预分类为美股，必须先核验唯一市场，若唯一可靠匹配为港股则切换港股标题与港股数据路径。
 
 - 2026-05-04：`/research` 标准 CLI 命令改为解析绝对 `uv`，优先 `STOCK_ANALYSIS_UV` / `UV_BIN` / `UV`，再查 PATH 和 `$HOME` 常见安装位；找不到时显式预检失败，不再依赖重启后的服务 PATH。
-- 2026-05-04：`/research` 显式港股路径新增 OpenD 只读前置预检；OpenD 或 futuapi 环境不可用时直接询问用户是否继续，只有 `--continue-without-opend` 确认后才允许降级数据源。
-- 2026-05-06：`/hkipo` 当前 IPO 池、`/research` 港股 OpenD 预检 / snapshot / K 线入口和 HK IPO 回测首日 K 线已迁移到 `stock-analysis-api/scripts/futu_market_data.py`，不再调用外部 `futuapi` 脚本。
+- 2026-05-04：`/research` 显式港股路径新增 OpenD 只读前置预检；OpenD 或 Futu 数据环境不可用时直接询问用户是否继续，只有 `--continue-without-opend` 确认后才允许降级数据源。
+- 2026-05-06：`/hkipo` 当前 IPO 池、`/research` 港股 OpenD 预检 / snapshot / K 线入口和 HK IPO 回测首日 K 线已迁移到 `stock-analysis-api/scripts/futu_market_data.py`，不再调用外部 Futu 脚本。
+- 2026-05-06：`/hkipo` 与 `/research` command 输出链路增加真实子进程回归测试，锁定 API Futu CLI 路由，不再允许回退到外部 Futu skill。

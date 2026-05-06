@@ -16,6 +16,68 @@
 
 ## Milestones
 
+### M32 — /hkipo 与 /research 删除 futuapi 调用链残留
+
+Status: `done`
+
+Scope:
+
+- `commands/hkipo.py`
+- `commands/research.py`
+- `tests/test_hkipo_command.py`
+- `tests/test_research_command.py`
+- `SKILL.md`
+- `README.md`
+- `AGENTS.md`
+- `references/futu.md`
+- `PLANS/ACTIVE.md`
+- `PLANS/ROADMAP.md`
+- `/Users/ryan/projects/stock-analysis-api/src/services/__init__.py`
+- `/Users/ryan/projects/stock-analysis-api/tests/test_futu_market_data_cli.py`
+- `/Users/ryan/projects/stock-analysis-api/docs/plan.md`
+
+Validation:
+
+- `python3 -m unittest tests/test_hkipo_command.py tests/test_research_command.py`
+- `python3 -m unittest discover -s tests`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+- `uv run python -m pytest tests/test_futu_market_data_cli.py`
+- `uv run python -m py_compile scripts/futu_market_data.py src/services/__init__.py src/services/futu_market_data_cli.py`
+- Real command smoke:
+  - `python3 commands/hkipo.py`
+  - `python3 commands/research.py` with `HK.00700`
+
+Progress:
+
+- 2026-05-06 北京时间：用户要求确认 `/hkipo` / `/research` 调用链是否仍有 `futuapi` skill，并要求用真实 command 链路输出验证，而不是只看 helper 函数。
+- 2026-05-06 北京时间：初查确认 command 主路径已走 `stock-analysis-api/scripts/futu_market_data.py`，但 `SKILL.md` / README / reference / roadmap 仍保留“未迁移能力走 `futuapi` skill”的规划性 fallback，与最终删除 `futuapi` skill 的目标不一致。
+- 2026-05-06 北京时间：新增 `/hkipo` 和 `/research HK.00700` 的真实 command 子进程回归测试，直接检查最终输出包含 API Futu CLI 命令且不包含外部 Futu skill 路由。
+- 2026-05-06 北京时间：真实 `/research HK.00700` smoke 暴露 API Futu CLI import 会被 `src.services` eager import 带入 SQLite 行情仓初始化；已在 API 仓库改为 lazy export，Futu CLI import 不再触碰无关仓库。
+- 2026-05-06 北京时间：同步 SKILL / README / AGENTS / references / ROADMAP，将未迁移 Futu 能力改为“待 API provider 扩展 / 暂未支持”，不再指向外部 Futu skill。
+
+Validation results:
+
+- passed 2026-05-06 北京时间：
+  - `uv run python -m pytest tests/test_futu_market_data_cli.py`
+  - `uv run python -m py_compile scripts/futu_market_data.py src/services/__init__.py src/services/futu_market_data_cli.py`
+  - `python3 -m unittest tests/test_hkipo_command.py tests/test_research_command.py`
+  - `python3 -m unittest discover -s tests`
+  - `python3 -m py_compile scripts/*.py commands/*.py`（普通沙箱无法写 `__pycache__`，已按权限流程提升后重跑）
+  - `git diff --check` in `stock-analysis-api`
+  - `git diff --check` in `stock-analysis-skill`
+  - `rg -n "futuapi|install-futu-opend|外部 skill|external skill|futuapi/scripts|quote/get_ipo_list|quote/get_global_state|find_futuapi|candidate_futuapi" commands SKILL.md README.md AGENTS.md references/futu.md references/research.md references/hkipo.md PLANS/ROADMAP.md` 无命中
+- passed real smoke 2026-05-06 北京时间：
+  - `uv run python scripts/futu_market_data.py global-state --json` returned `status=ok`, `source=futu_opend`, `qot_logined=true`.
+  - `python3 commands/hkipo.py` emitted an `assistant_prompt` whose IPO list command is `stock-analysis-api/scripts/futu_market_data.py ipo-list --market HK --json`.
+  - `python3 commands/research.py` with `HK.00700` emitted an `assistant_prompt`, OpenD preflight passed, and the prompt points to API `global-state` / `snapshot` / `kline`.
+
+Handoff:
+
+- `/hkipo` / `/research` 当前输出链路没有外部 Futu skill；只走 API Futu CLI。
+- 未迁入 API 的 Futu 能力现在明确为暂未支持 / 待 API provider 扩展；不能再 fallback 到外部 Futu skill。
+- API 侧 `src.services` lazy export 是为保证 `futu_market_data.py` 启动不初始化无关 SQLite 仓。
+
 ### M31 — /hkipo 与 /research Futu 能力迁移到 API
 
 Status: `done`

@@ -461,6 +461,58 @@ class ResearchCommandTest(unittest.TestCase):
         self.assertIn("HKEX", content)
         self.assertNotIn("uv run python scripts/stock_analyze.py --market hk", content)
 
+    def test_main_hk_research_full_chain_uses_api_futu_cli_without_futuapi_skill(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = pathlib.Path(raw_root).resolve()
+            skill_dir = root / "stock-analysis-skill"
+            api_root = root / "stock-analysis-api"
+            futu_cli = api_root / "scripts" / "futu_market_data.py"
+            uv_path = root / "tooling" / "uv"
+            skill_dir.mkdir(parents=True)
+            futu_cli.parent.mkdir(parents=True)
+            futu_cli.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+            uv_path.parent.mkdir(parents=True)
+            uv_path.write_text(
+                "#!/bin/sh\necho '{\"status\":\"ok\",\"source\":\"futu_opend\",\"data\":{\"qot_logined\":true}}'\n",
+                encoding="utf-8",
+            )
+            uv_path.chmod(0o755)
+            env = {
+                **os.environ,
+                "CLI_CLAW_SKILL_DIR": str(skill_dir),
+                "STOCK_ANALYSIS_API_ROOT": str(api_root),
+                "STOCK_ANALYSIS_UV": str(uv_path),
+            }
+
+            proc = subprocess.run(
+                [sys.executable, str(ROOT / "commands" / "research.py")],
+                input=json.dumps(
+                    {
+                        "argsText": "HK.00700",
+                        "args": ["HK.00700"],
+                        "workspace": {"name": "链路验证"},
+                    }
+                ),
+                text=True,
+                capture_output=True,
+                check=True,
+                env=env,
+            )
+
+        payload = json.loads(proc.stdout)
+        content = payload["reply"]["content"]
+
+        self.assertEqual(payload["reply"]["type"], "assistant_prompt")
+        self.assertIn("OpenD 预检已通过", content)
+        self.assertIn("scripts/futu_market_data.py global-state --json", content)
+        self.assertIn("scripts/futu_market_data.py snapshot --codes HK.00700 --json", content)
+        self.assertIn("scripts/futu_market_data.py kline --code HK.00700", content)
+        self.assertIn(f"cd {research.shlex.quote(str(api_root))}", content)
+        self.assertIn(str(uv_path), content)
+        self.assertNotIn("futuapi", content.lower())
+        self.assertNotIn("install-futu-opend", content)
+        self.assertNotIn("外部 skill", content)
+
     def test_missing_symbol_returns_local_usage_markdown(self) -> None:
         result = research.build_reply({"argsText": "", "args": []})
 
