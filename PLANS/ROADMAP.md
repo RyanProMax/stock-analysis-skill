@@ -109,3 +109,4 @@
 - 2026-05-07：`stock-analysis-api/scripts/trading_daily_summary.py` 与 `trading_strategy_review.py` 已纳入 skill 路由说明和 `references/cli.md`；盘后总结只读 ledger，策略评审只输出候选 proposal，不自动应用策略。
 - 2026-05-07：`stock-analysis-api/scripts/trading_run_once.py --broker futu-simulate` 已纳入 skill 路由说明和 `references/cli.md`；该路径必须显式 opt-in，固定 Futu `SIMULATE`，禁止 `unlock_trade`，并且不能和 `--snapshots-json` 混用。
 - 2026-05-07：`stock-analysis-api/scripts/trading_strategy_backtest.py` 已纳入 skill 路由说明和 `references/cli.md`；该入口基于历史 K 线或注入样本做离线回测，不读写 ledger，不触发 broker。
+- 2026-05-07：`stock-analysis-api/scripts/trading_daily_summary.py` 默认输出已收敛为 summary-only；skill 面向用户默认只消费关键信息，ledger 明细需显式 `--include-details`，并继续保持只读安全边界。

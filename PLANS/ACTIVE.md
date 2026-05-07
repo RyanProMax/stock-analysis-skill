@@ -16,6 +16,47 @@
 
 ## Milestones
 
+### M41 — API 盘后总结 summary-only 输出收口
+
+Status: `done`
+
+Scope:
+
+- `SKILL.md`
+- `README.md`
+- `references/cli.md`
+- `AGENTS.md`
+- `PLANS/ACTIVE.md`
+- `PLANS/ROADMAP.md`
+
+Validation:
+
+- `python3 -m unittest discover -s tests -v`
+- `git diff --check`
+- API full：`uv run python -m pytest`
+- API format：`uv run black --check --line-length 100 --target-version py312 scripts src tests`
+- API diff check：`git diff --check`
+
+Progress:
+
+- 2026-05-07 北京时间：API `trading_daily_summary.py` 默认改为 summary-only，只保留盘后总结必要字段；`orders` / `risk_decisions` / `runs` 明细必须显式 `--include-details` 才输出。
+- 本轮同步 skill 路由与 CLI reference，要求面向用户默认消费 summary-only，不原样转贴 ledger 明细。
+
+Validation status:
+
+- passed 2026-05-07 北京时间：
+  - API full：`uv run python -m pytest`
+  - API format：`uv run black --check --line-length 100 --target-version py312 scripts src tests`
+  - API diff check：`git diff --check`
+  - skill：`python3 -m unittest discover -s tests -v`
+  - skill：`git diff --check`
+
+Handoff:
+
+- 盘后总结 CLI 仍然只读 API 侧 SQLite ledger，不进入盘中执行链路。
+- 默认输出遵循最小必要原则；只有排障或内部评审需要时才使用 `--include-details`。
+- 策略评审内部仍显式读取明细做 ledger replay，但 proposal 不自动应用策略、不写配置、不触发 broker。
+
 ### M40 — API 历史 K 线回测入口路由说明收口
 
 Status: `done`

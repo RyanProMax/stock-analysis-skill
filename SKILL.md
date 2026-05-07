@@ -95,6 +95,7 @@ OpenD 未安装、未启动或 SDK 版本不满足时，说明 API Futu CLI / Op
 - 只能调用 `stock-analysis-api/scripts/trading_run_once.py`。
 - cron / launchd / Agent 高频轮询必须调用 `stock-analysis-api/scripts/trading_scheduler_tick.py`，由它判断 active window、执行间隔和 state key。
 - 盘后总结必须调用 `stock-analysis-api/scripts/trading_daily_summary.py`，只读 API 侧 SQLite ledger。
+- 盘后总结默认只消费 summary-only 输出；只有排障时才允许显式加 `--include-details` 读取 ledger 明细。
 - 策略候选评审必须调用 `stock-analysis-api/scripts/trading_strategy_review.py`；输出的 `strategy_proposal` 只能作为候选和审计底稿，不自动应用到运行时策略。
 - 历史 K 线回测必须调用 `stock-analysis-api/scripts/trading_strategy_backtest.py`；它只读历史 K 线或注入样本，不读写 ledger，不触发 broker。
 - 默认 broker 为 dry-run，不连接真实交易环境，不调用 `unlock_trade`。

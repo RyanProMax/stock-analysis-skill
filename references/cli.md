@@ -291,6 +291,9 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 - `summary`
 - `risk_reason_counts`
 - `market`
+
+默认不输出 ledger 明细，遵循最小必要原则；只保留盘后总结需要的计数、标的、策略版本、风控原因分布和行情首末变化。需要排障时才显式加 `--include-details`，额外返回：
+
 - `orders`
 - `risk_decisions`
 - `runs`
@@ -300,6 +303,7 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 - 只读 API 侧 SQLite ledger。
 - `market` 使用 ledger 中已记录的 snapshot 做首末价格与变化比例汇总；缺失时不补编。
 - 面向用户展示时默认转为北京时间。
+- 面向用户默认使用 summary-only 输出，不原样转贴 `orders`、`risk_decisions`、`runs` 明细。
 
 ### simulated trading strategy review
 

@@ -119,7 +119,7 @@ Futu/OpenD 安全边界：
 
 - `stock-analysis-api/scripts/trading_run_once.py`: 单次 dry-run 策略执行，读取 Futu/OpenD snapshot 或注入 snapshot，写入 API 侧 SQLite trading ledger
 - `stock-analysis-api/scripts/trading_scheduler_tick.py`: cron / launchd / Agent 调度 tick，判断 active window、执行间隔和 state key，到点后调用单次 dry-run 执行
-- `stock-analysis-api/scripts/trading_daily_summary.py`: 只读 API 侧 SQLite ledger，生成当日 run / order / 风控 / snapshot 摘要
+- `stock-analysis-api/scripts/trading_daily_summary.py`: 只读 API 侧 SQLite ledger，默认只输出 summary-only 关键信息；排障明细需显式 `--include-details`
 - `stock-analysis-api/scripts/trading_strategy_review.py`: 基于 ledger summary 生成候选 `strategy_proposal`，不会自动应用策略
 - `stock-analysis-api/scripts/trading_strategy_backtest.py`: 基于历史 K 线或注入 K 线 JSON 回测固定 threshold 策略；不读写 ledger，不触发 broker
 - 默认 broker 为 dry-run，不连接真实交易环境，不调用交易解锁
