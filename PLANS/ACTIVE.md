@@ -16,6 +16,48 @@
 
 ## Milestones
 
+### M39 — API Futu SIMULATE broker 路由说明收口
+
+Status: `done`
+
+Scope:
+
+- `SKILL.md`
+- `README.md`
+- `references/cli.md`
+- `AGENTS.md`
+- `PLANS/ACTIVE.md`
+- `PLANS/ROADMAP.md`
+
+Validation:
+
+- `python3 -m unittest discover -s tests -v`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+- API full：`uv run python -m pytest`
+- 安全检查：API Futu SIMULATE broker 源码不封装 `unlock_trade`
+
+Progress:
+
+- 2026-05-07 北京时间：API 已新增显式 opt-in 的 `--broker futu-simulate`；本轮同步 skill 说明，明确默认仍为 dry-run，Futu SIMULATE 只在用户明确要求连接模拟盘时使用，且不能和 `--snapshots-json` 混用。
+
+Validation status:
+
+- passed 2026-05-07 北京时间：
+  - API targeted：`uv run python -m pytest tests/test_futu_simulate_broker.py tests/test_trading_scheduler_tick_cli.py tests/test_trading_run_once_cli.py tests/test_trading_automation.py`
+  - API full：`uv run python -m pytest`
+  - API format / syntax：`uv run black --check ...`、`uv run python -m py_compile ...`、`git diff --check`
+  - API safety check：`rg -n "unlock_trade|TrdUnlock|unlock" ...` 只命中文档中的禁止说明，没有代码调用。
+  - skill：`python3 -m unittest discover -s tests -v`
+  - skill：`python3 -m py_compile scripts/*.py commands/*.py`
+  - skill：`git diff --check`
+
+Handoff:
+
+- skill 已明确默认 broker 仍为 dry-run。
+- 只有用户明确要求连接 Futu 模拟盘执行时才使用 `--broker futu-simulate`。
+- Futu 模拟盘路径固定 `TrdEnv.SIMULATE`，禁止 `unlock_trade`，并且不能和 `--snapshots-json` 混用。
+
 ### M38 — API 盘后总结与策略评审路由说明收口
 
 Status: `done`

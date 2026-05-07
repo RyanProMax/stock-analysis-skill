@@ -23,6 +23,7 @@
 - “跑一轮模拟盘 dry-run” 默认走 `trading_run_once.py`，不得改成真实交易
 - “定时轮询模拟盘”默认走 `trading_scheduler_tick.py`，不得让 Agent 在实时链路里直接判断是否下单
 - “总结今天模拟盘表现 / 生成策略迭代方向”默认走 `trading_daily_summary.py` 与 `trading_strategy_review.py`，proposal 不自动应用
+- “连接 Futu 模拟盘执行”必须显式传 `--broker futu-simulate`，默认不启用
 
 ## 环境变量
 
@@ -85,9 +86,22 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 - `--max-order-notional`
 - `--ledger-db`: 可选，覆盖 SQLite ledger 路径
 - `--snapshots-json`: 可选，注入离线行情快照做回放或测试
+- `--broker`: `dry-run` 或 `futu-simulate`，默认 `dry-run`
 - `--lock-name`: 默认 `trading_run_once`
 - `--lock-ttl-seconds`: 默认 900
 - `--disable-lock`: 只允许本地调试或显式验证使用
+
+Futu 模拟盘显式 opt-in 示例：
+
+```bash
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_run_once.py --broker futu-simulate --codes HK.00700 --buy-above HK.00700=100 --quantity 10 --max-order-notional 2000
+```
+
+约束：
+
+- `--broker futu-simulate` 固定使用 Futu `TrdEnv.SIMULATE`。
+- 该路径不得调用 `unlock_trade`。
+- 该路径不能和 `--snapshots-json` 混用，避免用离线 / 测试行情触发模拟盘订单。
 
 ### 4. simulated trading scheduler tick
 
@@ -97,7 +111,7 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 
 参数：
 
-- 透传 dry-run 参数：`--codes`、`--strategy-version`、`--buy-above`、`--quantity`、`--max-order-notional`、`--ledger-db`、`--snapshots-json`
+- 透传 dry-run 参数：`--codes`、`--strategy-version`、`--buy-above`、`--quantity`、`--max-order-notional`、`--ledger-db`、`--snapshots-json`、`--broker`
 - `--interval-seconds`: 默认 300
 - `--timezone`: 默认 `Asia/Shanghai`
 - `--active-window`: 默认 `09:30-12:00,13:00-16:00`
@@ -223,6 +237,7 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 - 拿不到调度锁时返回 `status=skipped`、`reason=lock_unavailable`，不应继续解读为失败或重复下单。
 - 输出必须是严格 JSON，非有限数值会归一化为 `null`。
 - 该入口只用于模拟执行、回放和审计；不得作为真实交易指令或投资建议。
+- `--broker futu-simulate` 只在用户明确要求连接 Futu 模拟盘时使用；不能和 `--snapshots-json` 混用，不调用 `unlock_trade`。
 
 ### simulated trading scheduler tick
 
