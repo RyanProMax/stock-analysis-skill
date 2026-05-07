@@ -4,12 +4,14 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import re
 import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -258,9 +260,22 @@ def _last_json_line(output: str) -> str:
     return ""
 
 
-def _opend_preflight_env(env: Mapping[str, str] | None = None) -> dict[str, str]:
+def _opend_preflight_runtime_dir(api_root: Path) -> Path:
+    digest = hashlib.sha1(str(api_root.resolve()).encode("utf-8")).hexdigest()[:12]
+    return Path(tempfile.gettempdir()) / "stock-analysis-skill" / f"opend-preflight-{digest}"
+
+
+def _opend_preflight_env(
+    env: Mapping[str, str] | None = None,
+    *,
+    api_root: Path | None = None,
+) -> dict[str, str]:
     resolved_env = dict(os.environ if env is None else env)
     resolved_env.setdefault("PYTHONIOENCODING", "utf-8")
+    if api_root is not None:
+        runtime_dir = _opend_preflight_runtime_dir(api_root)
+        resolved_env.setdefault("UV_CACHE_DIR", str(runtime_dir / "uv-cache"))
+        resolved_env["HOME"] = str(runtime_dir / "home")
     return resolved_env
 
 
@@ -291,7 +306,7 @@ def run_opend_preflight(
             text=True,
             capture_output=True,
             timeout=timeout_seconds,
-            env=_opend_preflight_env(env=resolved_env),
+            env=_opend_preflight_env(env=resolved_env, api_root=api_root),
             cwd=str(api_root),
             check=False,
         )
@@ -349,6 +364,19 @@ def _opend_confirmation_reply(target: ResearchTarget, preflight: OpenDPreflight)
         }
     }
 
+
+def _preflight_failure_is_executor_limited(preflight: OpenDPreflight) -> bool:
+    reason = str(preflight.reason or "").lower()
+    return any(
+        marker in reason
+        for marker in (
+            "operation not permitted",
+            "os error 1",
+            "failed to initialize cache",
+            "permissionerror",
+            "预检超时",
+        )
+    )
 
 
 def resolve_stock_analyze_command(
@@ -574,6 +602,17 @@ def _market_execution_requirements(
             "- 港股字段缺失、延迟行情或 HKEX PDF 无法抽取时，必须明确标注“港股数据层降级”；"
             "若 Futu/OpenD 执行阶段再次不可用，必须停止并询问用户确认，不得自行降级。"
         )
+    elif opend_preflight and not opend_preflight.ok:
+        command = f"`{opend_preflight.command}`" if opend_preflight.command else "global-state 预检命令"
+        opend_status = (
+            f"- OpenD 预检状态未知：executor 侧未完成预检（{opend_preflight.reason}）。"
+            f"执行报告前必须先运行 stock-analysis-api Futu CLI 预检：{command}；"
+            "若该命令失败，必须停止并询问用户确认，不得自行降级。"
+        )
+        fallback_rule = (
+            "- 港股字段缺失、延迟行情或 HKEX PDF 无法抽取时，必须明确标注“港股数据层降级”；"
+            "Futu/OpenD 不可用时不得自行降级。"
+        )
     else:
         opend_status = "- OpenD 预检状态未知；显式港股请求应由 executor 先预检，执行中发现不可用必须停止询问用户。"
         fallback_rule = (
@@ -676,7 +715,7 @@ def build_reply(
     opend_preflight: OpenDPreflight | None = None
     if target.market == "hk" and not allow_opend_degraded:
         opend_preflight = run_opend_preflight(skill_dir=skill_dir, env=env)
-        if not opend_preflight.ok:
+        if not opend_preflight.ok and not _preflight_failure_is_executor_limited(opend_preflight):
             return _opend_confirmation_reply(target, opend_preflight)
 
     return {

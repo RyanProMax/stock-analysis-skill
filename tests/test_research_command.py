@@ -526,6 +526,70 @@ class ResearchCommandTest(unittest.TestCase):
         self.assertNotIn("install-futu-opend", content)
         self.assertNotIn("外部 skill", content)
 
+    def test_hk_research_opend_preflight_uses_isolated_runtime_dirs(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = pathlib.Path(raw_root).resolve()
+            skill_dir = root / "stock-analysis-skill"
+            api_root = root / "stock-analysis-api"
+            futu_cli = api_root / "scripts" / "futu_market_data.py"
+            uv_path = root / "tooling" / "uv"
+            skill_dir.mkdir(parents=True)
+            futu_cli.parent.mkdir(parents=True)
+            futu_cli.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+            uv_path.parent.mkdir(parents=True)
+            uv_path.write_text("#!/bin/sh\n", encoding="utf-8")
+            uv_path.chmod(0o755)
+            env = {
+                "CLI_CLAW_SKILL_DIR": str(skill_dir),
+                "STOCK_ANALYSIS_API_ROOT": str(api_root),
+                "STOCK_ANALYSIS_UV": str(uv_path),
+                "PATH": "",
+            }
+
+            with mock.patch.object(research.subprocess, "run") as run_mock:
+                run_mock.return_value = subprocess.CompletedProcess(
+                    args=[],
+                    returncode=0,
+                    stdout='{"status":"ok","data":{"qot_logined":true}}',
+                    stderr="",
+                )
+
+                preflight = research.run_opend_preflight(skill_dir=skill_dir, env=env)
+
+        self.assertTrue(preflight.ok)
+        runtime_dir = research._opend_preflight_runtime_dir(api_root)
+        run_env = run_mock.call_args.kwargs["env"]
+        self.assertEqual(run_env["UV_CACHE_DIR"], str(runtime_dir / "uv-cache"))
+        self.assertEqual(run_env["HOME"], str(runtime_dir / "home"))
+
+    def test_hk_research_executor_limited_preflight_continues_to_agent_side_check(
+        self,
+    ) -> None:
+        with mock.patch.object(
+            research,
+            "run_opend_preflight",
+            return_value=research.OpenDPreflight(
+                ok=False,
+                reason="OpenD 预检超时（>8s）",
+                command="cd /api && uv run python scripts/futu_market_data.py global-state --json",
+            ),
+        ):
+            result = research.build_reply(
+                {
+                    "argsText": "HK.00700",
+                    "args": ["HK.00700"],
+                    "workspace": {"name": "沙箱验证"},
+                }
+            )
+
+        content = result["reply"]["content"]
+
+        self.assertEqual(result["reply"]["type"], "assistant_prompt")
+        self.assertIn("OpenD 预检状态未知", content)
+        self.assertIn("global-state --json", content)
+        self.assertIn("snapshot --codes HK.00700 --json", content)
+        self.assertNotIn("OpenD 预检未通过", content)
+
     def test_main_hk_research_loads_installed_skill_env_file(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
             root = pathlib.Path(raw_root).resolve()
