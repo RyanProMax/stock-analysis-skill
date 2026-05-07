@@ -16,6 +16,42 @@
 
 ## Milestones
 
+### M36 — API dry-run trading CLI 路由说明收口
+
+Status: `done`
+
+Scope:
+
+- `SKILL.md`
+- `README.md`
+- `references/cli.md`
+- `PLANS/ACTIVE.md`
+- `PLANS/ROADMAP.md`
+
+Validation:
+
+- `python3 -m unittest discover -s tests -v`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+- API CLI smoke：`scripts/trading_run_once.py` dry-run 输出严格 JSON
+
+Progress:
+
+- 2026-05-07 北京时间：API 已新增 `trading_run_once.py` dry-run 模拟盘入口、SQLite ledger、严格 JSON 输出和默认调度锁；本轮同步 skill 路由说明，明确 skill 只指向 API dry-run CLI，不放开真实交易、交易解锁或订阅能力。
+
+Validation status:
+
+- passed 2026-05-07 北京时间：
+  - `python3 -m unittest discover -s tests -v`
+  - `python3 -m py_compile scripts/*.py commands/*.py`（普通沙箱无法写 `__pycache__`，已按权限流程提升后重跑）
+  - `git diff --check`
+  - API CLI smoke：`trading_run_once.py` 真实 Futu snapshot + dry-run broker 输出严格 JSON，stderr 为空。
+
+Handoff:
+
+- skill 现在把模拟盘 dry-run 明确路由到 API `scripts/trading_run_once.py`。
+- 该入口只允许 dry-run 模拟执行和审计，不放开真实下单、交易解锁、订阅或 OpenD 写入能力。
+
 ### M35 — /research 机构目标价披露边界
 
 Status: `done`

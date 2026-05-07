@@ -7,19 +7,21 @@ metadata:
 
 # stock-analysis-skill
 
-`stock-analysis-skill` 是股票任务的意图路由与输出约束，不是行情、分析或交易实现源。当前只保留四类入口：
+`stock-analysis-skill` 是股票任务的意图路由与输出约束，不是行情、分析或交易实现源。当前只保留五类入口：
 
 - `CLI 使用技能`：标准化 A 股客观分析、单票研报摘要、A 股 / ETF 低 token 实时行情。
 - `Futu/OpenD 使用技能`：统一通过 `stock-analysis-api` 内部 CLI / provider 使用 Futu/OpenD；尚未迁入 API 的能力必须明确标记为未支持，不再路由到外部 Futu skill。
+- `模拟盘 dry-run 使用技能`：只在用户明确要求模拟盘自动化、回放或链路验证时调用 `stock-analysis-api/scripts/trading_run_once.py`，默认 dry-run broker + SQLite ledger + 调度锁。
 - `Tushare 使用技能`：用户明确要求的原始 Tushare 接口、字段、时间窗或接口查阅。
 - `Slash Commands`：`/research` 单票深度研报、`/hkipo` 港股 IPO 池研究工作流；`/cnipo` 目前占位。
 
 ## 全局只读护栏
 
-运行时使用本 skill 时只允许查询和结果展示；不得产生任何账户、订单、订阅、配置、自选股、提醒或本地文件状态变更。
+运行时使用本 skill 时默认只允许查询和结果展示；不得产生任何账户、订单、订阅、配置、自选股、提醒或本地文件状态变更。唯一例外是用户明确要求模拟盘自动化、回放或链路验证时，允许调用 API 仓库 `trading_run_once.py` 写入 API 侧 SQLite dry-run ledger。
 
 - 允许：行情、K 线、盘口、逐笔、分时、IPO、期权链、账户、资金、持仓、订单、成交、流水等只读查询。
 - 禁止：下单、改单、撤单、交易解锁、订阅推送、创建 / 修改价格提醒、写入 watchlist、修改配置、导出文件或任何其他写入动作。
+- 模拟盘 dry-run 只允许使用 API 默认 dry-run broker；不得把它替换为真实交易、交易解锁、订阅或任何 OpenD 写入能力。
 - 用户请求写入 / 编辑 / 下单 / 订阅 / 解锁时，必须拒绝执行；不得用模拟账户、已登录 OpenD 或用户二次确认作为绕过理由。
 - 仓库维护例外：只有在用户明确要求维护本仓库文档 / 脚本时，才允许运行会更新本仓库文件的维护命令，例如 `scripts/tushare_toolkit.py generate-docs`。
 - 不输出买卖建议、本系统目标价、主观 conviction、`recommendation`、`confidence`、`price_target`、`thesis`；机构目标价只能作为带来源、日期和币种的外部观点引用，不得改写成本系统建议。
@@ -37,6 +39,7 @@ metadata:
 | 单票客观分析、研报式摘要、“最近怎么样” | `CLI 使用技能` | 默认走 `stock_analyze.py`，不直接查原始 `report_rc` |
 | A 股股票 / ETF 低 token 实时行情 | `CLI 使用技能` | 默认走 `poll_realtime_quotes.py` |
 | 港 / 美 / 多市场行情、盘口、逐笔、分时、K 线、期权、持仓、订单等只读查询 | `Futu/OpenD 使用技能` | 仅限 API 已迁移能力；未迁移能力明确返回未支持 |
+| 模拟盘自动化、策略回放、dry-run 链路验证 | `模拟盘 dry-run 使用技能` | 只调用 API `trading_run_once.py`；默认 dry-run broker、SQLite ledger 和调度锁；禁止真实交易 |
 | 原始 Tushare 数据、接口清单、自定义字段或时间窗 | `Tushare 使用技能` | 只有用户明确要求原始接口时才使用 |
 
 明确例外：
@@ -51,7 +54,7 @@ metadata:
 
 1. `STOCK_ANALYSIS_API_ROOT` 指向 `stock-analysis-api` 仓库根目录。
 2. 固定 `uv` 可用：优先 `STOCK_ANALYSIS_UV`，其次 `UV_BIN` / `UV` / PATH / `$HOME/.local/bin/uv` / `$HOME/.cargo/bin/uv`；生成给 agent 的命令必须使用解析后的绝对 `uv` 路径。
-3. API 仓库存在 `scripts/poll_realtime_quotes.py`、`scripts/stock_analyze.py` 与 `scripts/futu_market_data.py`。
+3. API 仓库存在 `scripts/poll_realtime_quotes.py`、`scripts/stock_analyze.py`、`scripts/futu_market_data.py` 与 `scripts/trading_run_once.py`。
 4. A 股数据所需的 `TUSHARE_TOKEN` / `TUSHARE_HTTP_URL` 可被 API 仓库读取。
 
 标准命令：
@@ -60,6 +63,7 @@ metadata:
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/poll_realtime_quotes.py --symbols 600000,510300 --pretty
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/stock_analyze.py --market cn --symbols 300827 --mode base --pretty
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_market_data.py ipo-list --market HK --json
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_run_once.py --codes HK.00700 --buy-above HK.00700=0 --quantity 1 --max-order-notional 1000000
 ```
 
 输出规则统一见 `references/cli.md`。默认不要原样转贴 raw JSON；除非用户明确要求调试或原始输出，优先按固定模板汇总。`change_pct`、`turnover_rate`、`amplitude` 等 ratio 字段面向用户展示为百分比。
@@ -77,6 +81,16 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_ma
 5. 请求不涉及交易、订阅、提醒、自选股、配置或本地文件写入。
 
 OpenD 未安装、未启动或 SDK 版本不满足时，说明 API Futu CLI / OpenD 环境不可用，并按 `references/futu.md` 的降级和拒绝模板处理。
+
+## 模拟盘 dry-run 使用技能
+
+适用于用户明确要求 Agent 定时轮询、模拟盘策略执行、回放验证或 dry-run 自动化链路检查。
+
+- 只能调用 `stock-analysis-api/scripts/trading_run_once.py`。
+- 默认 broker 为 dry-run，不连接真实交易环境，不调用 `unlock_trade`。
+- 默认写入 API 侧 SQLite trading ledger，并使用 `trading_run_once` 调度锁；拿不到锁时返回 `status=skipped / reason=lock_unavailable`。
+- 输出必须是严格 JSON；`NaN` / `Infinity` 等非标准值由 API CLI 归一化为 `null`。
+- 该能力只能作为模拟执行和审计底稿，不输出买卖建议、系统目标价或真实下单指令。
 
 ## Tushare 使用技能
 

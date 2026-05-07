@@ -12,12 +12,14 @@
 - 单票研报摘要
 - 单票“最近怎么样”
 - A 股股票 / ETF 标准化实时行情轮询
+- 用户明确要求的模拟盘 dry-run 单轮执行、回放或链路验证
 
 示例：
 
 - “查 300627 的研报” 默认走 `stock_analyze.py`
 - 只有“查 300627 的原始 report_rc 记录”才走 Tushare 直连
 - 港 / 美 / 多市场 watchlist、盘口、逐笔、分时、K 线、市场状态见 `references/futu.md`
+- “跑一轮模拟盘 dry-run” 默认走 `trading_run_once.py`，不得改成真实交易
 
 ## 环境变量
 
@@ -26,6 +28,7 @@ STOCK_ANALYSIS_API_ROOT="/absolute/path/to/stock-analysis-api"
 STOCK_ANALYSIS_UV="/absolute/path/to/uv"
 TUSHARE_TOKEN="your_token_here"
 TUSHARE_HTTP_URL=""
+TRADING_LEDGER_DB_PATH="/optional/path/to/trading_ledger.sqlite"
 ```
 
 字段说明：
@@ -34,6 +37,7 @@ TUSHARE_HTTP_URL=""
 - `STOCK_ANALYSIS_UV`: 固定 `uv` 可执行文件路径；未设置时 `/research` 按 `UV_BIN` / `UV` / PATH / `$HOME/.local/bin/uv` / `$HOME/.cargo/bin/uv` 查找，并在 prompt 中输出绝对路径
 - `TUSHARE_TOKEN`: A 股 realtime / Tushare 直连能力需要
 - `TUSHARE_HTTP_URL`: 可选，覆盖默认 Tushare 接口地址
+- `TRADING_LEDGER_DB_PATH`: 可选，覆盖 API 侧模拟盘 ledger 路径
 
 ## 标准命令
 
@@ -62,6 +66,25 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/stock_a
 - `--end-date`
 - `--mode`
 - `--pretty`
+
+### 3. simulated trading dry-run
+
+```bash
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_run_once.py --codes HK.00700 --buy-above HK.00700=0 --quantity 1 --max-order-notional 1000000
+```
+
+参数：
+
+- `--codes`: 逗号分隔 Futu 格式代码，例如 `HK.00700`
+- `--strategy-version`: 默认 `threshold-v1`
+- `--buy-above`: 逗号分隔阈值，例如 `HK.00700=100`
+- `--quantity`
+- `--max-order-notional`
+- `--ledger-db`: 可选，覆盖 SQLite ledger 路径
+- `--snapshots-json`: 可选，注入离线行情快照做回放或测试
+- `--lock-name`: 默认 `trading_run_once`
+- `--lock-ttl-seconds`: 默认 900
+- `--disable-lock`: 只允许本地调试或显式验证使用
 
 ## 原始 JSON 结构
 
@@ -128,6 +151,32 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/stock_a
 - `items`
 
 主消费对象默认取 `data.items[0]`。
+
+### simulated trading dry-run
+
+顶层：
+
+- `status`
+- `run_id`
+- `strategy_version`
+- `started_at`
+- `finished_at`
+- `source`
+- `request`
+- `account`
+- `positions`
+- `snapshots`
+- `signals`
+- `risk_decisions`
+- `orders`
+- `broker_mode`
+
+约束：
+
+- 成功执行时 `broker_mode` 必须是 `dry_run`。
+- 拿不到调度锁时返回 `status=skipped`、`reason=lock_unavailable`，不应继续解读为失败或重复下单。
+- 输出必须是严格 JSON，非有限数值会归一化为 `null`。
+- 该入口只用于模拟执行、回放和审计；不得作为真实交易指令或投资建议。
 
 ## 固定模板
 
