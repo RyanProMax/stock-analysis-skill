@@ -13,6 +13,7 @@
 - 单票“最近怎么样”
 - A 股股票 / ETF 标准化实时行情轮询
 - 用户明确要求的模拟盘 dry-run 单轮执行、回放或链路验证
+- 用户明确要求的模拟盘盘后总结、策略评审或自我迭代方向
 
 示例：
 
@@ -21,6 +22,7 @@
 - 港 / 美 / 多市场 watchlist、盘口、逐笔、分时、K 线、市场状态见 `references/futu.md`
 - “跑一轮模拟盘 dry-run” 默认走 `trading_run_once.py`，不得改成真实交易
 - “定时轮询模拟盘”默认走 `trading_scheduler_tick.py`，不得让 Agent 在实时链路里直接判断是否下单
+- “总结今天模拟盘表现 / 生成策略迭代方向”默认走 `trading_daily_summary.py` 与 `trading_strategy_review.py`，proposal 不自动应用
 
 ## 环境变量
 
@@ -101,6 +103,34 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 - `--active-window`: 默认 `09:30-12:00,13:00-16:00`
 - `--state-key`: 可选，不传时按策略参数生成
 - `--force`: 忽略时间窗和间隔，仅用于显式验证
+
+### 5. simulated trading daily summary
+
+```bash
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_daily_summary.py --date 2026-05-07 --pretty
+```
+
+参数：
+
+- `--ledger-db`: 可选，覆盖 SQLite ledger 路径
+- `--date`: `YYYY-MM-DD`，不传时按 `--timezone` 取当天
+- `--timezone`: 默认 `Asia/Shanghai`
+- `--pretty`
+
+### 6. simulated trading strategy review
+
+```bash
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_strategy_review.py --date 2026-05-07 --min-runs 3 --pretty
+```
+
+参数：
+
+- `--ledger-db`: 可选，覆盖 SQLite ledger 路径
+- `--date`: `YYYY-MM-DD`，不传时按 `--timezone` 取当天
+- `--timezone`: 默认 `Asia/Shanghai`
+- `--min-runs`: 默认 3
+- `--max-rejection-rate`: 默认 0.5
+- `--pretty`
 
 ## 原始 JSON 结构
 
@@ -215,6 +245,65 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 - 到点后仍复用 `trading_run_once.py`；不得绕过 dry-run broker 和 SQLite ledger。
 - 该入口适合 cron / launchd / Agent 高频调用。
 
+### simulated trading daily summary
+
+顶层：
+
+- `status`
+- `source=trading_daily_summary`
+- `date`
+- `timezone`
+- `summary`
+- `risk_reason_counts`
+- `market`
+- `orders`
+- `risk_decisions`
+- `runs`
+
+约束：
+
+- 只读 API 侧 SQLite ledger。
+- `market` 使用 ledger 中已记录的 snapshot 做首末价格与变化比例汇总；缺失时不补编。
+- 面向用户展示时默认转为北京时间。
+
+### simulated trading strategy review
+
+顶层：
+
+- `status`
+- `source=trading_strategy_review`
+- `date`
+- `timezone`
+- `review`
+- `strategy_proposal`
+
+`review.ledger_backtest`：
+
+- `method=ledger_snapshot_replay`
+- `runs_total`
+- `orders_total`
+- `risk_decisions_total`
+- `rejection_rate`
+- `order_mark_to_market`
+- `average_order_return_ratio`
+
+`strategy_proposal`：
+
+- `schema_version=trading_strategy_proposal.v1`
+- `status=candidate|blocked`
+- `strategy_version`
+- `approval_required=true`
+- `effective_status=candidate_only|not_applied`
+- `proposed_changes`
+- `evidence`
+- `constraints`
+
+约束：
+
+- 当前 `ledger_snapshot_replay` 只是基于已记录 snapshot 和 dry-run order 的回放式评估，不等同完整历史 K 线回测。
+- proposal 只作为候选，不写策略配置、不改调度 state、不触发 broker。
+- Agent 可以解释 proposal 和总结迭代方向，但不能在盘中链路里直接改策略或决定下单。
+
 ## 固定模板
 
 默认优先输出固定模板，不默认附完整 raw JSON。只有用户明确要求调试 / 原始输出时，才附完整 JSON。
@@ -304,6 +393,67 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 - `permission_denied`
 - `not_supported`
 - 任何非 `ok` 模块状态
+
+### simulated trading daily summary 模板
+
+#### 请求
+
+- `date`
+- `timezone`
+- ledger 来源
+
+#### 当日摘要
+
+- `summary.runs_total`
+- `summary.orders_total`
+- `summary.risk_decisions_total`
+- `summary.accepted_risk_decisions`
+- `summary.rejected_risk_decisions`
+- `summary.codes`
+- `summary.strategy_versions`
+
+#### 行情与操作
+
+- `market[].code`
+- `market[].first_price`
+- `market[].latest_price`
+- `market[].change_ratio`
+- `orders[].code`
+- `orders[].side`
+- `orders[].quantity`
+- `orders[].price`
+- `risk_reason_counts`
+
+### simulated trading strategy review 模板
+
+#### 评审状态
+
+- `status`
+- `review.gate_status`
+- `review.gate_reasons`
+- `review.ledger_backtest.method`
+
+#### 回放式指标
+
+- `review.ledger_backtest.runs_total`
+- `review.ledger_backtest.orders_total`
+- `review.ledger_backtest.rejection_rate`
+- `review.ledger_backtest.average_order_return_ratio`
+- `review.ledger_backtest.order_mark_to_market`
+
+#### 策略候选
+
+- `strategy_proposal.status`
+- `strategy_proposal.strategy_version`
+- `strategy_proposal.approval_required`
+- `strategy_proposal.effective_status`
+- `strategy_proposal.proposed_changes`
+- `strategy_proposal.constraints`
+
+必须明确说明：
+
+- `ledger_snapshot_replay` 不是完整历史回测。
+- proposal 未自动应用，仍需人工批准。
 
 ## 禁止事项
 

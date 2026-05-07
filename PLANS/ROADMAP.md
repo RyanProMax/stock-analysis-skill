@@ -49,6 +49,8 @@
 - [ ] 迁移剩余 Futu 只读能力到 API provider，并删除外部 Futu skill 依赖入口
 - [x] 将 API `trading_run_once.py` dry-run 模拟盘入口纳入 skill 路由说明和 CLI reference
 - [x] 将 API `trading_scheduler_tick.py` 调度 tick 入口纳入 skill 路由说明和 CLI reference
+- [x] 将 API `trading_daily_summary.py` 盘后总结入口纳入 skill 路由说明和 CLI reference
+- [x] 将 API `trading_strategy_review.py` 策略候选评审入口纳入 skill 路由说明和 CLI reference
 - [ ] `/research` 港股数据层从后置 prompt 路由升级为稳定字段矩阵与验证样例
 - [ ] `/research` 美股补充 SEC filings / earnings transcript 证据层缓存与引用规范
 - [ ] `/research` 重点版短报继续按用户反馈迭代：沉淀不同行业的财务健康、估值相对位置、情绪热度、叙事增长点和机构观点综合评分口径
@@ -102,3 +104,4 @@
 - 2026-05-06：`/research` 机构观点综合已要求列出可核验的机构评级/观点与机构目标价；目标价只作为外部观点披露，必须标注机构、日期、币种和来源，不得作为本系统建议或 `price_target` 字段。
 - 2026-05-07：`stock-analysis-api/scripts/trading_run_once.py` dry-run 模拟盘入口已纳入 skill 路由说明和 `references/cli.md`；默认使用 API 侧 dry-run broker、SQLite ledger 和调度锁，不放开真实交易。
 - 2026-05-07：`stock-analysis-api/scripts/trading_scheduler_tick.py` 调度 tick 已纳入 skill 路由说明和 `references/cli.md`；用于 cron / launchd / Agent 高频轮询，到点后复用单轮 dry-run。
+- 2026-05-07：`stock-analysis-api/scripts/trading_daily_summary.py` 与 `trading_strategy_review.py` 已纳入 skill 路由说明和 `references/cli.md`；盘后总结只读 ledger，策略评审只输出候选 proposal，不自动应用策略。

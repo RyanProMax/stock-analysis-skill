@@ -16,6 +16,47 @@
 
 ## Milestones
 
+### M38 — API 盘后总结与策略评审路由说明收口
+
+Status: `done`
+
+Scope:
+
+- `SKILL.md`
+- `README.md`
+- `references/cli.md`
+- `AGENTS.md`
+- `PLANS/ACTIVE.md`
+- `PLANS/ROADMAP.md`
+
+Validation:
+
+- `python3 -m unittest discover -s tests -v`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+- API CLI smoke：`trading_run_once.py` 写入 ledger 后，`trading_daily_summary.py` 与 `trading_strategy_review.py` 读取同一 ledger 输出严格 JSON
+
+Progress:
+
+- 2026-05-07 北京时间：API 已新增 `trading_daily_summary.py` 与 `trading_strategy_review.py`；本轮同步 skill 路由说明，明确盘后总结和策略候选评审走 API CLI，skill 不新增 wrapper，不放开真实交易或自动应用策略。
+
+Validation status:
+
+- passed 2026-05-07 北京时间：
+  - API targeted：`uv run python -m pytest tests/test_trading_daily_summary_cli.py tests/test_trading_strategy_review_cli.py tests/test_trading_post_market_e2e.py tests/test_trading_scheduler_tick_cli.py tests/test_trading_run_once_cli.py tests/test_trading_automation.py`
+  - API full：`uv run python -m pytest`
+  - API format / syntax：`uv run black --check ...`、`uv run python -m py_compile ...`、`git diff --check`
+  - API CLI smoke：`trading_run_once.py` 写入临时 ledger 后，`trading_daily_summary.py` 与 `trading_strategy_review.py` 读取同一 ledger，三段 stdout 均为严格 JSON。
+  - skill：`python3 -m unittest discover -s tests -v`
+  - skill：`python3 -m py_compile scripts/*.py commands/*.py`（普通沙箱无法写 `__pycache__`，已按权限流程提升后重跑）
+  - skill：`git diff --check`
+
+Handoff:
+
+- skill 现在把模拟盘盘后总结路由到 API `scripts/trading_daily_summary.py`。
+- skill 现在把策略候选评审路由到 API `scripts/trading_strategy_review.py`。
+- `strategy_proposal` 明确是候选产物：`approval_required=true`，不会自动写运行时策略、调度 state 或 broker。
+
 ### M37 — API scheduler tick 路由说明收口
 
 Status: `done`
