@@ -5,7 +5,7 @@
 这是一个根目录单一 `stock-analysis-skill` 仓库。当前只保留五类能力说明：
 
 - `CLI 使用技能`：直接消费 `stock-analysis-api` 仓库中的内部 CLI
-- `Futu/OpenD 使用技能`：`/hkipo` 与 `/research` 已用能力走 `stock-analysis-api` Futu CLI；其他尚未迁移能力明确标记为待 API provider 扩展，不再路由到外部 Futu skill
+- `Futu/OpenD 使用技能`：`/hkipo` 与 `/research` 已用能力走 `stock-analysis-api` Futu CLI；盘口、逐笔、分时、期权链、账户、资金、持仓、订单、成交和流水等只读查询也走 API Futu CLI；其他尚未迁移能力明确标记为待 API provider 扩展，不再路由到外部 Futu skill
 - `模拟盘 dry-run 使用技能`：只在用户明确要求模拟盘自动化、回放或链路验证时调用 `stock-analysis-api/scripts/trading_run_once.py`；默认 dry-run broker；定时轮询调用 `stock-analysis-api/scripts/trading_scheduler_tick.py`；盘后总结和策略候选评审调用 `trading_daily_summary.py` / `trading_strategy_review.py`；历史 K 线回测调用 `trading_strategy_backtest.py`；连接 Futu 模拟盘必须显式使用 `--broker futu-simulate`
 - `Tushare 使用技能`：保留 Tushare 本地工具与接口参考资产
 - `Slash Commands`：通过 `commands.json` + `commands/*.py` 暴露单票研报与 IPO 池类命令
@@ -32,8 +32,9 @@
   - `scripts/stock_analyze.py`
 - 单票分析、单票研报摘要、A 股标准化实时行情默认先走 CLI，不先走 Futu 或 Tushare
 - `/hkipo` 与 `/research` 用到的 Futu/OpenD 只读能力默认路由到 `stock-analysis-api/scripts/futu_market_data.py`
+- 港 / 美 / 多市场盘口、逐笔、分时、期权链、账户、资金、持仓、订单、成交和流水只读查询默认路由到 `stock-analysis-api/scripts/futu_market_data.py`
 - 模拟盘 dry-run 自动化默认路由到 `stock-analysis-api/scripts/trading_run_once.py`；cron / launchd / Agent 高频调用默认路由到 `stock-analysis-api/scripts/trading_scheduler_tick.py`；盘后总结和策略候选评审默认路由到 API `trading_daily_summary.py` / `trading_strategy_review.py`；历史 K 线回测默认路由到 API `trading_strategy_backtest.py`；Futu 模拟盘执行必须显式 `--broker futu-simulate`；本 skill 不实现真实交易或自动应用策略
-- 港 / 美 / 多市场盘口、期权、账户、持仓、订单等尚未迁移能力默认返回“尚未迁入 API”，不得绕回外部 Futu skill
+- 窝轮 / 牛熊证、资金流、资金分布、经纪队列、板块与成分股、条件选股、期货资料等尚未迁移能力默认返回“尚未迁入 API”，不得绕回外部 Futu skill
 - `/research` 与 IPO 池类命令允许通过 `commands.json` + `commands/*.py` 暴露；复杂研究型 command 优先输出结构化提示词，由宿主 Agent 继续完成联网分析
 - `/research` A 股 / 美股命令由 executor 优先按 `STOCK_ANALYSIS_API_ROOT`、再按 skill 安装目录附近的 sibling `stock-analysis-api` 解析绝对 CLI；找不到时必须在 prompt 中显式预检失败并降级
 - 本仓库不再维护对应 wrapper 脚本
@@ -67,6 +68,8 @@
 - `cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/poll_realtime_quotes.py --symbols 600000,510300 --pretty`: 调用 API 仓库 realtime quote CLI
 - `cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/stock_analyze.py --market cn --symbols 300827 --mode base --pretty`: 调用 API 仓库客观分析 CLI
 - `cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_market_data.py ipo-list --market HK --json`: 调用 API 仓库 Futu/OpenD 只读 CLI
+- `cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_market_data.py order-book --code HK.00700 --num 10 --json`: 调用 API 仓库 Futu/OpenD 盘口只读 CLI
+- `cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_market_data.py positions --market HK --code HK.00700 --json`: 调用 API 仓库 Futu/OpenD 持仓只读 CLI
 - `cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_daily_summary.py --date 2026-05-07 --pretty`: 调用 API 仓库模拟盘盘后总结 CLI，默认只输出 summary-only 关键信息
 - `cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_strategy_review.py --date 2026-05-07 --min-runs 3 --pretty`: 调用 API 仓库策略候选评审 CLI
 - `cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_strategy_backtest.py --codes HK.00700 --buy-above HK.00700=100 --start 2026-05-01 --end 2026-05-07 --pretty`: 调用 API 仓库历史 K 线回测 CLI

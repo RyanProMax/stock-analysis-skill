@@ -22,7 +22,8 @@
 - 标准 A 股低 token quote / objective analyze / `/research` A 股与美股深度研报底稿继续优先走 `stock-analysis-api` CLI；`/research` 由 executor 运行时解析绝对 API 命令，避免宿主工作区 cwd 影响
 - `/hkipo` IPO list、`/research` 港股 OpenD 预检 / snapshot / K 线和 HK IPO 回测首日 K 线走 `stock-analysis-api/scripts/futu_market_data.py`
 - 模拟盘 dry-run 自动化、回放和链路验证走 `stock-analysis-api/scripts/trading_run_once.py`；cron / launchd / Agent 高频调用走 `stock-analysis-api/scripts/trading_scheduler_tick.py`；默认 dry-run broker、SQLite ledger 和调度锁，不放开真实交易
-- 港 / 美 / 多市场行情、盘口、期权、账户、持仓、订单等只读查询能力后续逐步迁入 `stock-analysis-api`
+- 港 / 美 / 多市场行情、盘口、逐笔、分时、期权链、账户、资金、持仓、订单、成交和流水等只读查询已迁入 `stock-analysis-api`
+- 窝轮 / 牛熊证、资金流、资金分布、经纪队列、板块与成分股、条件选股、期货资料等能力后续逐步迁入 `stock-analysis-api`
 - OpenD 安装与连通性问题只作为环境前置条件提示，不在本 skill 中执行外部安装或 Futu skill
 - 禁止 AI 接触交易密码；禁止通过 SDK 或脚本调用交易解锁
 
@@ -46,7 +47,8 @@
 - [x] `/research` 增加行业趋势、市场热度、Peer PE 和权威研报汇总模块
 - [x] `/research` 显式港股增加 OpenD 前置确认，未确认时不允许自行降级
 - [x] `/research` 港股 OpenD 预检和 snapshot / K 线入口迁移到 API Futu CLI
-- [ ] 迁移剩余 Futu 只读能力到 API provider，并删除外部 Futu skill 依赖入口
+- [x] 迁移高频 Futu 只读能力到 API provider，并删除外部 Futu skill 依赖入口
+- [ ] 迁移 Futu 长尾只读能力到 API provider：窝轮 / 牛熊证、资金流、资金分布、经纪队列、板块与成分股、条件选股、期货资料
 - [x] 将 API `trading_run_once.py` dry-run 模拟盘入口纳入 skill 路由说明和 CLI reference
 - [x] 将 API `trading_scheduler_tick.py` 调度 tick 入口纳入 skill 路由说明和 CLI reference
 - [x] 将 API `trading_daily_summary.py` 盘后总结入口纳入 skill 路由说明和 CLI reference
@@ -110,3 +112,4 @@
 - 2026-05-07：`stock-analysis-api/scripts/trading_run_once.py --broker futu-simulate` 已纳入 skill 路由说明和 `references/cli.md`；该路径必须显式 opt-in，固定 Futu `SIMULATE`，禁止 `unlock_trade`，并且不能和 `--snapshots-json` 混用。
 - 2026-05-07：`stock-analysis-api/scripts/trading_strategy_backtest.py` 已纳入 skill 路由说明和 `references/cli.md`；该入口基于历史 K 线或注入样本做离线回测，不读写 ledger，不触发 broker。
 - 2026-05-07：`stock-analysis-api/scripts/trading_daily_summary.py` 默认输出已收敛为 summary-only；skill 面向用户默认只消费关键信息，ledger 明细需显式 `--include-details`，并继续保持只读安全边界。
+- 2026-05-07：`stock-analysis-api/scripts/futu_market_data.py` 已新增盘口、逐笔、分时、期权到期日、期权链、Futu `SIMULATE` 账户、持仓、订单、成交和流水只读查询；skill 已同步路由说明，不再将这些高频能力标记为未迁入 API。

@@ -19,7 +19,7 @@
 
 - “查 300627 的研报” 默认走 `stock_analyze.py`
 - 只有“查 300627 的原始 report_rc 记录”才走 Tushare 直连
-- 港 / 美 / 多市场 watchlist、盘口、逐笔、分时、K 线、市场状态见 `references/futu.md`
+- 港 / 美 / 多市场 watchlist、盘口、逐笔、分时、K 线、期权链、账户、持仓、订单、成交和流水只读查询见 `references/futu.md`
 - “跑一轮模拟盘 dry-run” 默认走 `trading_run_once.py`，不得改成真实交易
 - “定时轮询模拟盘”默认走 `trading_scheduler_tick.py`，不得让 Agent 在实时链路里直接判断是否下单
 - “总结今天模拟盘表现 / 生成策略迭代方向”默认走 `trading_daily_summary.py` 与 `trading_strategy_review.py`，proposal 不自动应用
@@ -72,7 +72,24 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/stock_a
 - `--mode`
 - `--pretty`
 
-### 3. simulated trading dry-run
+### 3. Futu/OpenD readonly query
+
+```bash
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_market_data.py order-book --code HK.00700 --num 10 --json
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_market_data.py ticker --code HK.00700 --num 500 --json
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_market_data.py rt-data --code HK.00700 --json
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_market_data.py option-chain --code US.AAPL --start 2026-05-15 --end 2026-06-19 --option-type CALL --json
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_market_data.py positions --market HK --code HK.00700 --json
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_market_data.py orders --market HK --code HK.00700 --start 2026-05-01 --end 2026-05-07 --history --json
+```
+
+边界：
+
+- 只允许查询；不得调用下单、改单、撤单、交易解锁、订阅或任何 OpenD 写入能力。
+- 账户、持仓、订单、成交和流水查询固定为 Futu `SIMULATE` 只读路径。
+- 账户类结果按最小必要原则展示，除非用户明确要求调试原始 JSON。
+
+### 4. simulated trading dry-run
 
 ```bash
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_run_once.py --codes HK.00700 --buy-above HK.00700=0 --quantity 1 --max-order-notional 1000000
@@ -104,7 +121,7 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 - 该路径不得调用 `unlock_trade`。
 - 该路径不能和 `--snapshots-json` 混用，避免用离线 / 测试行情触发模拟盘订单。
 
-### 4. simulated trading scheduler tick
+### 5. simulated trading scheduler tick
 
 ```bash
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_scheduler_tick.py --codes HK.00700 --buy-above HK.00700=0 --quantity 1 --max-order-notional 1000000
@@ -119,7 +136,7 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 - `--state-key`: 可选，不传时按策略参数生成
 - `--force`: 忽略时间窗和间隔，仅用于显式验证
 
-### 5. simulated trading daily summary
+### 6. simulated trading daily summary
 
 ```bash
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_daily_summary.py --date 2026-05-07 --pretty
@@ -132,7 +149,7 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 - `--timezone`: 默认 `Asia/Shanghai`
 - `--pretty`
 
-### 6. simulated trading strategy review
+### 7. simulated trading strategy review
 
 ```bash
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_strategy_review.py --date 2026-05-07 --min-runs 3 --pretty
@@ -147,7 +164,7 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 - `--max-rejection-rate`: 默认 0.5
 - `--pretty`
 
-### 7. simulated trading strategy backtest
+### 8. simulated trading strategy backtest
 
 ```bash
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_strategy_backtest.py --codes HK.00700 --buy-above HK.00700=100 --start 2026-05-01 --end 2026-05-07 --pretty

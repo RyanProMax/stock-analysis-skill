@@ -16,6 +16,62 @@
 
 ## Milestones
 
+### M42 — API Futu 只读 provider 扩展与安全回归
+
+Status: `done`
+
+Scope:
+
+- `SKILL.md`
+- `README.md`
+- `AGENTS.md`
+- `references/cli.md`
+- `references/futu.md`
+- `PLANS/ACTIVE.md`
+- `PLANS/ROADMAP.md`
+- API: `src/data_provider/sources/futu.py`
+- API: `src/services/futu_market_data_cli.py`
+- API: `tests/test_futu_market_data_cli.py`
+- API: `README.md`
+- API: `docs/architecture.md`
+- API: `docs/plan.md`
+- API: `docs/specs/futu-internal-cli-contract.md`
+- API: `docs/specs/skill-cli-contract.md`
+
+Validation:
+
+- API targeted：`uv run python -m pytest tests/test_futu_market_data_cli.py`
+- API broker regression：`uv run python -m pytest tests/test_futu_simulate_broker.py tests/test_trading_run_once_cli.py tests/test_trading_automation.py`
+- API full：`uv run python -m pytest`
+- API format：`uv run black --check --line-length 100 --target-version py312 scripts src tests`
+- API diff check：`git diff --check`
+- skill：`python3 -m unittest discover -s tests -v`
+- skill：`python3 -m py_compile scripts/*.py commands/*.py`
+- skill：`git diff --check`
+
+Progress:
+
+- 2026-05-07 北京时间：扩展 API `scripts/futu_market_data.py`，新增盘口、逐笔、分时、期权到期日、期权链、Futu `SIMULATE` 账户、持仓、订单、成交和流水只读查询子命令。
+- 2026-05-07 北京时间：补充 Futu 只读 CLI contract 测试和安全回归，确保 CLI 不暴露 `place-order`、`modify-order`、`cancel-order`、`unlock-trade`、`subscribe` 等写入类子命令。
+- 2026-05-07 北京时间：同步 skill 路由说明，明确这些能力已迁入 API，不再返回“尚未迁入 API”，也不绕回外部 Futu skill。
+
+Validation status:
+
+- passed 2026-05-07 北京时间：
+  - API targeted：`uv run python -m pytest tests/test_futu_market_data_cli.py tests/test_futu_simulate_broker.py tests/test_trading_run_once_cli.py tests/test_trading_automation.py`
+  - API full：`uv run python -m pytest`
+  - API format：`uv run black --check --line-length 100 --target-version py312 scripts src tests`
+  - API diff check：`git diff --check`
+  - skill：`python3 -m unittest discover -s tests -v`
+  - skill：`python3 -m py_compile scripts/*.py commands/*.py`
+  - skill：`git diff --check`
+
+Handoff:
+
+- `futu_market_data.py` 现在覆盖高频 Futu/OpenD 只读查询，不再需要外部 Futu skill 承接盘口、逐笔、分时、期权链、账户、持仓、订单、成交或流水查询。
+- 账户、持仓、订单、成交和流水查询固定为 Futu `SIMULATE` 只读路径；CLI 未暴露写入类子命令。
+- 尚未迁入范围收窄为窝轮 / 牛熊证、资金流、资金分布、经纪队列、板块与成分股、条件选股、期货资料等长尾只读能力。
+
 ### M41 — API 盘后总结 summary-only 输出收口
 
 Status: `done`
