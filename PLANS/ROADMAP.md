@@ -52,6 +52,7 @@
 - [x] 将 API `trading_daily_summary.py` 盘后总结入口纳入 skill 路由说明和 CLI reference
 - [x] 将 API `trading_strategy_review.py` 策略候选评审入口纳入 skill 路由说明和 CLI reference
 - [x] 将 API `--broker futu-simulate` 显式 Futu 模拟盘 broker 入口纳入 skill 路由说明和 CLI reference
+- [x] 将 API `trading_strategy_backtest.py` 历史 K 线回测入口纳入 skill 路由说明和 CLI reference
 - [ ] `/research` 港股数据层从后置 prompt 路由升级为稳定字段矩阵与验证样例
 - [ ] `/research` 美股补充 SEC filings / earnings transcript 证据层缓存与引用规范
 - [ ] `/research` 重点版短报继续按用户反馈迭代：沉淀不同行业的财务健康、估值相对位置、情绪热度、叙事增长点和机构观点综合评分口径
@@ -107,3 +108,4 @@
 - 2026-05-07：`stock-analysis-api/scripts/trading_scheduler_tick.py` 调度 tick 已纳入 skill 路由说明和 `references/cli.md`；用于 cron / launchd / Agent 高频轮询，到点后复用单轮 dry-run。
 - 2026-05-07：`stock-analysis-api/scripts/trading_daily_summary.py` 与 `trading_strategy_review.py` 已纳入 skill 路由说明和 `references/cli.md`；盘后总结只读 ledger，策略评审只输出候选 proposal，不自动应用策略。
 - 2026-05-07：`stock-analysis-api/scripts/trading_run_once.py --broker futu-simulate` 已纳入 skill 路由说明和 `references/cli.md`；该路径必须显式 opt-in，固定 Futu `SIMULATE`，禁止 `unlock_trade`，并且不能和 `--snapshots-json` 混用。
+- 2026-05-07：`stock-analysis-api/scripts/trading_strategy_backtest.py` 已纳入 skill 路由说明和 `references/cli.md`；该入口基于历史 K 线或注入样本做离线回测，不读写 ledger，不触发 broker。

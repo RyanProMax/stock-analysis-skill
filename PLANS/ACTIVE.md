@@ -16,6 +16,47 @@
 
 ## Milestones
 
+### M40 — API 历史 K 线回测入口路由说明收口
+
+Status: `done`
+
+Scope:
+
+- `SKILL.md`
+- `README.md`
+- `references/cli.md`
+- `AGENTS.md`
+- `PLANS/ACTIVE.md`
+- `PLANS/ROADMAP.md`
+
+Validation:
+
+- `python3 -m unittest discover -s tests -v`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+- API targeted：`trading_strategy_backtest.py` unit + script entrypoint tests
+- API full：`uv run python -m pytest`
+
+Progress:
+
+- 2026-05-07 北京时间：API 已新增 `trading_strategy_backtest.py`，支持注入 K 线 JSON 或 Futu 历史 K 线，对固定 threshold 策略做离线回测；本轮同步 skill 路由说明，明确它和 `ledger_snapshot_replay` 是不同口径。
+
+Validation status:
+
+- passed 2026-05-07 北京时间：
+  - API targeted：`uv run python -m pytest tests/test_trading_strategy_backtest_cli.py tests/test_trading_strategy_backtest_e2e.py`
+  - API full：`uv run python -m pytest`
+  - API format / syntax：`uv run black --check ...`、`uv run python -m py_compile ...`、`git diff --check`
+  - skill：`python3 -m unittest discover -s tests -v`
+  - skill：`python3 -m py_compile scripts/*.py commands/*.py`
+  - skill：`git diff --check`
+
+Handoff:
+
+- skill 已明确历史 K 线回测走 API `scripts/trading_strategy_backtest.py`。
+- 该入口与 `trading_strategy_review.py` 的 `ledger_snapshot_replay` 口径不同：backtest 读历史 K 线，review 读 ledger。
+- 回测入口不读写 ledger，不触发 broker，不应用策略。
+
 ### M39 — API Futu SIMULATE broker 路由说明收口
 
 Status: `done`

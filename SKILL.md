@@ -11,7 +11,7 @@ metadata:
 
 - `CLI 使用技能`：标准化 A 股客观分析、单票研报摘要、A 股 / ETF 低 token 实时行情。
 - `Futu/OpenD 使用技能`：统一通过 `stock-analysis-api` 内部 CLI / provider 使用 Futu/OpenD；尚未迁入 API 的能力必须明确标记为未支持，不再路由到外部 Futu skill。
-- `模拟盘 dry-run 使用技能`：只在用户明确要求模拟盘自动化、回放或链路验证时调用 `stock-analysis-api/scripts/trading_run_once.py`；默认 dry-run broker；定时轮询调用 `stock-analysis-api/scripts/trading_scheduler_tick.py`；盘后总结和策略候选评审调用 `trading_daily_summary.py` / `trading_strategy_review.py`；连接 Futu 模拟盘必须显式使用 `--broker futu-simulate`。
+- `模拟盘 dry-run 使用技能`：只在用户明确要求模拟盘自动化、回放或链路验证时调用 `stock-analysis-api/scripts/trading_run_once.py`；默认 dry-run broker；定时轮询调用 `stock-analysis-api/scripts/trading_scheduler_tick.py`；盘后总结和策略候选评审调用 `trading_daily_summary.py` / `trading_strategy_review.py`；历史 K 线回测调用 `trading_strategy_backtest.py`；连接 Futu 模拟盘必须显式使用 `--broker futu-simulate`。
 - `Tushare 使用技能`：用户明确要求的原始 Tushare 接口、字段、时间窗或接口查阅。
 - `Slash Commands`：`/research` 单票深度研报、`/hkipo` 港股 IPO 池研究工作流；`/cnipo` 目前占位。
 
@@ -41,6 +41,7 @@ metadata:
 | 港 / 美 / 多市场行情、盘口、逐笔、分时、K 线、期权、持仓、订单等只读查询 | `Futu/OpenD 使用技能` | 仅限 API 已迁移能力；未迁移能力明确返回未支持 |
 | 模拟盘自动化、策略回放、dry-run 链路验证 | `模拟盘 dry-run 使用技能` | 单轮执行走 API `trading_run_once.py`；定时 tick 走 `trading_scheduler_tick.py`；默认 dry-run broker、SQLite ledger 和调度锁；Futu 模拟盘必须显式 `--broker futu-simulate`；禁止真实交易 |
 | 模拟盘盘后总结、策略评审、自我迭代方向 | `模拟盘 dry-run 使用技能` | 只读 API ledger，走 `trading_daily_summary.py` / `trading_strategy_review.py`；proposal 只作为候选，必须人工批准，不自动改策略 |
+| 模拟盘历史 K 线回测 | `模拟盘 dry-run 使用技能` | 走 API `trading_strategy_backtest.py`；只读历史 K 线或注入样本，不读写 ledger，不触发 broker |
 | 原始 Tushare 数据、接口清单、自定义字段或时间窗 | `Tushare 使用技能` | 只有用户明确要求原始接口时才使用 |
 
 明确例外：
@@ -68,6 +69,7 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_scheduler_tick.py --codes HK.00700 --buy-above HK.00700=0 --quantity 1 --max-order-notional 1000000
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_daily_summary.py --date 2026-05-07 --pretty
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_strategy_review.py --date 2026-05-07 --min-runs 3 --pretty
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_strategy_backtest.py --codes HK.00700 --buy-above HK.00700=100 --start 2026-05-01 --end 2026-05-07 --pretty
 ```
 
 输出规则统一见 `references/cli.md`。默认不要原样转贴 raw JSON；除非用户明确要求调试或原始输出，优先按固定模板汇总。`change_pct`、`turnover_rate`、`amplitude` 等 ratio 字段面向用户展示为百分比。
@@ -94,6 +96,7 @@ OpenD 未安装、未启动或 SDK 版本不满足时，说明 API Futu CLI / Op
 - cron / launchd / Agent 高频轮询必须调用 `stock-analysis-api/scripts/trading_scheduler_tick.py`，由它判断 active window、执行间隔和 state key。
 - 盘后总结必须调用 `stock-analysis-api/scripts/trading_daily_summary.py`，只读 API 侧 SQLite ledger。
 - 策略候选评审必须调用 `stock-analysis-api/scripts/trading_strategy_review.py`；输出的 `strategy_proposal` 只能作为候选和审计底稿，不自动应用到运行时策略。
+- 历史 K 线回测必须调用 `stock-analysis-api/scripts/trading_strategy_backtest.py`；它只读历史 K 线或注入样本，不读写 ledger，不触发 broker。
 - 默认 broker 为 dry-run，不连接真实交易环境，不调用 `unlock_trade`。
 - 只有用户明确要求连接 Futu 模拟盘执行时，才允许传 `--broker futu-simulate`；该路径固定 Futu `TrdEnv.SIMULATE`，不得调用 `unlock_trade`，也不得和 `--snapshots-json` 混用。
 - 默认写入 API 侧 SQLite trading ledger，并使用 `trading_run_once` 调度锁；拿不到锁时返回 `status=skipped / reason=lock_unavailable`。

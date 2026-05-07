@@ -24,6 +24,7 @@
 - “定时轮询模拟盘”默认走 `trading_scheduler_tick.py`，不得让 Agent 在实时链路里直接判断是否下单
 - “总结今天模拟盘表现 / 生成策略迭代方向”默认走 `trading_daily_summary.py` 与 `trading_strategy_review.py`，proposal 不自动应用
 - “连接 Futu 模拟盘执行”必须显式传 `--broker futu-simulate`，默认不启用
+- “回测当前策略 / 历史 K 线验证”默认走 `trading_strategy_backtest.py`，不读写 ledger，不触发 broker
 
 ## 环境变量
 
@@ -144,6 +145,25 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 - `--timezone`: 默认 `Asia/Shanghai`
 - `--min-runs`: 默认 3
 - `--max-rejection-rate`: 默认 0.5
+- `--pretty`
+
+### 7. simulated trading strategy backtest
+
+```bash
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_strategy_backtest.py --codes HK.00700 --buy-above HK.00700=100 --start 2026-05-01 --end 2026-05-07 --pretty
+```
+
+参数：
+
+- `--codes`: 逗号分隔 Futu 格式代码
+- `--strategy-version`: 默认 `threshold-v1`
+- `--buy-above`: 逗号分隔阈值，例如 `HK.00700=100`
+- `--quantity`
+- `--max-order-notional`
+- `--kline-json`: 可选，注入 K 线 JSON 字符串或文件路径
+- `--start` / `--end`: 未传 `--kline-json` 时用于 Futu 历史 K 线
+- `--ktype`: 默认 `1d`
+- `--rehab`: 默认 `none`
 - `--pretty`
 
 ## 原始 JSON 结构
@@ -319,6 +339,33 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 - proposal 只作为候选，不写策略配置、不改调度 state、不触发 broker。
 - Agent 可以解释 proposal 和总结迭代方向，但不能在盘中链路里直接改策略或决定下单。
 
+### simulated trading strategy backtest
+
+顶层：
+
+- `status`
+- `source=trading_strategy_backtest`
+- `strategy_version`
+- `request`
+- `summary`
+- `results`
+
+`summary`：
+
+- `codes_total`
+- `bars_total`
+- `orders_total`
+- `accepted_orders`
+- `rejected_orders`
+- `average_return_ratio`
+- `total_unrealized_pnl`
+
+约束：
+
+- 只读历史 K 线或注入样本，不读写 ledger，不触发 broker。
+- 当前回测口径是固定 threshold 策略的首个触发点建仓、样本最后一根 K 线 mark-to-market。
+- 不包含交易成本、滑点、成交量约束或分钟线 / tick 级执行模型。
+
 ## 固定模板
 
 默认优先输出固定模板，不默认附完整 raw JSON。只有用户明确要求调试 / 原始输出时，才附完整 JSON。
@@ -469,6 +516,36 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 
 - `ledger_snapshot_replay` 不是完整历史回测。
 - proposal 未自动应用，仍需人工批准。
+
+### simulated trading strategy backtest 模板
+
+#### 请求
+
+- `request.codes`
+- `request.buy_above`
+- `request.quantity`
+- `request.max_order_notional`
+- `request.source`
+- `request.start` / `request.end`
+
+#### 回测摘要
+
+- `summary.bars_total`
+- `summary.orders_total`
+- `summary.accepted_orders`
+- `summary.rejected_orders`
+- `summary.average_return_ratio`
+- `summary.total_unrealized_pnl`
+
+#### 逐标的结果
+
+- `results[].code`
+- `results[].entry_time`
+- `results[].entry_price`
+- `results[].exit_time`
+- `results[].exit_price`
+- `results[].return_ratio`
+- `results[].decision`
 
 ## 禁止事项
 
