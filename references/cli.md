@@ -20,6 +20,7 @@
 - 只有“查 300627 的原始 report_rc 记录”才走 Tushare 直连
 - 港 / 美 / 多市场 watchlist、盘口、逐笔、分时、K 线、市场状态见 `references/futu.md`
 - “跑一轮模拟盘 dry-run” 默认走 `trading_run_once.py`，不得改成真实交易
+- “定时轮询模拟盘”默认走 `trading_scheduler_tick.py`，不得让 Agent 在实时链路里直接判断是否下单
 
 ## 环境变量
 
@@ -85,6 +86,21 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 - `--lock-name`: 默认 `trading_run_once`
 - `--lock-ttl-seconds`: 默认 900
 - `--disable-lock`: 只允许本地调试或显式验证使用
+
+### 4. simulated trading scheduler tick
+
+```bash
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_scheduler_tick.py --codes HK.00700 --buy-above HK.00700=0 --quantity 1 --max-order-notional 1000000
+```
+
+参数：
+
+- 透传 dry-run 参数：`--codes`、`--strategy-version`、`--buy-above`、`--quantity`、`--max-order-notional`、`--ledger-db`、`--snapshots-json`
+- `--interval-seconds`: 默认 300
+- `--timezone`: 默认 `Asia/Shanghai`
+- `--active-window`: 默认 `09:30-12:00,13:00-16:00`
+- `--state-key`: 可选，不传时按策略参数生成
+- `--force`: 忽略时间窗和间隔，仅用于显式验证
 
 ## 原始 JSON 结构
 
@@ -177,6 +193,27 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 - 拿不到调度锁时返回 `status=skipped`、`reason=lock_unavailable`，不应继续解读为失败或重复下单。
 - 输出必须是严格 JSON，非有限数值会归一化为 `null`。
 - 该入口只用于模拟执行、回放和审计；不得作为真实交易指令或投资建议。
+
+### simulated trading scheduler tick
+
+顶层：
+
+- `status`
+- `source`
+- `schedule`
+- `run_once`
+
+跳过语义：
+
+- `reason=outside_active_window`: 当前不在 active window。
+- `reason=not_due`: 距离上次执行未达到 `--interval-seconds`。
+- `run_once.reason=lock_unavailable`: 单轮 dry-run 锁冲突。
+
+约束：
+
+- `trading_scheduler_tick.py` 只做调度判断，不实现策略、风控或 broker。
+- 到点后仍复用 `trading_run_once.py`；不得绕过 dry-run broker 和 SQLite ledger。
+- 该入口适合 cron / launchd / Agent 高频调用。
 
 ## 固定模板
 

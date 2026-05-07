@@ -16,6 +16,42 @@
 
 ## Milestones
 
+### M37 — API scheduler tick 路由说明收口
+
+Status: `done`
+
+Scope:
+
+- `SKILL.md`
+- `README.md`
+- `references/cli.md`
+- `PLANS/ACTIVE.md`
+- `PLANS/ROADMAP.md`
+
+Validation:
+
+- `python3 -m unittest discover -s tests -v`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+- API CLI smoke：`scripts/trading_scheduler_tick.py` 输出严格 JSON
+
+Progress:
+
+- 2026-05-07 北京时间：API 已新增 `trading_scheduler_tick.py` 调度 tick；本轮同步 skill 路由说明，明确 cron / launchd / Agent 高频入口走 scheduler tick，单轮执行仍由 `trading_run_once.py` 负责。
+
+Validation status:
+
+- passed 2026-05-07 北京时间：
+  - `python3 -m unittest discover -s tests -v`
+  - `python3 -m py_compile scripts/*.py commands/*.py`
+  - `git diff --check`
+  - API CLI smoke：`trading_scheduler_tick.py` 真实 Futu snapshot + dry-run broker 输出严格 JSON，stderr 为空。
+
+Handoff:
+
+- skill 现在把“定时轮询模拟盘”明确路由到 API `scripts/trading_scheduler_tick.py`。
+- scheduler tick 只做时间窗、间隔和 state key 判断；到点后复用单轮 dry-run，不放开真实交易。
+
 ### M36 — API dry-run trading CLI 路由说明收口
 
 Status: `done`

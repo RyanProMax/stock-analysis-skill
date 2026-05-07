@@ -21,7 +21,7 @@
 - `stock-analysis-skill` 只负责意图路由、固定模板和安全边界
 - 标准 A 股低 token quote / objective analyze / `/research` A 股与美股深度研报底稿继续优先走 `stock-analysis-api` CLI；`/research` 由 executor 运行时解析绝对 API 命令，避免宿主工作区 cwd 影响
 - `/hkipo` IPO list、`/research` 港股 OpenD 预检 / snapshot / K 线和 HK IPO 回测首日 K 线走 `stock-analysis-api/scripts/futu_market_data.py`
-- 模拟盘 dry-run 自动化、回放和链路验证走 `stock-analysis-api/scripts/trading_run_once.py`；默认 dry-run broker、SQLite ledger 和调度锁，不放开真实交易
+- 模拟盘 dry-run 自动化、回放和链路验证走 `stock-analysis-api/scripts/trading_run_once.py`；cron / launchd / Agent 高频调用走 `stock-analysis-api/scripts/trading_scheduler_tick.py`；默认 dry-run broker、SQLite ledger 和调度锁，不放开真实交易
 - 港 / 美 / 多市场行情、盘口、期权、账户、持仓、订单等只读查询能力后续逐步迁入 `stock-analysis-api`
 - OpenD 安装与连通性问题只作为环境前置条件提示，不在本 skill 中执行外部安装或 Futu skill
 - 禁止 AI 接触交易密码；禁止通过 SDK 或脚本调用交易解锁
@@ -48,6 +48,7 @@
 - [x] `/research` 港股 OpenD 预检和 snapshot / K 线入口迁移到 API Futu CLI
 - [ ] 迁移剩余 Futu 只读能力到 API provider，并删除外部 Futu skill 依赖入口
 - [x] 将 API `trading_run_once.py` dry-run 模拟盘入口纳入 skill 路由说明和 CLI reference
+- [x] 将 API `trading_scheduler_tick.py` 调度 tick 入口纳入 skill 路由说明和 CLI reference
 - [ ] `/research` 港股数据层从后置 prompt 路由升级为稳定字段矩阵与验证样例
 - [ ] `/research` 美股补充 SEC filings / earnings transcript 证据层缓存与引用规范
 - [ ] `/research` 重点版短报继续按用户反馈迭代：沉淀不同行业的财务健康、估值相对位置、情绪热度、叙事增长点和机构观点综合评分口径
@@ -100,3 +101,4 @@
 - 2026-05-06：`/research` 飞书默认短版已升级为重点版 / 决策看板结构，优先回答财务结构、估值相对位置、情绪热度、叙事增长点和机构观点综合。
 - 2026-05-06：`/research` 机构观点综合已要求列出可核验的机构评级/观点与机构目标价；目标价只作为外部观点披露，必须标注机构、日期、币种和来源，不得作为本系统建议或 `price_target` 字段。
 - 2026-05-07：`stock-analysis-api/scripts/trading_run_once.py` dry-run 模拟盘入口已纳入 skill 路由说明和 `references/cli.md`；默认使用 API 侧 dry-run broker、SQLite ledger 和调度锁，不放开真实交易。
+- 2026-05-07：`stock-analysis-api/scripts/trading_scheduler_tick.py` 调度 tick 已纳入 skill 路由说明和 `references/cli.md`；用于 cron / launchd / Agent 高频轮询，到点后复用单轮 dry-run。
