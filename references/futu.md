@@ -146,7 +146,7 @@ A 股默认仍走 `stock-analysis-api` CLI。只有以下情况才把 A 股 watc
 
 ## `grey_market_watch`
 
-用于港股 IPO 暗盘 / OTC 跨 provider 快照和定时 tick。
+用于港股 IPO 暗盘 / OTC 跨 provider 快照、单次查询和定时 tick。用户可通过 `/otc 07666.HK` 做单次查询，或通过 `/otc 07666.HK --loop=300s` 请求 300 秒轮询 tick；非暗盘时间由 command 入口直接结束并提示。
 
 ```json
 {
@@ -154,6 +154,7 @@ A 股默认仍走 `stock-analysis-api` CLI。只有以下情况才把 A 股 watc
   "status": "ok",
   "source": "grey_market_watch_tick",
   "schedule": {
+    "mode": "tick",
     "timezone": "Asia/Shanghai",
     "active_window": "16:15-18:30",
     "interval_seconds": 10
@@ -196,6 +197,7 @@ A 股默认仍走 `stock-analysis-api` CLI。只有以下情况才把 A 股 watc
 展示规则：
 
 - 先展示可用 provider 的最新价、相对发行价涨跌幅、bid / ask 和时间。
+- `source=grey_market_watch_once` 表示单次查询，不应写 scheduler tick 状态；`source=grey_market_watch_tick` 表示轮询 tick，可按 `schedule.next_run_at` 展示下一次。
 - `unsupported` provider 单独列出“未接入正式 API”，不要补编报价。
 - 只有多个 provider 都返回价格时，才展示跨 provider 价差；单一 provider 报价不得写成“全市场暗盘价”。
 
@@ -274,7 +276,8 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_ma
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_market_data.py orders --market HK --code HK.00700 --start 2026-05-01 --end 2026-05-07 --history --json
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_market_data.py deals --market HK --code HK.00700 --start 2026-05-01 --end 2026-05-07 --history --json
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_market_data.py cash-flow --market HK --clearing-date 2026-05-07 --json
-cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/grey_market_watch.py --code HK.02618 --name 剂泰医药 --issue-price 10 --providers futu,tiger,fosun --json
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/grey_market_watch.py --once --code HK.02618 --name 剂泰医药 --issue-price 10 --providers futu,tiger,fosun --json
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/grey_market_watch.py --code HK.02618 --name 剂泰医药 --issue-price 10 --providers futu,tiger,fosun --interval-seconds 300 --json
 ```
 
 这些命令只允许查询，不暴露 `place-order`、`modify-order`、`cancel-order`、`unlock-trade`、`subscribe` 等写入类子命令。

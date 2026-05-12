@@ -24,6 +24,14 @@
         "command": "python3",
         "args": ["commands/research.py"]
       }
+    },
+    "otc": {
+      "description": "查询港股 IPO 暗盘 / OTC 报价，支持单次查询和定时间隔轮询",
+      "entrypoints": ["im", "web"],
+      "executor": {
+        "command": "python3",
+        "args": ["commands/otc.py"]
+      }
     }
   }
 }

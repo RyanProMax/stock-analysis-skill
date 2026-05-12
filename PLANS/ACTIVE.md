@@ -2,16 +2,20 @@
 
 > 本文件是当前复杂任务的单一真相源。一次只允许一个 milestone 处于 `in_progress`。
 
-## Current Task — 港股 IPO 暗盘 watch skill 路由
+## Current Task — `/otc` 港股暗盘单次与轮询指令
 
 Goal:
 
-- 将 API 仓库新增的 `scripts/grey_market_watch.py` 纳入 skill 路由说明和 CLI reference。
-- 支持用户通过 skill 触发港股 IPO 暗盘 / OTC 定时查询；Futu 作为正式 provider，Tiger / 复星等未接入正式授权 API 时明确 `unsupported`。
+- 新增 `/otc <HK symbol>` slash command，支持单次查询，例如 `/otc 07666.HK`。
+- 支持 `/otc 07666.HK --loop=300s` 映射到 API 侧 scheduler tick，代表 5 分钟轮询间隔。
+- command 入口必须先校验北京时间暗盘窗口；非暗盘时间直接返回提示，不继续调用 API。
 - 保持只读安全边界：不下单、不订阅、不交易解锁、不写券商状态；仅允许 API 侧 scheduler tick 节流状态。
 
 Allowed scope:
 
+- `commands.json`
+- `commands/otc.py`
+- `tests/test_otc_command.py`
 - `SKILL.md`
 - `README.md`
 - `AGENTS.md`
@@ -22,9 +26,42 @@ Allowed scope:
 
 Validation:
 
+- `python3 -m unittest tests.test_otc_command -v`
 - `python3 -m py_compile scripts/*.py commands/*.py`
 - `python3 -m unittest discover -s tests -v`
 - `git diff --check`
+
+### M46 — OTC slash command
+
+Status: `done`
+
+Progress:
+
+- 2026-05-12 北京时间：用户要求新增 `/otc 07666.HK` 单次查询和 `/otc 07666.HK --loop=300s` 轮询查询，并在非暗盘时段直接结束提示。
+- 2026-05-12 北京时间：API 侧已补 `grey_market_watch.py --once` contract，单次查询不读写 scheduler tick 状态；默认 tick 模式继续按 `--interval-seconds` 节流。
+- 2026-05-12 北京时间：已新增 `commands/otc.py`、注册 `commands.json`，支持 `07666.HK` / `HK.07666` 归一化为 `HK.07666`，并在暗盘窗口外直接返回 final markdown，不生成 API 命令。
+- 2026-05-12 北京时间：已同步 `SKILL.md`、`README.md`、`AGENTS.md`、`references/cli.md`、`references/futu.md` 和 roadmap，固定 `/otc` 单次 / 轮询语义和只读边界。
+
+Validation status:
+
+- passed 2026-05-12 北京时间：
+  - API: `uv run python -m pytest tests/test_grey_market_watch_cli.py`
+  - API: `uv run black --check --line-length 100 --target-version py312 scripts/grey_market_watch.py src/services/grey_market_watch_cli.py src/services/grey_market_watch_service.py tests/test_grey_market_watch_cli.py`
+  - API: `uv run python -m py_compile scripts/grey_market_watch.py src/services/grey_market_watch_cli.py src/services/grey_market_watch_service.py`
+  - API: `uv run python scripts/grey_market_watch.py --once --code HK.07666 --now 2026-05-12T15:00:00+08:00 --json` 返回 `outside_active_window`
+  - skill: `python3 -m unittest tests.test_otc_command -v`
+  - skill: `python3 -m unittest discover -s tests -v`
+  - skill: `python3 -m py_compile scripts/*.py commands/*.py`
+  - `git diff --check`
+
+Review status:
+
+- passed 2026-05-12 北京时间：diff 只增加 `/otc` slash command、API `--once` contract、对应文档和回归测试；没有新增下单、订阅、交易解锁或券商写入路径。`--once` 不打开 SQLite state DB；轮询 tick 保持原 scheduler 节流状态。
+
+Handoff:
+
+- `/otc 07666.HK` 会在北京时间 `16:15-18:30` 内生成 API `grey_market_watch.py --once --code HK.07666` 单次查询；窗口外直接提示下次窗口。
+- `/otc 07666.HK --loop=300s` 会生成 `grey_market_watch.py --code HK.07666 --interval-seconds 300` 轮询 tick；宿主若支持定时任务，应按该间隔重复触发，API 会用 state DB 节流。
 
 ### M45 — HK grey-market watch routing
 

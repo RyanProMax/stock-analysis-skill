@@ -20,7 +20,7 @@
 - “查 300627 的研报” 默认走 `stock_analyze.py`
 - 只有“查 300627 的原始 report_rc 记录”才走 Tushare 直连
 - 港 / 美 / 多市场 watchlist、盘口、逐笔、分时、K 线、期权链、账户、持仓、订单、成交和流水只读查询见 `references/futu.md`
-- 港股 IPO 暗盘 / OTC 定时查询默认走 `grey_market_watch.py`；Futu 为正式 provider，未接入正式 API 的券商返回 `unsupported`
+- 港股 IPO 暗盘 / OTC 单次或定时查询默认走 `/otc` -> `grey_market_watch.py`；Futu 为正式 provider，未接入正式 API 的券商返回 `unsupported`
 - “跑一轮模拟盘 dry-run” 默认走 `trading_run_once.py`，不得改成真实交易
 - “定时轮询模拟盘”默认走 `trading_scheduler_tick.py`，不得让 Agent 在实时链路里直接判断是否下单
 - “总结今天模拟盘表现 / 生成策略迭代方向”默认走 `trading_daily_summary.py` 与 `trading_strategy_review.py`，proposal 不自动应用
@@ -93,7 +93,8 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_ma
 ### 4. HK grey-market watch
 
 ```bash
-cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/grey_market_watch.py --code HK.02618 --name 剂泰医药 --issue-price 10 --providers futu,tiger,fosun --json
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/grey_market_watch.py --once --code HK.02618 --name 剂泰医药 --issue-price 10 --providers futu,tiger,fosun --json
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/grey_market_watch.py --code HK.02618 --name 剂泰医药 --issue-price 10 --providers futu,tiger,fosun --interval-seconds 300 --json
 ```
 
 参数：
@@ -103,6 +104,7 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/grey_ma
 - `--issue-price`: 可选发行价，用于计算相对发行价涨跌幅
 - `--providers`: 默认 `futu,tiger,fosun`
 - `--order-book-depth`: 默认 5
+- `--once`: 单次查询模式；仍校验暗盘时间窗，但不读取或写入 scheduler tick 状态
 - `--state-db`: 可选，覆盖 scheduler tick 状态库路径；默认 API 仓库 `.cache/grey_market_watch.sqlite`
 - `--interval-seconds`: 默认 10
 - `--timezone`: 默认 `Asia/Shanghai`
@@ -116,7 +118,8 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/grey_ma
 - 只读查询，不下单、不改单、不撤单、不解锁交易、不订阅推送。
 - Futu provider 使用 API 侧 OpenD snapshot / order book。
 - Tiger / Fosun 等未接入正式授权 API 时只返回 `unsupported`，不得用网页抓取伪造报价。
-- API 侧可写 scheduler tick 节流状态，但不写券商状态、不保存订单或 watchlist。
+- `/otc 07666.HK` 由 executor 映射到 `--once`；`/otc 07666.HK --loop=300s` 映射到 `--interval-seconds 300`。
+- `--once` 不写 scheduler tick 状态；轮询 tick 可写 API 侧 scheduler tick 节流状态，但不写券商状态、不保存订单或 watchlist。
 
 ### 5. simulated trading dry-run
 

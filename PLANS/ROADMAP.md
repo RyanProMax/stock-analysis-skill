@@ -57,6 +57,7 @@
 - [x] 将 API `--broker futu-simulate` 显式 Futu 模拟盘 broker 入口纳入 skill 路由说明和 CLI reference
 - [x] 将 API `trading_strategy_backtest.py` 历史 K 线回测入口纳入 skill 路由说明和 CLI reference
 - [x] 将 API `grey_market_watch.py` 港股暗盘 watch 定时查询入口纳入 skill 路由说明和 CLI reference
+- [x] 新增 `/otc <HK symbol>` 港股暗盘 slash command，支持单次查询和 `--loop=300s` 轮询 tick，并在非暗盘时间直接结束提示
 - [ ] `/research` 港股数据层从后置 prompt 路由升级为稳定字段矩阵与验证样例
 - [ ] `/research` 美股补充 SEC filings / earnings transcript 证据层缓存与引用规范
 - [ ] `/research` 重点版短报继续按用户反馈迭代：沉淀不同行业的财务健康、估值相对位置、情绪热度、叙事增长点和机构观点综合评分口径
@@ -118,3 +119,4 @@
 - 2026-05-12：`/hkipo` 开放认购 IPO 热度新鲜度改为同日硬门槛；每只池内 IPO 进入评分前必须按代码 / 中文名 / 英文名自动重试并覆盖至少 3 类权威来源，旧孖展 / 公开认购 / 暗盘数据只能作趋势，不得进入主评分。
 - 2026-05-12：`/hkipo` 热度核验进一步收紧为多权威机构最新值聚合；Futu CLI 不暴露 App 热度时必须继续查 Futu/牛牛、TradeGo / 活报告、多券商孖展统计、AAStocks、ETNet、智通 / 新浪、格隆汇、华盛、老虎等同日源，不得把单一券商孖展下限当作全市场主热度。
 - 2026-05-12：新增 API `grey_market_watch.py` 港股 IPO 暗盘 / OTC 定时查询路由说明；Futu 使用正式 OpenD snapshot / order book，Tiger / 复星等未接入正式授权 API 时返回 `unsupported`，不网页抓取伪造跨券商报价。
+- 2026-05-12：新增 `/otc` slash command：`/otc 07666.HK` 映射 API `grey_market_watch.py --once` 单次查询，`/otc 07666.HK --loop=300s` 映射 `--interval-seconds 300` 轮询 tick；command 入口先校验北京时间暗盘窗口，非暗盘时间不调用 API。

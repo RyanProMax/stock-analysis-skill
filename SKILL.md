@@ -13,7 +13,7 @@ metadata:
 - `Futu/OpenD 使用技能`：统一通过 `stock-analysis-api` 内部 CLI / provider 使用 Futu/OpenD；API 已支持 snapshot、K 线、盘口、逐笔、分时、期权链、港股 IPO 暗盘 watch、账户、资金、持仓、订单、成交和流水等只读查询；尚未迁入 API 的能力必须明确标记为未支持，不再路由到外部 Futu skill。
 - `模拟盘 dry-run 使用技能`：只在用户明确要求模拟盘自动化、回放或链路验证时调用 `stock-analysis-api/scripts/trading_run_once.py`；默认 dry-run broker；定时轮询调用 `stock-analysis-api/scripts/trading_scheduler_tick.py`；盘后总结和策略候选评审调用 `trading_daily_summary.py` / `trading_strategy_review.py`；历史 K 线回测调用 `trading_strategy_backtest.py`；连接 Futu 模拟盘必须显式使用 `--broker futu-simulate`。
 - `Tushare 使用技能`：用户明确要求的原始 Tushare 接口、字段、时间窗或接口查阅。
-- `Slash Commands`：`/research` 单票深度研报、`/hkipo` 港股 IPO 池研究工作流；`/cnipo` 目前占位。
+- `Slash Commands`：`/research` 单票深度研报、`/hkipo` 港股 IPO 池研究工作流、`/otc` 港股暗盘 / OTC 单次查询或定时间隔轮询；`/cnipo` 目前占位。
 
 ## 全局只读护栏
 
@@ -35,6 +35,7 @@ metadata:
 | --- | --- | --- |
 | `/research <symbol>` | `Slash Commands` | 单票深度研报，A 股 / 美股优先复用运行时解析出的 `stock_analyze.py --mode full` 绝对命令；显式港股先做 OpenD 预检，失败时先询问是否继续 |
 | `/hkipo` | `Slash Commands` | 自动发现港股 IPO 池，按 `references/hkipo.md` 评分 |
+| `/otc <HK symbol> [--loop=300s]` | `Slash Commands` | 单次查询先映射 API `grey_market_watch.py --once`；轮询映射 API `--interval-seconds`；非暗盘时段直接结束提示 |
 | `/cnipo` | `Slash Commands` | 当前只返回占位说明 |
 | 单票客观分析、研报式摘要、“最近怎么样” | `CLI 使用技能` | 默认走 `stock_analyze.py`，不直接查原始 `report_rc` |
 | A 股股票 / ETF 低 token 实时行情 | `CLI 使用技能` | 默认走 `poll_realtime_quotes.py` |
@@ -69,7 +70,8 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_ma
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_market_data.py order-book --code HK.00700 --num 10 --json
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_market_data.py option-chain --code US.AAPL --start 2026-05-15 --end 2026-06-19 --option-type CALL --json
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_market_data.py positions --market HK --code HK.00700 --json
-cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/grey_market_watch.py --code HK.02618 --name 剂泰医药 --issue-price 10 --json
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/grey_market_watch.py --once --code HK.02618 --name 剂泰医药 --issue-price 10 --json
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/grey_market_watch.py --code HK.02618 --name 剂泰医药 --issue-price 10 --interval-seconds 300 --json
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_run_once.py --codes HK.00700 --buy-above HK.00700=0 --quantity 1 --max-order-notional 1000000
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_scheduler_tick.py --codes HK.00700 --buy-above HK.00700=0 --quantity 1 --max-order-notional 1000000
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_daily_summary.py --date 2026-05-07 --pretty
@@ -87,7 +89,7 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 
 1. `/hkipo`、`/research` 港股预检 / snapshot / K 线和 HK IPO 回测优先使用 `stock-analysis-api/scripts/futu_market_data.py`。
 2. 盘口、逐笔、分时、期权链、账户、资金、持仓、订单、成交和流水查询已迁移到 `stock-analysis-api/scripts/futu_market_data.py`；只能调用这些只读子命令，不得绕回外部 Futu skill。
-3. 港股 IPO 暗盘 / OTC 报价监听走 `stock-analysis-api/scripts/grey_market_watch.py`；Futu 为正式 provider，Tiger / Fosun 等未接入正式授权 API 时只能返回 `unsupported`，不得网页抓取伪造跨券商报价。
+3. 港股 IPO 暗盘 / OTC 报价监听走 `stock-analysis-api/scripts/grey_market_watch.py`；`/otc 07666.HK` 映射 `--once` 单次查询，`/otc 07666.HK --loop=300s` 映射 `--interval-seconds 300` 轮询 tick；非暗盘时间直接结束并提示。Futu 为正式 provider，Tiger / Fosun 等未接入正式授权 API 时只能返回 `unsupported`，不得网页抓取伪造跨券商报价。
 4. 窝轮 / 牛熊证、资金流、资金分布、经纪队列、板块与成分股、条件选股、期货资料等尚未迁移能力不得改走其他脚本；必须明确说明“尚未迁入 stock-analysis-api”。
 5. OpenD 正在运行，默认地址 `127.0.0.1:11111`。
 6. Python SDK `futu-api` 版本满足 API 仓库要求。
