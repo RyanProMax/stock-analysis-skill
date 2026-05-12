@@ -27,16 +27,18 @@ Current IPO reports must separate **current-state discovery** from **document ev
 
 1. `stock-analysis-api/scripts/futu_market_data.py ipo-list --market HK --json` is the first source for the current IPO pool, subscription status, listing date, apply end date, offer price, lot size and entrance price. Use it before web finance portals whenever OpenD is available.
 2. HKEX official listing documents, prospectus, allotment results, listing-date notices and company announcements are the first source for prospectus facts, offering structure, greenshoe, stabilizing manager, cornerstone investors, sponsors and proceeds use.
-3. Reliable finance portals and broker pages are fallback/secondary sources only for fields Futu/OpenD and HKEX do not expose: margin financing, public-offer multiple, one-lot success rate, grey-market data and first-day performance. Use a fixed source order for these heat fields: Futu/OpenD current fields → broker/finance margin table updated on or closest before the report date → public-offer multiple / one-lot success rate → grey-market data.
+3. Reliable finance portals and broker pages are fallback/secondary sources only for fields Futu/OpenD and HKEX do not expose: margin financing, public-offer multiple, one-lot success rate, grey-market data and first-day performance. Use a fixed source order for these heat fields: Futu/OpenD current fields → same-day broker IPO center / margin table → same-day finance portal IPO channel public-offer multiple / one-lot success rate → grey-market data.
 4. Never use GitHub repos, model outputs, stale cached snippets, or unverifiable social posts as IPO fact sources.
 
 ### Freshness Gate
 
 - Always evaluate sources against the report date. If the user gives a date, use that date; otherwise use today's actual date and state it explicitly.
-- Margin financing, public-offer multiple, one-lot success rate and grey-market return are time-sensitive. For an IPO still open for subscription or in grey-market/listing window, use the latest source published on or closest before the report date.
+- Margin financing, public-offer multiple, one-lot success rate and grey-market return are time-sensitive. For an IPO still open for subscription or in the grey-market/listing window, apply a same-day hard gate before scoring heat.
+- The same-day hard gate requires searching by stock code plus Chinese and English names, then retrying and expanding across at least three authoritative source families before concluding data is unavailable: broker IPO centers / margin tables, major finance IPO channels, and mainstream quote-app IPO pages or official HKEX / company timetable pages. Typical sources include Futu/Niuniu, Phillip POEMS, HSTong, Tiger, AAStocks, ETNet, Sina HK / Zhitong and Gelonghui.
+- Same-day heat means a source timestamp or update label on the report date in Hong Kong / Beijing time. If a later same-day source exists, use it. If sources disagree, use the latest timestamp no later than the report date and cite the conflict when useful.
+- For open IPOs, do not score previous-day or older margin data, public-offer data, one-lot success rates or grey-market data in Subscription Heat. They may only be shown as `过期/仅供趋势参考`.
 - If a newer source exists, older margin or grey-market values must not be used in the score. They may only be shown as historical trend, with the source date clearly labeled.
-- If only stale data is found, write `未找到当前日期最新数据` and cap the Subscription Heat contribution at the tier supported by verified current data.
-- When multiple sources disagree, use the latest timestamp that is not after the report date, cite the range if useful, and do not silently mix an older margin multiple with a newer IPO status.
+- If no same-day heat source is found after the retry / expanded-source pass, write `热度未达当日核验门槛` and cap the Subscription Heat contribution as missing current heat; do not fill the main heat field with the previous available value.
 - The Sources section must label each secondary source with its publication/update date and purpose, e.g. `2026-04-27 孖展统计`.
 
 ## Required Data Fields
@@ -69,7 +71,7 @@ Score each IPO from 0 to 100 as a short-term HK IPO subscription / first-day odd
 
 ### Heat / Financing Tiers
 
-Use margin financing multiple and public-offer multiple as core heat inputs. If sources conflict, cite the range and use the freshest source that is no later than the report date. Do not score from an older margin table when a newer same-IPO table is available.
+Use margin financing multiple and public-offer multiple as core heat inputs. If sources conflict, cite the range and use the freshest same-day source that is no later than the report date. Do not score previous-day or older margin data when the IPO is still open for subscription.
 
 - margin financing `<10x`: weak heat, usually cap Subscription Heat at 10/30 unless first-day backtest is unusually strong.
 - `10-50x`: normal heat, usually 10-16/30.

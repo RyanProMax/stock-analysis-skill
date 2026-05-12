@@ -2,6 +2,57 @@
 
 > 本文件是当前复杂任务的单一真相源。一次只允许一个 milestone 处于 `in_progress`。
 
+## Current Task — `/hkipo` 当日热度强制复核
+
+Goal:
+
+- 收紧 `/hkipo` 的孖展 / 公开认购 / 暗盘热度新鲜度门槛，避免开放认购中的 IPO 使用前一日或旧来源倍率进入主评分。
+- 在 command prompt、skill 入口说明和 `references/hkipo.md` 中统一要求当日多源复核、自动重试 / 扩源和来源冲突处理。
+
+Allowed scope:
+
+- `commands/hkipo.py`
+- `tests/test_hkipo_command.py`
+- `SKILL.md`
+- `references/hkipo.md`
+- `PLANS/ACTIVE.md`
+- `PLANS/ROADMAP.md`
+
+Validation:
+
+- `python3 -m unittest tests.test_hkipo_command -v`
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `git diff --check`
+
+### M43 — HK IPO heat freshness hard gate
+
+Status: `done`
+
+Progress:
+
+- 2026-05-12 北京时间：用户反馈翼菲科技当日孖展倍率已快速更新到 2800x+，上一轮报告仍使用 5/11 的 218x，说明现有 prompt 对“最接近报告日”过于宽松。
+- 2026-05-12 北京时间：根因定位为 `/hkipo` freshness gate 没有强制开放认购中 IPO 的同日多源复核，也没有在热度缺失时要求重试和扩大来源。
+- 2026-05-12 北京时间：新增 `/hkipo` prompt / reference 回归测试，锁定同日热度硬门槛、至少 3 类权威来源、自动重试和旧数据不得主评分。
+- 2026-05-12 北京时间：同步 `commands/hkipo.py`、`SKILL.md` 和 `references/hkipo.md`，要求开放认购中的 IPO 用同日券商新股中心 / 孖展表、财经门户新股频道、主流行情 App 或官方时间表扩源复查；拿不到当日热度时写“热度未达当日核验门槛”。
+
+Validation status:
+
+- passed 2026-05-12 北京时间：
+  - `python3 -m unittest tests.test_hkipo_command -v`
+  - `python3 -m unittest discover -s tests -v`
+  - `python3 -m py_compile scripts/*.py commands/*.py`
+  - `git diff --check`
+
+Review status:
+
+- passed 2026-05-12 北京时间：diff 只改 `/hkipo` prompt contract、对应 reference / skill 说明、回归测试和计划文件；未改变 Futu/OpenD 只读入口、输出格式或其他 slash command 行为。
+
+Handoff:
+
+- `/hkipo` 后续报告遇到开放认购 IPO 时，前一日孖展 / 公开认购 / 暗盘数据只能作趋势，不得进入 Subscription Heat 主评分；若当日多源复查失败，必须显式写“热度未达当日核验门槛”。
+
+---
+
 ## Task
 
 把富途 OpenAPI skills 的能力纳入 `stock-analysis-skill` 的统一规划，并建立与 Cli Claw 风格一致的 `PLANS/ROADMAP.md` + `PLANS/ACTIVE.md` 工作流入口。

@@ -113,6 +113,27 @@ class HkipoFutuCommandTest(unittest.TestCase):
         self.assertNotIn("thinking", prompt.lower())
         self.assertNotIn("tool steps", prompt.lower())
 
+    def test_prompt_requires_same_day_heat_retry_and_multi_source_check(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = pathlib.Path(raw_root).resolve()
+            skill_dir = root / "stock-analysis-skill"
+            skill_dir.mkdir()
+
+            prompt = hkipo.build_prompt(
+                {"workspace": {"name": "测试工作区"}},
+                skill_dir=skill_dir,
+                home_dir=root,
+            )
+
+        self.assertIn("开放认购中的 IPO 热度必须通过当日硬门槛", prompt)
+        self.assertIn("至少检索 3 类权威来源", prompt)
+        self.assertIn("自动重试", prompt)
+        self.assertIn("券商新股中心", prompt)
+        self.assertIn("财经门户新股频道", prompt)
+        self.assertIn("不得把前一日或更旧孖展倍率用于主评分", prompt)
+        self.assertIn("热度未达当日核验门槛", prompt)
+        self.assertNotIn("当日或最接近报告日的券商/财经站孖展统计", prompt)
+
     def test_reference_uses_compact_sections_and_date_title_contract(self) -> None:
         reference = (ROOT / "references" / "hkipo.md").read_text(encoding="utf-8")
 
@@ -126,6 +147,15 @@ class HkipoFutuCommandTest(unittest.TestCase):
         self.assertNotIn("inside every IPO block", reference)
         self.assertNotIn("thinking", reference.lower())
         self.assertNotIn("tool steps", reference.lower())
+
+    def test_reference_requires_same_day_heat_gate(self) -> None:
+        reference = (ROOT / "references" / "hkipo.md").read_text(encoding="utf-8")
+
+        self.assertIn("same-day hard gate", reference)
+        self.assertIn("at least three authoritative source families", reference)
+        self.assertIn("do not score previous-day or older margin data", reference)
+        self.assertIn("热度未达当日核验门槛", reference)
+        self.assertNotIn("updated on or closest before the report date", reference)
 
     def test_prompt_uses_runtime_resolved_stock_analysis_api_futu_cli(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
