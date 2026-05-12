@@ -20,6 +20,7 @@
 - “查 300627 的研报” 默认走 `stock_analyze.py`
 - 只有“查 300627 的原始 report_rc 记录”才走 Tushare 直连
 - 港 / 美 / 多市场 watchlist、盘口、逐笔、分时、K 线、期权链、账户、持仓、订单、成交和流水只读查询见 `references/futu.md`
+- 港股 IPO 暗盘 / OTC 定时查询默认走 `grey_market_watch.py`；Futu 为正式 provider，未接入正式 API 的券商返回 `unsupported`
 - “跑一轮模拟盘 dry-run” 默认走 `trading_run_once.py`，不得改成真实交易
 - “定时轮询模拟盘”默认走 `trading_scheduler_tick.py`，不得让 Agent 在实时链路里直接判断是否下单
 - “总结今天模拟盘表现 / 生成策略迭代方向”默认走 `trading_daily_summary.py` 与 `trading_strategy_review.py`，proposal 不自动应用
@@ -89,7 +90,35 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_ma
 - 账户、持仓、订单、成交和流水查询固定为 Futu `SIMULATE` 只读路径。
 - 账户类结果按最小必要原则展示，除非用户明确要求调试原始 JSON。
 
-### 4. simulated trading dry-run
+### 4. HK grey-market watch
+
+```bash
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/grey_market_watch.py --code HK.02618 --name 剂泰医药 --issue-price 10 --providers futu,tiger,fosun --json
+```
+
+参数：
+
+- `--code`: Futu 港股代码，例如 `HK.02618`
+- `--name`: 可选展示名
+- `--issue-price`: 可选发行价，用于计算相对发行价涨跌幅
+- `--providers`: 默认 `futu,tiger,fosun`
+- `--order-book-depth`: 默认 5
+- `--state-db`: 可选，覆盖 scheduler tick 状态库路径；默认 API 仓库 `.cache/grey_market_watch.sqlite`
+- `--interval-seconds`: 默认 10
+- `--timezone`: 默认 `Asia/Shanghai`
+- `--active-window`: 默认 `16:15-18:30`
+- `--state-key`: 可选，不传时按标的 / provider / 发行价生成
+- `--force`: 忽略时间窗和执行间隔，仅用于显式验证
+- `--pretty`
+
+边界：
+
+- 只读查询，不下单、不改单、不撤单、不解锁交易、不订阅推送。
+- Futu provider 使用 API 侧 OpenD snapshot / order book。
+- Tiger / Fosun 等未接入正式授权 API 时只返回 `unsupported`，不得用网页抓取伪造报价。
+- API 侧可写 scheduler tick 节流状态，但不写券商状态、不保存订单或 watchlist。
+
+### 5. simulated trading dry-run
 
 ```bash
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_run_once.py --codes HK.00700 --buy-above HK.00700=0 --quantity 1 --max-order-notional 1000000
@@ -121,7 +150,7 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 - 该路径不得调用 `unlock_trade`。
 - 该路径不能和 `--snapshots-json` 混用，避免用离线 / 测试行情触发模拟盘订单。
 
-### 5. simulated trading scheduler tick
+### 6. simulated trading scheduler tick
 
 ```bash
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_scheduler_tick.py --codes HK.00700 --buy-above HK.00700=0 --quantity 1 --max-order-notional 1000000
@@ -136,7 +165,7 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 - `--state-key`: 可选，不传时按策略参数生成
 - `--force`: 忽略时间窗和间隔，仅用于显式验证
 
-### 6. simulated trading daily summary
+### 7. simulated trading daily summary
 
 ```bash
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_daily_summary.py --date 2026-05-07 --pretty
@@ -149,7 +178,7 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 - `--timezone`: 默认 `Asia/Shanghai`
 - `--pretty`
 
-### 7. simulated trading strategy review
+### 8. simulated trading strategy review
 
 ```bash
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_strategy_review.py --date 2026-05-07 --min-runs 3 --pretty
@@ -164,7 +193,7 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 - `--max-rejection-rate`: 默认 0.5
 - `--pretty`
 
-### 8. simulated trading strategy backtest
+### 9. simulated trading strategy backtest
 
 ```bash
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_strategy_backtest.py --codes HK.00700 --buy-above HK.00700=100 --start 2026-05-01 --end 2026-05-07 --pretty

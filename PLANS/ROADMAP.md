@@ -10,7 +10,7 @@
 
 **能力范围**：
 
-- 行情：港股 / 美股 / A 股 / 新加坡期货等快照、报价、K 线、分时、盘口、逐笔成交、市场状态
+- 行情：港股 / 美股 / A 股 / 新加坡期货等快照、报价、K 线、分时、盘口、逐笔成交、市场状态、港股 IPO 暗盘 / OTC watch
 - 衍生品：期权链、到期日、Greeks、窝轮/牛熊证、期货资料
 - 资金与市场结构：资金流、资金分布、经纪队列、板块与成分股、条件选股
 - 用户数据：账户、资金、持仓、订单、成交、交易流水等只读查询
@@ -23,6 +23,7 @@
 - `/hkipo` IPO list、`/research` 港股 OpenD 预检 / snapshot / K 线和 HK IPO 回测首日 K 线走 `stock-analysis-api/scripts/futu_market_data.py`
 - 模拟盘 dry-run 自动化、回放和链路验证走 `stock-analysis-api/scripts/trading_run_once.py`；cron / launchd / Agent 高频调用走 `stock-analysis-api/scripts/trading_scheduler_tick.py`；默认 dry-run broker、SQLite ledger 和调度锁，不放开真实交易
 - 港 / 美 / 多市场行情、盘口、逐笔、分时、期权链、账户、资金、持仓、订单、成交和流水等只读查询已迁入 `stock-analysis-api`
+- 港股 IPO 暗盘 / OTC 定时查询走 `stock-analysis-api/scripts/grey_market_watch.py`；当前 Futu 为正式 provider，Tiger / 复星等未接入正式授权 API 时明确 `unsupported`
 - 窝轮 / 牛熊证、资金流、资金分布、经纪队列、板块与成分股、条件选股、期货资料等能力后续逐步迁入 `stock-analysis-api`
 - OpenD 安装与连通性问题只作为环境前置条件提示，不在本 skill 中执行外部安装或 Futu skill
 - 禁止 AI 接触交易密码；禁止通过 SDK 或脚本调用交易解锁
@@ -55,6 +56,7 @@
 - [x] 将 API `trading_strategy_review.py` 策略候选评审入口纳入 skill 路由说明和 CLI reference
 - [x] 将 API `--broker futu-simulate` 显式 Futu 模拟盘 broker 入口纳入 skill 路由说明和 CLI reference
 - [x] 将 API `trading_strategy_backtest.py` 历史 K 线回测入口纳入 skill 路由说明和 CLI reference
+- [x] 将 API `grey_market_watch.py` 港股暗盘 watch 定时查询入口纳入 skill 路由说明和 CLI reference
 - [ ] `/research` 港股数据层从后置 prompt 路由升级为稳定字段矩阵与验证样例
 - [ ] `/research` 美股补充 SEC filings / earnings transcript 证据层缓存与引用规范
 - [ ] `/research` 重点版短报继续按用户反馈迭代：沉淀不同行业的财务健康、估值相对位置、情绪热度、叙事增长点和机构观点综合评分口径
@@ -115,3 +117,4 @@
 - 2026-05-07：`stock-analysis-api/scripts/futu_market_data.py` 已新增盘口、逐笔、分时、期权到期日、期权链、Futu `SIMULATE` 账户、持仓、订单、成交和流水只读查询；skill 已同步路由说明，不再将这些高频能力标记为未迁入 API。
 - 2026-05-12：`/hkipo` 开放认购 IPO 热度新鲜度改为同日硬门槛；每只池内 IPO 进入评分前必须按代码 / 中文名 / 英文名自动重试并覆盖至少 3 类权威来源，旧孖展 / 公开认购 / 暗盘数据只能作趋势，不得进入主评分。
 - 2026-05-12：`/hkipo` 热度核验进一步收紧为多权威机构最新值聚合；Futu CLI 不暴露 App 热度时必须继续查 Futu/牛牛、TradeGo / 活报告、多券商孖展统计、AAStocks、ETNet、智通 / 新浪、格隆汇、华盛、老虎等同日源，不得把单一券商孖展下限当作全市场主热度。
+- 2026-05-12：新增 API `grey_market_watch.py` 港股 IPO 暗盘 / OTC 定时查询路由说明；Futu 使用正式 OpenD snapshot / order book，Tiger / 复星等未接入正式授权 API 时返回 `unsupported`，不网页抓取伪造跨券商报价。

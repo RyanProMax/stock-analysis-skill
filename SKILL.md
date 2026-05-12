@@ -1,6 +1,6 @@
 ---
 name: stock-analysis-skill
-description: Use when users ask in Chinese or natural language for stock objective analysis, realtime quotes, research-report summaries, HK IPO pool screening, raw Tushare data, or read-only Futu/OpenD market/account queries.
+description: Use when users ask in Chinese or natural language for stock objective analysis, realtime quotes, research-report summaries, HK IPO pool screening, HK grey-market/OTC watch, raw Tushare data, or read-only Futu/OpenD market/account queries.
 metadata:
   version: 2.2.0
 ---
@@ -10,16 +10,16 @@ metadata:
 `stock-analysis-skill` 是股票任务的意图路由与输出约束，不是行情、分析或交易实现源。当前只保留五类入口：
 
 - `CLI 使用技能`：标准化 A 股客观分析、单票研报摘要、A 股 / ETF 低 token 实时行情。
-- `Futu/OpenD 使用技能`：统一通过 `stock-analysis-api` 内部 CLI / provider 使用 Futu/OpenD；API 已支持 snapshot、K 线、盘口、逐笔、分时、期权链、账户、资金、持仓、订单、成交和流水等只读查询；尚未迁入 API 的能力必须明确标记为未支持，不再路由到外部 Futu skill。
+- `Futu/OpenD 使用技能`：统一通过 `stock-analysis-api` 内部 CLI / provider 使用 Futu/OpenD；API 已支持 snapshot、K 线、盘口、逐笔、分时、期权链、港股 IPO 暗盘 watch、账户、资金、持仓、订单、成交和流水等只读查询；尚未迁入 API 的能力必须明确标记为未支持，不再路由到外部 Futu skill。
 - `模拟盘 dry-run 使用技能`：只在用户明确要求模拟盘自动化、回放或链路验证时调用 `stock-analysis-api/scripts/trading_run_once.py`；默认 dry-run broker；定时轮询调用 `stock-analysis-api/scripts/trading_scheduler_tick.py`；盘后总结和策略候选评审调用 `trading_daily_summary.py` / `trading_strategy_review.py`；历史 K 线回测调用 `trading_strategy_backtest.py`；连接 Futu 模拟盘必须显式使用 `--broker futu-simulate`。
 - `Tushare 使用技能`：用户明确要求的原始 Tushare 接口、字段、时间窗或接口查阅。
 - `Slash Commands`：`/research` 单票深度研报、`/hkipo` 港股 IPO 池研究工作流；`/cnipo` 目前占位。
 
 ## 全局只读护栏
 
-运行时使用本 skill 时默认只允许查询和结果展示；不得产生任何账户、订单、订阅、配置、自选股、提醒或本地文件状态变更。唯一例外是用户明确要求模拟盘自动化、回放或链路验证时，允许调用 API 仓库 `trading_run_once.py` 写入 API 侧 SQLite dry-run ledger。
+运行时使用本 skill 时默认只允许查询和结果展示；不得产生任何账户、订单、订阅、配置、自选股、提醒或本地文件状态变更。例外仅限用户明确要求的 API 侧调度 / 回放状态：模拟盘 dry-run 可写 API 侧 SQLite dry-run ledger；只读定时查询可写 API 侧 scheduler tick 节流状态，但不得写入券商账户、订单、订阅或 watchlist。
 
-- 允许：行情、K 线、盘口、逐笔、分时、IPO、期权链、账户、资金、持仓、订单、成交、流水等只读查询。
+- 允许：行情、K 线、盘口、逐笔、分时、IPO、港股暗盘 watch、期权链、账户、资金、持仓、订单、成交、流水等只读查询。
 - 禁止：下单、改单、撤单、交易解锁、订阅推送、创建 / 修改价格提醒、写入 watchlist、修改配置、导出文件或任何其他写入动作。
 - 模拟盘 dry-run 只允许使用 API 默认 dry-run broker；不得把它替换为真实交易、交易解锁、订阅或任何 OpenD 写入能力。
 - 用户请求写入 / 编辑 / 下单 / 订阅 / 解锁时，必须拒绝执行；不得用模拟账户、已登录 OpenD 或用户二次确认作为绕过理由。
@@ -39,6 +39,7 @@ metadata:
 | 单票客观分析、研报式摘要、“最近怎么样” | `CLI 使用技能` | 默认走 `stock_analyze.py`，不直接查原始 `report_rc` |
 | A 股股票 / ETF 低 token 实时行情 | `CLI 使用技能` | 默认走 `poll_realtime_quotes.py` |
 | 港 / 美 / 多市场行情、盘口、逐笔、分时、K 线、期权链、账户、资金、持仓、订单、成交、流水等只读查询 | `Futu/OpenD 使用技能` | 仅限 API 已迁移能力；未迁移能力明确返回未支持 |
+| 港股 IPO 暗盘 / OTC 报价监听、定时查询 | `Futu/OpenD 使用技能` | 走 API `grey_market_watch.py`；Futu 为正式 provider，Tiger / Fosun 等未接入正式授权 API 时返回 unsupported |
 | 模拟盘自动化、策略回放、dry-run 链路验证 | `模拟盘 dry-run 使用技能` | 单轮执行走 API `trading_run_once.py`；定时 tick 走 `trading_scheduler_tick.py`；默认 dry-run broker、SQLite ledger 和调度锁；Futu 模拟盘必须显式 `--broker futu-simulate`；禁止真实交易 |
 | 模拟盘盘后总结、策略评审、自我迭代方向 | `模拟盘 dry-run 使用技能` | 只读 API ledger，走 `trading_daily_summary.py` / `trading_strategy_review.py`；proposal 只作为候选，必须人工批准，不自动改策略 |
 | 模拟盘历史 K 线回测 | `模拟盘 dry-run 使用技能` | 走 API `trading_strategy_backtest.py`；只读历史 K 线或注入样本，不读写 ledger，不触发 broker |
@@ -56,7 +57,7 @@ metadata:
 
 1. `STOCK_ANALYSIS_API_ROOT` 指向 `stock-analysis-api` 仓库根目录。
 2. 固定 `uv` 可用：优先 `STOCK_ANALYSIS_UV`，其次 `UV_BIN` / `UV` / PATH / `$HOME/.local/bin/uv` / `$HOME/.cargo/bin/uv`；生成给 agent 的命令必须使用解析后的绝对 `uv` 路径。
-3. API 仓库存在 `scripts/poll_realtime_quotes.py`、`scripts/stock_analyze.py`、`scripts/futu_market_data.py`、`scripts/trading_run_once.py`、`scripts/trading_scheduler_tick.py`、`scripts/trading_daily_summary.py`、`scripts/trading_strategy_review.py` 与 `scripts/trading_strategy_backtest.py`。
+3. API 仓库存在 `scripts/poll_realtime_quotes.py`、`scripts/stock_analyze.py`、`scripts/futu_market_data.py`、`scripts/grey_market_watch.py`、`scripts/trading_run_once.py`、`scripts/trading_scheduler_tick.py`、`scripts/trading_daily_summary.py`、`scripts/trading_strategy_review.py` 与 `scripts/trading_strategy_backtest.py`。
 4. A 股数据所需的 `TUSHARE_TOKEN` / `TUSHARE_HTTP_URL` 可被 API 仓库读取。
 
 标准命令：
@@ -68,6 +69,7 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_ma
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_market_data.py order-book --code HK.00700 --num 10 --json
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_market_data.py option-chain --code US.AAPL --start 2026-05-15 --end 2026-06-19 --option-type CALL --json
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/futu_market_data.py positions --market HK --code HK.00700 --json
+cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/grey_market_watch.py --code HK.02618 --name 剂泰医药 --issue-price 10 --json
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_run_once.py --codes HK.00700 --buy-above HK.00700=0 --quantity 1 --max-order-notional 1000000
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_scheduler_tick.py --codes HK.00700 --buy-above HK.00700=0 --quantity 1 --max-order-notional 1000000
 cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading_daily_summary.py --date 2026-05-07 --pretty
@@ -79,16 +81,17 @@ cd "$STOCK_ANALYSIS_API_ROOT" && "$STOCK_ANALYSIS_UV" run python scripts/trading
 
 ## Futu/OpenD 使用技能
 
-适用于 `HK.` / `US.` 等多市场代码、深度行情、期权链、窝轮 / 牛熊证、期货资料、资金流、板块、条件选股、账户、资金、持仓、订单、成交和流水等只读查询。
+适用于 `HK.` / `US.` 等多市场代码、深度行情、港股 IPO 暗盘 / OTC 定时查询、期权链、窝轮 / 牛熊证、期货资料、资金流、板块、条件选股、账户、资金、持仓、订单、成交和流水等只读查询。
 
 进入该路由前确认：
 
 1. `/hkipo`、`/research` 港股预检 / snapshot / K 线和 HK IPO 回测优先使用 `stock-analysis-api/scripts/futu_market_data.py`。
 2. 盘口、逐笔、分时、期权链、账户、资金、持仓、订单、成交和流水查询已迁移到 `stock-analysis-api/scripts/futu_market_data.py`；只能调用这些只读子命令，不得绕回外部 Futu skill。
-3. 窝轮 / 牛熊证、资金流、资金分布、经纪队列、板块与成分股、条件选股、期货资料等尚未迁移能力不得改走其他脚本；必须明确说明“尚未迁入 stock-analysis-api”。
-4. OpenD 正在运行，默认地址 `127.0.0.1:11111`。
-5. Python SDK `futu-api` 版本满足 API 仓库要求。
-6. 请求不涉及交易、订阅、提醒、自选股、配置或本地文件写入。
+3. 港股 IPO 暗盘 / OTC 报价监听走 `stock-analysis-api/scripts/grey_market_watch.py`；Futu 为正式 provider，Tiger / Fosun 等未接入正式授权 API 时只能返回 `unsupported`，不得网页抓取伪造跨券商报价。
+4. 窝轮 / 牛熊证、资金流、资金分布、经纪队列、板块与成分股、条件选股、期货资料等尚未迁移能力不得改走其他脚本；必须明确说明“尚未迁入 stock-analysis-api”。
+5. OpenD 正在运行，默认地址 `127.0.0.1:11111`。
+6. Python SDK `futu-api` 版本满足 API 仓库要求。
+7. 请求不涉及交易、订阅、提醒、自选股、配置或券商侧写入；只读定时查询允许 API 侧记录 scheduler tick 节流状态。
 
 OpenD 未安装、未启动或 SDK 版本不满足时，说明 API Futu CLI / OpenD 环境不可用，并按 `references/futu.md` 的降级和拒绝模板处理。
 
@@ -161,5 +164,5 @@ OpenD 未安装、未启动或 SDK 版本不满足时，说明 API Futu CLI / Op
 - 港股 IPO 评分与回测：`references/hkipo.md`
 - Tushare 接口总表：`references/api_reference.md`
 - Futu/OpenD 路由与输出 Contract：`references/futu.md`
-- Futu/OpenD 能力：`/hkipo` / `/research` 已迁移到 `stock-analysis-api/scripts/futu_market_data.py`；盘口、逐笔、分时、期权链、账户、资金、持仓、订单、成交和流水等只读查询也已迁移到同一 API CLI；其他尚未迁移能力等待 API provider 扩展，不再从本 skill 路由到外部 Futu skill
+- Futu/OpenD 能力：`/hkipo` / `/research` 已迁移到 `stock-analysis-api/scripts/futu_market_data.py`；盘口、逐笔、分时、期权链、账户、资金、持仓、订单、成交和流水等只读查询也已迁移到同一 API CLI；港股 IPO 暗盘 watch 走 `stock-analysis-api/scripts/grey_market_watch.py`；其他尚未迁移能力等待 API provider 扩展，不再从本 skill 路由到外部 Futu skill
 - Tushare 官方文档：<https://tushare.pro/document/1?doc_id=290>

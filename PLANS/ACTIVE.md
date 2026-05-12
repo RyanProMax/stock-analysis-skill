@@ -2,7 +2,58 @@
 
 > 本文件是当前复杂任务的单一真相源。一次只允许一个 milestone 处于 `in_progress`。
 
-## Current Task — `/hkipo` 多源实时热度聚合
+## Current Task — 港股 IPO 暗盘 watch skill 路由
+
+Goal:
+
+- 将 API 仓库新增的 `scripts/grey_market_watch.py` 纳入 skill 路由说明和 CLI reference。
+- 支持用户通过 skill 触发港股 IPO 暗盘 / OTC 定时查询；Futu 作为正式 provider，Tiger / 复星等未接入正式授权 API 时明确 `unsupported`。
+- 保持只读安全边界：不下单、不订阅、不交易解锁、不写券商状态；仅允许 API 侧 scheduler tick 节流状态。
+
+Allowed scope:
+
+- `SKILL.md`
+- `README.md`
+- `AGENTS.md`
+- `references/cli.md`
+- `references/futu.md`
+- `PLANS/ACTIVE.md`
+- `PLANS/ROADMAP.md`
+
+Validation:
+
+- `python3 -m py_compile scripts/*.py commands/*.py`
+- `python3 -m unittest discover -s tests -v`
+- `git diff --check`
+
+### M45 — HK grey-market watch routing
+
+Status: `done`
+
+Progress:
+
+- 2026-05-12 北京时间：用户确认通过 API 和 skill 结合使用，并要求支持定时任务查询。
+- 2026-05-12 北京时间：本轮约束为 skill 不复制实现，API 负责 `grey_market_watch.py`；skill 只补路由、输出 contract 和安全边界。
+- 2026-05-12 北京时间：已同步 `SKILL.md`、`references/cli.md`、`references/futu.md`、`README.md`、`AGENTS.md` 和 roadmap，固定暗盘 watch 路由与 provider capability 语义。
+
+Validation status:
+
+- passed 2026-05-12 北京时间：
+  - `python3 -m py_compile scripts/*.py commands/*.py`
+  - `python3 -m unittest discover -s tests -v`
+  - `git diff --check`
+
+Review status:
+
+- passed 2026-05-12 北京时间：diff 只增加灰市 / 暗盘 watch 路由说明、CLI 示例、只读定时任务状态边界和 roadmap/active plan 更新；未改变 slash command 执行逻辑。
+
+Handoff:
+
+- 港股 IPO 暗盘 / OTC 查询以后默认走 `stock-analysis-api/scripts/grey_market_watch.py`；Futu 有正式 provider，Tiger / 复星等未接入正式授权 API 的 provider 只返回 `unsupported`，不要网页抓取或伪造“所有券商”报价。
+
+---
+
+## Previous Task — `/hkipo` 多源实时热度聚合
 
 Goal:
 
