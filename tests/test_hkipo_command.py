@@ -134,6 +134,28 @@ class HkipoFutuCommandTest(unittest.TestCase):
         self.assertIn("热度未达当日核验门槛", prompt)
         self.assertNotIn("当日或最接近报告日的券商/财经站孖展统计", prompt)
 
+    def test_prompt_requires_multi_institution_latest_heat_aggregation(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = pathlib.Path(raw_root).resolve()
+            skill_dir = root / "stock-analysis-skill"
+            skill_dir.mkdir()
+
+            prompt = hkipo.build_prompt(
+                {"workspace": {"name": "测试工作区"}},
+                skill_dir=skill_dir,
+                home_dir=root,
+            )
+
+        self.assertIn("Futu CLI 不暴露 App 新股热度", prompt)
+        self.assertIn("不得把单一券商孖展下限当作全市场主热度", prompt)
+        self.assertIn("优先取同日多券商汇总", prompt)
+        self.assertIn("Futu/牛牛", prompt)
+        self.assertIn("TradeGo", prompt)
+        self.assertIn("华盛", prompt)
+        self.assertIn("老虎", prompt)
+        self.assertIn("AAStocks", prompt)
+        self.assertIn("ETNet", prompt)
+
     def test_reference_uses_compact_sections_and_date_title_contract(self) -> None:
         reference = (ROOT / "references" / "hkipo.md").read_text(encoding="utf-8")
 
@@ -156,6 +178,16 @@ class HkipoFutuCommandTest(unittest.TestCase):
         self.assertIn("do not score previous-day or older margin data", reference)
         self.assertIn("热度未达当日核验门槛", reference)
         self.assertNotIn("updated on or closest before the report date", reference)
+
+    def test_reference_requires_latest_multi_source_aggregation(self) -> None:
+        reference = (ROOT / "references" / "hkipo.md").read_text(encoding="utf-8")
+
+        self.assertIn("Latest Heat Aggregation", reference)
+        self.assertIn("Futu App / Niuniu", reference)
+        self.assertIn("TradeGo", reference)
+        self.assertIn("single-broker lower bound", reference)
+        self.assertIn("must not be treated as market-wide heat", reference)
+        self.assertIn("prefer same-day multi-broker aggregate sources", reference)
 
     def test_prompt_uses_runtime_resolved_stock_analysis_api_futu_cli(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:

@@ -114,3 +114,4 @@
 - 2026-05-07：`stock-analysis-api/scripts/trading_daily_summary.py` 默认输出已收敛为 summary-only；skill 面向用户默认只消费关键信息，ledger 明细需显式 `--include-details`，并继续保持只读安全边界。
 - 2026-05-07：`stock-analysis-api/scripts/futu_market_data.py` 已新增盘口、逐笔、分时、期权到期日、期权链、Futu `SIMULATE` 账户、持仓、订单、成交和流水只读查询；skill 已同步路由说明，不再将这些高频能力标记为未迁入 API。
 - 2026-05-12：`/hkipo` 开放认购 IPO 热度新鲜度改为同日硬门槛；每只池内 IPO 进入评分前必须按代码 / 中文名 / 英文名自动重试并覆盖至少 3 类权威来源，旧孖展 / 公开认购 / 暗盘数据只能作趋势，不得进入主评分。
+- 2026-05-12：`/hkipo` 热度核验进一步收紧为多权威机构最新值聚合；Futu CLI 不暴露 App 热度时必须继续查 Futu/牛牛、TradeGo / 活报告、多券商孖展统计、AAStocks、ETNet、智通 / 新浪、格隆汇、华盛、老虎等同日源，不得把单一券商孖展下限当作全市场主热度。

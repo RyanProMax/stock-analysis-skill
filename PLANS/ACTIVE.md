@@ -2,18 +2,19 @@
 
 > 本文件是当前复杂任务的单一真相源。一次只允许一个 milestone 处于 `in_progress`。
 
-## Current Task — `/hkipo` 当日热度强制复核
+## Current Task — `/hkipo` 多源实时热度聚合
 
 Goal:
 
-- 收紧 `/hkipo` 的孖展 / 公开认购 / 暗盘热度新鲜度门槛，避免开放认购中的 IPO 使用前一日或旧来源倍率进入主评分。
-- 在 command prompt、skill 入口说明和 `references/hkipo.md` 中统一要求当日多源复核、自动重试 / 扩源和来源冲突处理。
+- 修复 `/hkipo` 热度链路过度依赖单一券商页面的问题；当辉立、Futu CLI 或任一来源拿不到最新数据时，必须自动扩展到多家权威信源。
+- 在 command prompt、skill 入口说明、README 和 `references/hkipo.md` 中统一要求每只开放认购 IPO 必须做当日多源最新热度聚合；不能用单一旧口径或单一券商下限替代当前主评分。
 
 Allowed scope:
 
 - `commands/hkipo.py`
 - `tests/test_hkipo_command.py`
 - `SKILL.md`
+- `README.md`
 - `references/hkipo.md`
 - `PLANS/ACTIVE.md`
 - `PLANS/ROADMAP.md`
@@ -23,6 +24,33 @@ Validation:
 - `python3 -m unittest tests.test_hkipo_command -v`
 - `python3 -m py_compile scripts/*.py commands/*.py`
 - `git diff --check`
+
+### M44 — HK IPO multi-source latest heat aggregation
+
+Status: `done`
+
+Progress:
+
+- 2026-05-12 北京时间：用户指出翼菲科技 Futu App 当前热度已到约 4700x，而上一轮报告仍使用辉立单一券商 21 亿 / 约 56x 口径；根因是 prompt 虽要求同日复核，但没有禁止在权威更新源缺失时死用单一券商下限。
+- 2026-05-12 北京时间：本轮目标是把“多权威源优先拿最新、单源失败即扩源、Futu CLI 不暴露 App 热度时必须查 Futu App/牛牛圈/TradeGo/华盛/老虎/AAStocks/ETNet/智通/格隆汇等同日源”写成硬约束，并补回归测试。
+- 2026-05-12 北京时间：已新增回归测试锁定多权威机构最新热度聚合、Futu CLI 不暴露 App 热度时继续扩源、不得把单一券商孖展下限当作全市场主热度。
+- 2026-05-12 北京时间：已更新 `commands/hkipo.py`、`SKILL.md`、`README.md` 和 `references/hkipo.md`，把热度核验顺序调整为 Futu/OpenD + Futu App / 牛牛 → 同日多券商汇总 / 全市场聚合 → 单券商孖展表 → 财经门户 → 暗盘。
+
+Validation status:
+
+- passed 2026-05-12 北京时间：
+  - `python3 -m unittest tests.test_hkipo_command -v`
+  - `python3 -m unittest discover -s tests -v`
+  - `python3 -m py_compile scripts/*.py commands/*.py`
+  - `git diff --check`
+
+Review status:
+
+- passed 2026-05-12 北京时间：diff 只收紧 `/hkipo` 热度来源聚合规则、对应 prompt/reference/README/SKILL 文案和回归测试；未改变 Futu/OpenD 只读基础池命令、输出格式或其他 slash command 行为。
+
+Handoff:
+
+- `/hkipo` 以后不能在辉立、耀才等单一券商页面拿不到最新全市场口径时继续沿用单券商下限；必须扩源到 Futu/牛牛、TradeGo / 活报告、多券商孖展统计、AAStocks、ETNet、智通 / 新浪、格隆汇、华盛、老虎等同日源，并优先使用同日多券商汇总 / 全市场聚合最新值。
 
 ### M43 — HK IPO heat freshness hard gate
 

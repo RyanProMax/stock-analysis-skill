@@ -27,7 +27,7 @@ Current IPO reports must separate **current-state discovery** from **document ev
 
 1. `stock-analysis-api/scripts/futu_market_data.py ipo-list --market HK --json` is the first source for the current IPO pool, subscription status, listing date, apply end date, offer price, lot size and entrance price. Use it before web finance portals whenever OpenD is available.
 2. HKEX official listing documents, prospectus, allotment results, listing-date notices and company announcements are the first source for prospectus facts, offering structure, greenshoe, stabilizing manager, cornerstone investors, sponsors and proceeds use.
-3. Reliable finance portals and broker pages are fallback/secondary sources only for fields Futu/OpenD and HKEX do not expose: margin financing, public-offer multiple, one-lot success rate, grey-market data and first-day performance. Use a fixed source order for these heat fields: Futu/OpenD current fields → same-day broker IPO center / margin table → same-day finance portal IPO channel public-offer multiple / one-lot success rate → grey-market data.
+3. Reliable finance portals and broker pages are fallback/secondary sources only for fields Futu/OpenD and HKEX do not expose: margin financing, public-offer multiple, one-lot success rate, grey-market data and first-day performance. Use a fixed source order for these heat fields: Futu/OpenD current fields and Futu App / Niuniu heat if available → same-day multi-broker aggregate sources → same-day broker IPO center / margin table → same-day finance portal IPO channel public-offer multiple / one-lot success rate → grey-market data.
 4. Never use GitHub repos, model outputs, stale cached snippets, or unverifiable social posts as IPO fact sources.
 
 ### Freshness Gate
@@ -40,6 +40,14 @@ Current IPO reports must separate **current-state discovery** from **document ev
 - If a newer source exists, older margin or grey-market values must not be used in the score. They may only be shown as historical trend, with the source date clearly labeled.
 - If no same-day heat source is found after the retry / expanded-source pass, write `热度未达当日核验门槛` and cap the Subscription Heat contribution as missing current heat; do not fill the main heat field with the previous available value.
 - The Sources section must label each secondary source with its publication/update date and purpose, e.g. `2026-04-27 孖展统计`.
+
+### Latest Heat Aggregation
+
+- For open subscriptions, do not stop at one broker. If Futu/OpenD CLI does not expose the Futu App / Niuniu IPO heat field, explicitly search Futu App / Niuniu pages or related Futu content before concluding Futu heat is unavailable.
+- Search and compare multiple authoritative institutions every time: Futu App / Niuniu, TradeGo / 活报告 aggregate margin data, same-day `新股孖展统计` from Zhitong / Sina or Gelonghui, AAStocks / ETNet IPO pages, and broker IPO centers or margin tables such as Phillip POEMS, HSTong, Tiger, Bright Smart, Chief, KGI, Livermore and other named underwriters.
+- Always prefer same-day multi-broker aggregate sources over a single broker. A single-broker lower bound, such as one broker's margin quota or client financing amount, must not be treated as market-wide heat and must not replace a fresher Futu App or multi-broker aggregate value.
+- If several same-day values conflict, choose the latest timestamped value no later than the report date, and prefer a clearly market-wide aggregate over an institution-specific number at the same timestamp. Keep the older or narrower number only as `单一券商下限/趋势参考`.
+- Do not finalize a normal heat score for an open IPO until the source search has covered the required families. If current heat still cannot be found, the report must say `热度未达当日核验门槛` and the score must reflect missing current heat rather than a stale or single-source substitute.
 
 ## Required Data Fields
 
